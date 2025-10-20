@@ -57,7 +57,7 @@ async function executeDrop() {
     
     const dropTypes = [
       { type: 'tokens', min: 1, max: 10, emoji: '🎫' },
-      { type: 'coins', min: 10, max: 100, emoji: '💰' },
+      { type: 'coins', min: 1, max: 10, emoji: '💰' },
       { type: 'gems', min: 1, max: 2, emoji: '💎' }
     ];
     

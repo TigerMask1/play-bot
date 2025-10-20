@@ -59,7 +59,7 @@ Custom token requirements for each level:
 
 ### Drop System
 - Spawns every 20 seconds in designated channel
-- Random rewards: 1-10 tokens, 10-100 coins, or 1-2 gems
+- Random rewards: 1-10 tokens, 1-10 coins, or 1-2 gems
 - First-come-first-served catch mechanism
 - Auto-expires if not caught
 
@@ -67,7 +67,7 @@ Custom token requirements for each level:
 - Secure player-to-player trading
 - Trade coins and gems
 - Dual confirmation required
-- 60-second timeout with expiration
+- 20-second timeout with expiration
 
 ## Commands
 
@@ -119,4 +119,4 @@ Custom token requirements for each level:
 - **Runtime**: Node.js 20
 - **Data Storage**: JSON file system
 - **Drop Interval**: 20 seconds
-- **Trade Timeout**: 60 seconds
+- **Trade Timeout**: 20 seconds

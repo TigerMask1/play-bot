@@ -34,7 +34,7 @@ async function initiateTrade(message, data, initiatorId, receiverId) {
   const tradeEmbed = new EmbedBuilder()
     .setColor('#3498DB')
     .setTitle('💱 Trade Initiated!')
-    .setDescription(`<@${initiatorId}> wants to trade with <@${receiverId}>!\n\n**Instructions:**\n• Use \`!offer coins <amount>\` or \`!offer gems <amount>\` to add items\n• Use \`!confirm\` when ready\n• Use \`!cancel\` to cancel\n\nTrade will expire in 60 seconds if not completed.`);
+    .setDescription(`<@${initiatorId}> wants to trade with <@${receiverId}>!\n\n**Instructions:**\n• Use \`!offer coins <amount>\` or \`!offer gems <amount>\` to add items\n• Use \`!confirm\` when ready\n• Use \`!cancel\` to cancel\n\nTrade will expire in 20 seconds if not completed.`);
   
   await message.channel.send({ embeds: [tradeEmbed] });
   
@@ -42,11 +42,11 @@ async function initiateTrade(message, data, initiatorId, receiverId) {
     if (activeTrades.has(initiatorId)) {
       expireTrade(trade, message.channel);
     }
-  }, 60000);
+  }, 20000);
   
   const collector = message.channel.createMessageCollector({
     filter: m => (m.author.id === initiatorId || m.author.id === receiverId) && m.content.startsWith('!'),
-    time: 60000
+    time: 20000
   });
   
   collector.on('collect', async (m) => {
