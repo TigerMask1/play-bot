@@ -1055,6 +1055,50 @@ client.on('messageCreate', async (message) => {
         await message.reply(`✅ Set <@${trophyUser.id}>'s trophies to **${trophyAmount}** 🏆`);
         break;
         
+      case 'reset':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        await message.reply('⚠️ **WARNING:** This will reset ALL bot data (all users, characters, progress)!\n\nType `!confirmreset` within 30 seconds to confirm.');
+        
+        const resetFilter = m => m.author.id === userId && m.content === '!confirmreset';
+        const resetCollector = message.channel.createMessageCollector({ filter: resetFilter, time: 30000, max: 1 });
+        
+        resetCollector.on('collect', async () => {
+          data.users = {};
+          data.dropChannel = null;
+          data.battleChannel = null;
+          data.activeDrops = [];
+          data.news = [];
+          saveData(data);
+          await message.reply('✅ **Bot data has been completely reset!** All users can now start fresh with `!start`.');
+        });
+        
+        resetCollector.on('end', (collected, reason) => {
+          if (reason === 'time' && collected.size === 0) {
+            message.channel.send('❌ Reset cancelled - timed out.');
+          }
+        });
+        break;
+        
+      case 'botinfo':
+        const botInfoEmbed = new EmbedBuilder()
+          .setColor('#FF6B35')
+          .setTitle('🎮 About This Bot')
+          .setDescription('**Character Collection & Battle Game**\n\nA comprehensive Discord bot featuring character collection, turn-based battles, leveling, crates, trading, and competitive rankings!')
+          .addFields(
+            { name: '👨‍💻 Created By', value: '**TigerMask** (AKA Jaguar)\nMade with passion for the community!', inline: false },
+            { name: '🎯 Purpose', value: 'This is a **man-made, non-profit game** created purely for **entertainment purposes**. Enjoy collecting characters, battling friends, and climbing the leaderboards!', inline: false },
+            { name: '🌟 Features', value: '• 51 unique characters to collect\n• Turn-based battle system\n• Character leveling & ST stats\n• Trophy-based competitive ranking\n• Daily rewards & message rewards\n• Trading system\n• Quests & achievements', inline: false },
+            { name: '📚 Get Started', value: 'Type `!help` to see all commands\nType `!start` to begin your journey!', inline: false }
+          )
+          .setFooter({ text: 'Made for fun, played with friends! 🎮' });
+        
+        await message.reply({ embeds: [botInfoEmbed] });
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -1071,7 +1115,8 @@ client.on('messageCreate', async (message) => {
             { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!sendmail` - Send mail to all\n`!postnews` - Post news' }
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news' },
+            { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         
         await message.reply({ embeds: [helpEmbed] });
