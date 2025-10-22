@@ -23,7 +23,7 @@ const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests,
 const { craftBooster, useBooster, getBoosterInfo } = require('./stBoosterSystem.js');
 const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay } = require('./mailSystem.js');
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
-const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, formatLeaderboard } = require('./leaderboardSystem.js');
+const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 
 const PREFIX = '!';
 const data = loadData();
@@ -51,13 +51,56 @@ client.on('messageCreate', async (message) => {
       characters: [],
       selectedCharacter: null,
       pendingTokens: 0,
-      started: false
+      started: false,
+      trophies: 200,
+      messageCount: 0,
+      lastDailyClaim: null
     };
     saveData(data);
   }
   
   if (!data.users[userId].username) {
     data.users[userId].username = message.author.username;
+  }
+  
+  if (data.users[userId].started && !message.content.startsWith(PREFIX)) {
+    data.users[userId].messageCount = (data.users[userId].messageCount || 0) + 1;
+    
+    if (data.users[userId].messageCount % 25 === 0) {
+      const rewardType = Math.floor(Math.random() * 3);
+      let rewardMessage = '';
+      
+      if (rewardType === 0) {
+        if (data.users[userId].characters.length > 0) {
+          const randomChar = data.users[userId].characters[Math.floor(Math.random() * data.users[userId].characters.length)];
+          const tokenAmount = Math.floor(Math.random() * 10) + 1;
+          randomChar.tokens += tokenAmount;
+          rewardMessage = `🎉 **Message Reward!** You got **${tokenAmount}** ${randomChar.name} tokens for chatting!`;
+        } else {
+          const coinAmount = Math.floor(Math.random() * 11) + 10;
+          data.users[userId].coins += coinAmount;
+          rewardMessage = `🎉 **Message Reward!** You got **${coinAmount}** coins for chatting!`;
+        }
+      } else if (rewardType === 1) {
+        const coinAmount = Math.floor(Math.random() * 20) + 1;
+        data.users[userId].coins += coinAmount;
+        rewardMessage = `🎉 **Message Reward!** You got **${coinAmount}** coins for chatting!`;
+      } else {
+        const gemAmount = Math.floor(Math.random() * 5) + 1;
+        data.users[userId].gems += gemAmount;
+        rewardMessage = `🎉 **Message Reward!** You got **${gemAmount}** gems for chatting!`;
+      }
+      
+      saveData(data);
+      
+      try {
+        await message.reply(rewardMessage);
+      } catch (error) {
+        console.error('Error sending reward message:', error);
+      }
+    } else {
+      saveData(data);
+    }
   }
   
   if (!message.content.startsWith(PREFIX)) return;
@@ -161,7 +204,9 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: '💰 Coins', value: `${user.coins}`, inline: true },
             { name: '💎 Gems', value: `${user.gems}`, inline: true },
-            { name: '🎮 Characters', value: `${user.characters.length}/51`, inline: true }
+            { name: '🏆 Trophies', value: `${user.trophies || 200}`, inline: true },
+            { name: '🎮 Characters', value: `${user.characters.length}/51`, inline: true },
+            { name: '💬 Messages', value: `${user.messageCount || 0}`, inline: true }
           );
         
         if (user.selectedCharacter) {
@@ -175,10 +220,10 @@ client.on('messageCreate', async (message) => {
         if (user.characters.length > 0) {
           pageChars.forEach(char => {
             const req = getLevelRequirements(char.level);
-            const progress = createLevelProgressBar(char.tokens, req);
+            const progress = createLevelProgressBar(char.tokens, req.tokens);
             profileEmbed.addFields({
               name: `${char.emoji} ${char.name} - Lvl ${char.level} | ST: ${char.st}%`,
-              value: `${progress}`,
+              value: `Tokens: ${char.tokens}/${req.tokens} | Coins: ${req.coins}\n${progress}`,
               inline: false
             });
           });
@@ -249,20 +294,33 @@ client.on('messageCreate', async (message) => {
         }
         
         const currentCharLevel = charToLevel.level;
-        const requiredTokens = getLevelRequirements(currentCharLevel);
+        const requirements = getLevelRequirements(currentCharLevel);
         
-        if (charToLevel.tokens >= requiredTokens) {
-          charToLevel.tokens -= requiredTokens;
+        if (charToLevel.tokens >= requirements.tokens && data.users[userId].coins >= requirements.coins) {
+          charToLevel.tokens -= requirements.tokens;
+          data.users[userId].coins -= requirements.coins;
           charToLevel.level += 1;
           saveData(data);
           
           const lvlEmbed = new EmbedBuilder()
             .setColor('#00FF00')
             .setTitle('⬆️ LEVEL UP!')
-            .setDescription(`<@${userId}> leveled up **${charToLevel.name} ${charToLevel.emoji}**!\n\n**Level ${currentCharLevel} → ${currentCharLevel + 1}**\n\nTokens used: ${requiredTokens}`);
+            .setDescription(`<@${userId}> leveled up **${charToLevel.name} ${charToLevel.emoji}**!\n\n**Level ${currentCharLevel} → ${currentCharLevel + 1}**\n\n**Cost:**\n🎫 ${requirements.tokens} tokens\n💰 ${requirements.coins} coins`);
           await message.reply({ embeds: [lvlEmbed] });
         } else {
-          await message.reply(`❌ Not enough ${charToLevel.name} tokens! You need ${requiredTokens} but have ${charToLevel.tokens}.`);
+          const missingTokens = Math.max(0, requirements.tokens - charToLevel.tokens);
+          const missingCoins = Math.max(0, requirements.coins - data.users[userId].coins);
+          let errorMsg = '❌ Not enough resources!\n\n**Required:**\n';
+          errorMsg += `🎫 ${requirements.tokens} tokens (you have ${charToLevel.tokens})\n`;
+          errorMsg += `💰 ${requirements.coins} coins (you have ${data.users[userId].coins})`;
+          
+          if (missingTokens > 0 || missingCoins > 0) {
+            errorMsg += '\n\n**Missing:**\n';
+            if (missingTokens > 0) errorMsg += `🎫 ${missingTokens} tokens\n`;
+            if (missingCoins > 0) errorMsg += `💰 ${missingCoins} coins`;
+          }
+          
+          await message.reply(errorMsg);
         }
         break;
         
@@ -285,7 +343,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const charReq = getLevelRequirements(userChar.level);
-        const charProgress = createLevelProgressBar(userChar.tokens, charReq);
+        const charProgress = createLevelProgressBar(userChar.tokens, charReq.tokens);
         
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -293,7 +351,8 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: 'Level', value: `${userChar.level}`, inline: true },
             { name: 'ST', value: `${userChar.st}%`, inline: true },
-            { name: 'Tokens', value: `${userChar.tokens}`, inline: true },
+            { name: 'Tokens', value: `${userChar.tokens}/${charReq.tokens}`, inline: true },
+            { name: 'Next Level Cost', value: `🎫 ${charReq.tokens} tokens\n💰 ${charReq.coins} coins`, inline: true },
             { name: 'Progress to Next Level', value: charProgress, inline: false }
           );
         
@@ -907,8 +966,12 @@ client.on('messageCreate', async (message) => {
           lbData = getTopCollectors(data.users, 10);
           lbTitle = '🎭 Top 10 - Character Collection';
           lbType2 = 'collection';
+        } else if (lbType === 'trophies' || lbType === 'trophy') {
+          lbData = getTopTrophies(data.users, 10);
+          lbTitle = '🏆 Top 10 - Trophies';
+          lbType2 = 'trophies';
         } else {
-          await message.reply('Usage: `!leaderboard <coins/gems/battles/collection>`');
+          await message.reply('Usage: `!leaderboard <coins/gems/battles/collection/trophies>`');
           return;
         }
         
@@ -923,22 +986,92 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [lbEmbed] });
         break;
         
+      case 'daily':
+        const now = new Date();
+        const lastClaim = data.users[userId].lastDailyClaim ? new Date(data.users[userId].lastDailyClaim) : null;
+        
+        if (lastClaim) {
+          const timeDiff = now - lastClaim;
+          const hoursDiff = timeDiff / (1000 * 60 * 60);
+          
+          if (hoursDiff < 24) {
+            const hoursLeft = Math.ceil(24 - hoursDiff);
+            await message.reply(`❌ You already claimed your daily reward! Come back in **${hoursLeft} hours**.`);
+            return;
+          }
+        }
+        
+        const trophyReward = 15;
+        const coinReward = Math.floor(Math.random() * 91) + 10;
+        const gemReward = Math.floor(Math.random() * 3) + 1;
+        
+        data.users[userId].trophies = (data.users[userId].trophies || 200) + trophyReward;
+        data.users[userId].coins += coinReward;
+        data.users[userId].gems += gemReward;
+        data.users[userId].lastDailyClaim = now.toISOString();
+        saveData(data);
+        
+        const dailyEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle('🎁 Daily Reward Claimed!')
+          .setDescription(`<@${userId}> claimed their daily rewards!\n\n**Rewards:**\n🏆 ${trophyReward} Trophies\n💰 ${coinReward} Coins\n💎 ${gemReward} Gems\n\nCome back tomorrow for more!`);
+        
+        await message.reply({ embeds: [dailyEmbed] });
+        break;
+        
+      case 'setbattle':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        data.battleChannel = message.channel.id;
+        saveData(data);
+        await message.reply(`✅ Battle channel set to ${message.channel}! Players can now use battle commands here.`);
+        break;
+        
+      case 'settrophies':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const trophyUser = message.mentions.users.first();
+        const trophyAmount = parseInt(args[1]);
+        
+        if (!trophyUser || isNaN(trophyAmount)) {
+          await message.reply('Usage: `!settrophies @user <amount>`');
+          return;
+        }
+        
+        if (!data.users[trophyUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        data.users[trophyUser.id].trophies = Math.max(0, trophyAmount);
+        saveData(data);
+        
+        await message.reply(`✅ Set <@${trophyUser.id}>'s trophies to **${trophyAmount}** 🏆`);
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle('🎮 Bot Commands')
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <nix/bruce/buck>` - Choose starter' },
-            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!I <name>` - View character battle info\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
-            { name: '⚔️ Battle', value: '`!b @user` - Challenge to battle\n`!b ai` - AI battle (coming soon)' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!I <name>` - View character battle info\n`!levelup <name>` - Level up character (requires tokens AND coins)\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '⚔️ Battle', value: '`!b @user` - Challenge to battle\n`!b ai` - AI battle (coming soon)\n\nWinner: +5 🏆 | Loser: -7 🏆' },
+            { name: '🎁 Rewards', value: '`!daily` - Claim daily rewards (15 🏆, 10-100 💰, 1-3 💎)\n\nChat to earn! Every 25 messages = random reward!' },
             { name: '📜 Quests', value: '`!quests [page]` - View quests\n`!quest <id>` - View quest details\n`!claim <id>` - Claim quest rewards' },
             { name: '🔷 ST Boosters', value: '`!shards` - View shard info\n`!craft` - Craft booster (8 shards)\n`!boost <character>` - Use booster' },
             { name: '📬 Mail & News', value: '`!mail [page]` - View mailbox\n`!claimmail <#>` - Claim mail\n`!news` - Latest news' },
-            { name: '🏆 Leaderboards', value: '`!leaderboard <coins/gems/battles/collection>` - View top 10' },
+            { name: '🏆 Leaderboards', value: '`!leaderboard <coins/gems/battles/collection/trophies>` - View top 10' },
             { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!sendmail` - Send mail to all\n`!postnews` - Post news' }
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!sendmail` - Send mail to all\n`!postnews` - Post news' }
           );
         
         await message.reply({ embeds: [helpEmbed] });

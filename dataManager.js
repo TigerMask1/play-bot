@@ -50,6 +50,21 @@ function loadData() {
       needsSave = true;
     }
     
+    if (user.trophies === undefined) {
+      user.trophies = 200;
+      needsSave = true;
+    }
+    
+    if (user.messageCount === undefined) {
+      user.messageCount = 0;
+      needsSave = true;
+    }
+    
+    if (user.lastDailyClaim === undefined) {
+      user.lastDailyClaim = null;
+      needsSave = true;
+    }
+    
     if (user.questProgress === undefined) {
       user.questProgress = {
         dropsCaught: 0,
@@ -98,9 +113,13 @@ function loadData() {
     }
   });
   
+  if (!data.battleChannel) {
+    data.battleChannel = null;
+  }
+  
   if (needsSave) {
     saveData(data);
-    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, quests, and mailbox');
+    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, and mailbox');
   }
   
   return data;

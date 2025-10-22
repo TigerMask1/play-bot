@@ -54,6 +54,20 @@ function getTopCollectors(allUserData, limit = 10) {
   return users;
 }
 
+function getTopTrophies(allUserData, limit = 10) {
+  const users = Object.entries(allUserData)
+    .filter(([userId, data]) => data.started)
+    .map(([userId, data]) => ({
+      userId,
+      username: data.username || 'Unknown',
+      trophies: data.trophies || 200
+    }))
+    .sort((a, b) => b.trophies - a.trophies)
+    .slice(0, limit);
+  
+  return users;
+}
+
 function formatLeaderboard(users, type) {
   const medals = ['🥇', '🥈', '🥉'];
   
@@ -75,6 +89,9 @@ function formatLeaderboard(users, type) {
       case 'collection':
         value = `🎭 ${user.count} characters`;
         break;
+      case 'trophies':
+        value = `🏆 ${user.trophies.toLocaleString()}`;
+        break;
     }
     
     lines.push(`${rank} ${user.username} - ${value}`);
@@ -88,5 +105,6 @@ module.exports = {
   getTopGems,
   getTopBattles,
   getTopCollectors,
+  getTopTrophies,
   formatLeaderboard
 };

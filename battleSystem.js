@@ -231,6 +231,9 @@ async function startCharacterSelection(channel, data, player1Id, player2Id) {
 async function startBattle(battle, channel, data) {
   battle.started = true;
   battle.currentTurn = Math.random() < 0.5 ? battle.player1 : battle.player2;
+  battle.turnCount = 0;
+  battle.player1SpecialUsed = false;
+  battle.player2SpecialUsed = false;
   
   const battleStartEmbed = new EmbedBuilder()
     .setColor('#FFD700')
@@ -245,7 +248,7 @@ async function startBattle(battle, channel, data) {
   
   battle.timeout = setTimeout(() => {
     if (activeBattles.has(battle.player1)) {
-      endBattle(battle, channel, 'timeout');
+      endBattle(battle, channel, data, 'timeout');
     }
   }, 600000);
   
@@ -260,9 +263,21 @@ async function promptTurn(battle, channel, data) {
   const moves = currentChar.moves;
   const allMoves = [moves.special, ...moves.tierMoves];
   
+  const specialUsed = isPlayer1 ? battle.player1SpecialUsed : battle.player2SpecialUsed;
+  const canUseSpecial = battle.turnCount >= 3 && !specialUsed;
+  
   const moveList = allMoves.map((move, index) => {
     const isSpecial = index === 0;
     const display = getMoveDisplay(move, currentChar.level, currentChar.st, isSpecial);
+    
+    if (isSpecial && !canUseSpecial) {
+      if (specialUsed) {
+        return `**${index + 1}.** ${display} ❌ (Already used)`;
+      } else {
+        return `**${index + 1}.** ${display} 🔒 (Available turn ${3 - battle.turnCount})`;
+      }
+    }
+    
     return `**${index + 1}.** ${display}`;
   }).join('\n');
   
@@ -287,7 +302,7 @@ async function promptTurn(battle, channel, data) {
     if (action === 'flight' || action === 'flee' || action === 'run') {
       const winner = isPlayer1 ? battle.player2 : battle.player1;
       await m.reply(`💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`);
-      await endBattle(battle, channel, 'flee', winner);
+      await endBattle(battle, channel, data, 'flee', winner);
       return;
     }
     
@@ -301,6 +316,29 @@ async function promptTurn(battle, channel, data) {
     
     const selectedMove = allMoves[moveIndex];
     const isSpecial = moveIndex === 0;
+    
+    if (isSpecial) {
+      const specialUsed = isPlayer1 ? battle.player1SpecialUsed : battle.player2SpecialUsed;
+      const canUseSpecial = battle.turnCount >= 3 && !specialUsed;
+      
+      if (!canUseSpecial) {
+        if (specialUsed) {
+          await m.reply('❌ You already used your special move!');
+        } else {
+          await m.reply(`❌ Special move unlocks in turn ${3 - battle.turnCount}!`);
+        }
+        await promptTurn(battle, channel, data);
+        return;
+      }
+      
+      if (isPlayer1) {
+        battle.player1SpecialUsed = true;
+      } else {
+        battle.player2SpecialUsed = true;
+      }
+    }
+    
+    battle.turnCount++;
     const damage = calculateDamage(selectedMove, currentChar.level, currentChar.st, isSpecial);
     
     const opponentPlayer = isPlayer1 ? battle.player2 : battle.player1;
@@ -360,7 +398,7 @@ async function promptTurn(battle, channel, data) {
     
     if (battle.player1HP <= 0 || battle.player2HP <= 0) {
       const winner = battle.player1HP > 0 ? battle.player1 : battle.player2;
-      await endBattle(battle, channel, 'knockout', winner);
+      await endBattle(battle, channel, data, 'knockout', winner);
       return;
     }
     
@@ -377,12 +415,12 @@ async function promptTurn(battle, channel, data) {
     if (reason === 'time' && activeBattles.has(battle.player1)) {
       channel.send(`⏱️ <@${currentPlayer}> took too long! Battle ended.`);
       const winner = isPlayer1 ? battle.player2 : battle.player1;
-      endBattle(battle, channel, 'timeout', winner);
+      endBattle(battle, channel, data, 'timeout', winner);
     }
   });
 }
 
-async function endBattle(battle, channel, reason, winner = null) {
+async function endBattle(battle, channel, data, reason, winner = null) {
   clearTimeout(battle.timeout);
   activeBattles.delete(battle.player1);
   activeBattles.delete(battle.player2);
@@ -394,27 +432,39 @@ async function endBattle(battle, channel, reason, winner = null) {
       .setDescription('The battle has ended due to inactivity.');
     
     await channel.send({ embeds: [timeoutEmbed] });
-  } else if (reason === 'flee') {
-    const fleeEmbed = new EmbedBuilder()
-      .setColor('#FFD700')
-      .setTitle('🏆 Victory by Forfeit!')
-      .setDescription(`<@${winner}> wins the battle!`);
+  } else if (reason === 'flee' || reason === 'knockout') {
+    const loser = winner === battle.player1 ? battle.player2 : battle.player1;
     
-    await channel.send({ embeds: [fleeEmbed] });
-  } else if (reason === 'knockout') {
-    const winnerChar = winner === battle.player1 ? battle.player1Character : battle.player2Character;
-    const loserChar = winner === battle.player1 ? battle.player2Character : battle.player1Character;
+    data.users[winner].trophies = Math.min(9999, (data.users[winner].trophies || 200) + 5);
+    data.users[loser].trophies = Math.max(0, (data.users[loser].trophies || 200) - 7);
     
-    const victoryEmbed = new EmbedBuilder()
-      .setColor('#FFD700')
-      .setTitle('🏆 VICTORY!')
-      .setDescription(`${winnerChar.emoji} **${winnerChar.name}** defeated ${loserChar.emoji} **${loserChar.name}**!\n\n<@${winner}> wins the battle!`)
-      .addFields(
-        { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-        { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
-      );
+    if (!data.users[winner].questProgress) data.users[winner].questProgress = {};
+    data.users[winner].questProgress.battlesWon = (data.users[winner].questProgress.battlesWon || 0) + 1;
     
-    await channel.send({ embeds: [victoryEmbed] });
+    saveData(data);
+    
+    if (reason === 'flee') {
+      const fleeEmbed = new EmbedBuilder()
+        .setColor('#FFD700')
+        .setTitle('🏆 Victory by Forfeit!')
+        .setDescription(`<@${winner}> wins the battle!\n\n**Trophy Changes:**\n🏆 <@${winner}>: +5 (${data.users[winner].trophies})\n🏆 <@${loser}>: -7 (${data.users[loser].trophies})`);
+      
+      await channel.send({ embeds: [fleeEmbed] });
+    } else {
+      const winnerChar = winner === battle.player1 ? battle.player1Character : battle.player2Character;
+      const loserChar = winner === battle.player1 ? battle.player2Character : battle.player1Character;
+      
+      const victoryEmbed = new EmbedBuilder()
+        .setColor('#FFD700')
+        .setTitle('🏆 VICTORY!')
+        .setDescription(`${winnerChar.emoji} **${winnerChar.name}** defeated ${loserChar.emoji} **${loserChar.name}**!\n\n<@${winner}> wins the battle!\n\n**Trophy Changes:**\n🏆 <@${winner}>: +5 (${data.users[winner].trophies})\n🏆 <@${loser}>: -7 (${data.users[loser].trophies})`)
+        .addFields(
+          { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
+          { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
+        );
+      
+      await channel.send({ embeds: [victoryEmbed] });
+    }
   }
 }
 
