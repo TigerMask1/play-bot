@@ -4,6 +4,16 @@
 A Discord bot featuring a character collection system with character-specific tokens, ST stats, leveling, crates, random drops, and player trading. Users can collect 50+ unique characters, level them up individually, open crates, catch random drops, and trade resources with other players.
 
 ## Recent Changes
+- **October 22, 2025**: Economy & Competitive Update
+  - **Message Rewards**: Players earn rewards every 25 messages (1-10 tokens, 1-20 coins, or 1-5 gems)
+  - **Coin-Based Leveling**: Level-ups now require BOTH tokens and coins with increasing costs
+  - **Trophy System**: Competitive ranking system (start: 200, win: +5, lose: -7, minimum: 0)
+  - **Daily Login Rewards**: 24-hour cooldown rewards (15 trophies, 10-100 coins, 1-3 gems)
+  - **Battle Move Cooldowns**: Special moves unlock after 3 turns and can only be used once per battle
+  - **Admin Commands**: Added `!setbattle` (designate battle channel) and `!settrophies` (manage player trophies)
+  - **Trophy Leaderboard**: Added trophy rankings to leaderboard system
+  - **Comprehensive Documentation**: Created DOCUMENTATION.md with all commands and game mechanics
+
 - **October 22, 2025**: Battle System Update
   - Implemented turn-based battle system with Pokemon-style combat
   - Each character has 3 moves: 1 special move + 2 ST-tier moves
@@ -71,17 +81,24 @@ A Discord bot featuring a character collection system with character-specific to
 - Characters have individual levels, tokens, ST, moves, and HP values
 
 ### Currency System
-- **Coins** 💰: Primary currency, earned from crates and drops
+- **Coins** 💰: Primary currency, earned from crates, drops, and messages (required for leveling)
 - **Gems** 💎: Premium currency for opening crates
+- **Trophies** 🏆: Competitive ranking earned through battles (starting value: 200)
 - **Character Tokens** 🎫: Each character has their own tokens for leveling up
 - **Pending Tokens**: Tokens from crates are saved until you get a character
 
+### Message Rewards
+- Every 25 messages, players receive one of three random rewards:
+  - 1-10 tokens for a random owned character (or 1-20 coins if no characters)
+  - 1-20 coins
+  - 1-5 gems
+- Encourages server activity and engagement
+
 ### Leveling System
-Custom token requirements for each level:
-- Level 1→2: 2 tokens
-- Level 2→3: 5 tokens
-- Scales up to Level 19→20: 2800 tokens
-- Level 20+: +100 tokens per level
+Leveling now requires BOTH tokens and coins with increasing costs:
+- Each level requires character-specific tokens AND coins
+- Token costs scale from 2 (level 1→2) to 2800 (level 19→20), then +100 per level
+- Coin costs scale similarly, creating a dual-resource progression system
 - Each character levels independently with their own tokens
 
 ### Crate Types
@@ -119,7 +136,9 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
 - **Move System**:
   - Each character has 3 moves (1 special + 2 tier moves)
   - Special moves have character-unique names and enhanced ST scaling
+  - **Special Move Cooldown**: Unlocks after 3 turns, can only be used once per battle
   - Tier moves based on ST: Low (1-40%), Mid (41-75%), High (76-100%)
+  - Normal moves (tier moves) can be used unlimited times
   - Moves include attacks, heals, and support moves
 - **Damage Formula**:
   - Regular moves: `damage = max(1, round(baseDamage * (1 + (level-1)*0.08) * (0.6 + st/100*0.4)))`
@@ -127,6 +146,7 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
   - Healing moves: Restore HP based on level and ST
   - Support moves: No damage but provide strategic value
 - **HP System**: Base HP 1000-1500, scales with ST
+- **Trophy Rewards**: Winner gets +5 trophies, loser gets -7 (minimum 0)
 - **Battle Flow**:
   - Turn-based with random first turn
   - Each turn: choose attack (1-3) or flight to flee
@@ -134,30 +154,43 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
   - 10-minute maximum battle duration
 - **Character Info**: Use `!I <character>` to view moves, HP, and stats
 
+### Daily Login System
+- Claim daily rewards with `!daily` command
+- 24-hour cooldown between claims
+- Rewards:
+  - 15 trophies
+  - 10-100 coins (random)
+  - 1-3 gems (random)
+- Encourages daily engagement
+
 ## Commands
 
 ### User Commands
 - `!start` - Begin your journey
 - `!select <nix/bruce/buck>` - Choose starter character
-- `!profile [page]` - View player profile (paginated)
+- `!profile [page]` - View player profile (shows trophies, message count, characters)
 - `!char <name>` - View character details (shows ST, level, tokens, progress bar)
 - `!I <name>` - View character battle info (moves, HP, stats)
 - `!crate [type]` - Open or view crates
-- `!levelup <name>` - Level up a specific character with their tokens
+- `!levelup <name>` - Level up a specific character (requires tokens AND coins)
 - `!release <name>` - Release a character (level 10+ required)
 - `!b @user` - Challenge a player to battle
 - `!b ai` - AI battle (coming soon)
 - `!t @user` - Initiate trade
 - `!c <code>` - Catch drops
+- `!daily` - Claim daily rewards (24-hour cooldown)
+- `!leaderboard <type>` - View leaderboards (coins/gems/battles/collection/trophies)
 - `!help` - Command list
 
 ### Admin Commands (Requires Administrator permission)
 - `!setdrop` - Set drop channel to current channel
+- `!setbattle` - Set battle channel to current channel
 - `!startdrops` - Start automatic drop system
 - `!stopdrops` - Stop drop system
 - `!grant @user <coins/gems> <amount>` - Grant coins or gems
 - `!grant @user tokens <character> <amount>` - Grant character-specific tokens
 - `!grantchar @user <character name>` - Grant character
+- `!settrophies @user <amount>` - Set player's trophy count
 
 ### Trade Commands (During active trade)
 - `!offer coins <amount>` - Offer coins
