@@ -40,6 +40,44 @@ function loadData() {
       needsSave = true;
     }
     
+    if (user.shards === undefined) {
+      user.shards = 0;
+      needsSave = true;
+    }
+    
+    if (user.stBoosters === undefined) {
+      user.stBoosters = 0;
+      needsSave = true;
+    }
+    
+    if (user.questProgress === undefined) {
+      user.questProgress = {
+        dropsCaught: 0,
+        battlesWon: 0,
+        cratesOpened: 0,
+        tradesCompleted: 0,
+        boostsUsed: 0,
+        currentWinStreak: 0,
+        maxWinStreak: 0,
+        charsReleased: 0,
+        tyrantCratesOpened: 0,
+        totalBattles: 0,
+        charsFromCrates: 0,
+        highLevelWin: 0
+      };
+      needsSave = true;
+    }
+    
+    if (user.completedQuests === undefined) {
+      user.completedQuests = [];
+      needsSave = true;
+    }
+    
+    if (user.mailbox === undefined) {
+      user.mailbox = [];
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {
@@ -62,7 +100,7 @@ function loadData() {
   
   if (needsSave) {
     saveData(data);
-    console.log('✅ Backfilled missing ST values, moves, HP, and pending tokens');
+    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, quests, and mailbox');
   }
   
   return data;

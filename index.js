@@ -18,6 +18,12 @@ const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay } = require('./battleUtils.js');
+const { createLevelProgressBar } = require('./progressBar.js');
+const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
+const { craftBooster, useBooster, getBoosterInfo } = require('./stBoosterSystem.js');
+const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay } = require('./mailSystem.js');
+const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
+const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, formatLeaderboard } = require('./leaderboardSystem.js');
 
 const PREFIX = '!';
 const data = loadData();
@@ -26,12 +32,6 @@ function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
-function createProgressBar(current, required, length = 10) {
-  const percentage = Math.min(current / required, 1);
-  const filled = Math.floor(percentage * length);
-  const empty = length - filled;
-  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${current}/${required}`;
-}
 
 client.on('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
@@ -45,13 +45,19 @@ client.on('messageCreate', async (message) => {
   
   if (!data.users[userId]) {
     data.users[userId] = {
+      username: message.author.username,
       coins: 0,
       gems: 0,
       characters: [],
       selectedCharacter: null,
-      pendingTokens: 0
+      pendingTokens: 0,
+      started: false
     };
     saveData(data);
+  }
+  
+  if (!data.users[userId].username) {
+    data.users[userId].username = message.author.username;
   }
   
   if (!message.content.startsWith(PREFIX)) return;
@@ -98,6 +104,7 @@ client.on('messageCreate', async (message) => {
         const starterHP = calculateBaseHP(starterST);
         
         data.users[userId].selectedCharacter = starterChar.name;
+        data.users[userId].started = true;
         data.users[userId].characters.push({
           name: starterChar.name,
           emoji: starterChar.emoji,
@@ -168,7 +175,7 @@ client.on('messageCreate', async (message) => {
         if (user.characters.length > 0) {
           pageChars.forEach(char => {
             const req = getLevelRequirements(char.level);
-            const progress = createProgressBar(char.tokens, req, 8);
+            const progress = createLevelProgressBar(char.tokens, req);
             profileEmbed.addFields({
               name: `${char.emoji} ${char.name} - Lvl ${char.level} | ST: ${char.st}%`,
               value: `${progress}`,
@@ -278,7 +285,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const charReq = getLevelRequirements(userChar.level);
-        const charProgress = createProgressBar(userChar.tokens, charReq, 10);
+        const charProgress = createLevelProgressBar(userChar.tokens, charReq);
         
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -389,6 +396,9 @@ client.on('messageCreate', async (message) => {
               data.currentDrop = null;
               charToReward.tokens += drop.amount;
               
+              if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
+              data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
+              
               saveData(data);
               
               const dropEmbed = new EmbedBuilder()
@@ -407,15 +417,22 @@ client.on('messageCreate', async (message) => {
               data.users[userId].coins += drop.amount;
             } else if (drop.type === 'gems') {
               data.users[userId].gems += drop.amount;
+            } else if (drop.type === 'shards') {
+              data.users[userId].shards = (data.users[userId].shards || 0) + drop.amount;
             }
+            
+            if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
+            data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
             
             saveData(data);
             
             let rewardText = '';
             if (drop.type === 'coins') {
               rewardText = `${drop.amount} coins 💰`;
-            } else {
+            } else if (drop.type === 'gems') {
               rewardText = `${drop.amount} gems 💎`;
+            } else if (drop.type === 'shards') {
+              rewardText = `${drop.amount} shards 🔷`;
             }
             
             const dropEmbed = new EmbedBuilder()
@@ -642,6 +659,270 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [infoEmbed] });
         break;
         
+      case 'quests':
+        const questPage = parseInt(args[0]) || 1;
+        const availableQuests = getAvailableQuests(data.users[userId]);
+        const questsPerPage = 5;
+        const totalQuestPages = Math.ceil(availableQuests.length / questsPerPage);
+        const startQuestIdx = (questPage - 1) * questsPerPage;
+        const endQuestIdx = startQuestIdx + questsPerPage;
+        const questsToShow = availableQuests.slice(startQuestIdx, endQuestIdx);
+        
+        const completedCount = data.users[userId].completedQuests?.length || 0;
+        
+        const questsList = questsToShow.map(q => formatQuestDisplay(data.users[userId], q)).join('\n\n');
+        
+        const questsEmbed = new EmbedBuilder()
+          .setColor('#E67E22')
+          .setTitle('📜 Quest Log')
+          .setDescription(`**Completed:** ${completedCount}/${QUESTS.length}\n\n${questsList || 'No quests available!'}`)
+          .setFooter({ text: `Page ${questPage}/${totalQuestPages} | Use !quest <id> to view details or !claim <id> to claim` });
+        
+        await message.reply({ embeds: [questsEmbed] });
+        break;
+        
+      case 'quest':
+        const questId = parseInt(args[0]);
+        
+        if (!questId) {
+          await message.reply('Usage: `!quest <id>`');
+          return;
+        }
+        
+        const quest = QUESTS.find(q => q.id === questId);
+        
+        if (!quest) {
+          await message.reply('❌ Quest not found!');
+          return;
+        }
+        
+        const questDisplay = formatQuestDisplay(data.users[userId], quest);
+        const canClaim = canClaimQuest(data.users[userId], quest);
+        
+        const questDetailEmbed = new EmbedBuilder()
+          .setColor(canClaim ? '#2ECC71' : '#95A5A6')
+          .setTitle(`📜 Quest #${quest.id}`)
+          .setDescription(questDisplay)
+          .setFooter({ text: canClaim ? 'Use !claim ' + quest.id + ' to claim rewards!' : 'Complete the quest to claim rewards' });
+        
+        await message.reply({ embeds: [questDetailEmbed] });
+        break;
+        
+      case 'claim':
+        const claimQuestId = parseInt(args[0]);
+        
+        if (!claimQuestId) {
+          await message.reply('Usage: `!claim <quest id>`');
+          return;
+        }
+        
+        const questToClaim = QUESTS.find(q => q.id === claimQuestId);
+        
+        if (!questToClaim) {
+          await message.reply('❌ Quest not found!');
+          return;
+        }
+        
+        const claimResult = claimQuest(data.users[userId], questToClaim);
+        
+        if (claimResult.success) {
+          saveData(data);
+          const claimEmbed = new EmbedBuilder()
+            .setColor('#2ECC71')
+            .setTitle('🎉 Quest Completed!')
+            .setDescription(`**${questToClaim.name}**\n\n${claimResult.message}`);
+          
+          await message.reply({ embeds: [claimEmbed] });
+        } else {
+          await message.reply(`❌ ${claimResult.message}`);
+        }
+        break;
+        
+      case 'shards':
+        const shardInfo = getBoosterInfo(data.users[userId]);
+        
+        const shardEmbed = new EmbedBuilder()
+          .setColor('#3498DB')
+          .setTitle('🔷 ST Booster System')
+          .setDescription(`**Shards:** ${shardInfo.shards}\n**ST Boosters:** ${shardInfo.boosters}\n**Boosters Used:** ${shardInfo.boostsUsed}`)
+          .addFields(
+            { name: '📦 Crafting', value: `${shardInfo.shards}/${8} shards to craft a booster\n${shardInfo.canCraft ? '✅ Ready to craft!' : `❌ Need ${shardInfo.shardsNeeded} more shards`}`, inline: false },
+            { name: '⚡ Boost Rates', value: '75% - Common (+5-10% ST)\n20% - Rare (+10-18% ST)\n5% - Legendary (+18-25% ST)', inline: false },
+            { name: '💡 Commands', value: '`!craft` - Craft a booster (8 shards)\n`!boost <character>` - Use a booster', inline: false }
+          );
+        
+        await message.reply({ embeds: [shardEmbed] });
+        break;
+        
+      case 'craft':
+        const craftResult = craftBooster(data.users[userId]);
+        
+        if (craftResult.success) {
+          saveData(data);
+          await message.reply(craftResult.message);
+        } else {
+          await message.reply(craftResult.message);
+        }
+        break;
+        
+      case 'boost':
+        const boostCharName = args.join(' ').toLowerCase();
+        
+        if (!boostCharName) {
+          await message.reply('Usage: `!boost <character name>`');
+          return;
+        }
+        
+        const charToBoost = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === boostCharName
+        );
+        
+        if (!charToBoost) {
+          await message.reply('❌ You don\'t own this character!');
+          return;
+        }
+        
+        const boostResult = useBooster(data.users[userId], charToBoost.name);
+        
+        if (boostResult.success) {
+          saveData(data);
+          
+          const boostEmbed = new EmbedBuilder()
+            .setColor('#F1C40F')
+            .setTitle('⚡ ST BOOST!')
+            .setDescription(`${boostResult.tierEmoji} **${boostResult.tier} Boost Applied!**\n\n${charToBoost.emoji} **${boostResult.character}**\n${boostResult.oldST}% → **${boostResult.newST}%** (+${boostResult.boost}%)\n\n💪 Damage and HP recalculated!`);
+          
+          await message.reply({ embeds: [boostEmbed] });
+        } else {
+          await message.reply(boostResult.message);
+        }
+        break;
+        
+      case 'mail':
+      case 'mailbox':
+        const mailPage = parseInt(args[0]) || 1;
+        const mailbox = data.users[userId].mailbox || [];
+        const mailsPerPage = 5;
+        const totalMailPages = Math.ceil(mailbox.length / mailsPerPage);
+        const startMailIdx = (mailPage - 1) * mailsPerPage;
+        const endMailIdx = startMailIdx + mailsPerPage;
+        const mailsToShow = mailbox.slice(startMailIdx, endMailIdx);
+        
+        const unclaimedCount = getUnclaimedMailCount(data.users[userId]);
+        
+        const mailList = mailsToShow.map((m, i) => formatMailDisplay(m, startMailIdx + i)).join('\n\n');
+        
+        const mailEmbed = new EmbedBuilder()
+          .setColor('#E74C3C')
+          .setTitle('📬 Mailbox')
+          .setDescription(`**Unclaimed:** ${unclaimedCount}\n**Total Messages:** ${mailbox.length}\n\n${mailList || 'No mail yet!'}`)
+          .setFooter({ text: `Page ${mailPage}/${totalMailPages || 1} | Use !claimmail <#> to claim rewards` });
+        
+        await message.reply({ embeds: [mailEmbed] });
+        break;
+        
+      case 'claimmail':
+        const mailIdx = parseInt(args[0]) - 1;
+        
+        if (isNaN(mailIdx)) {
+          await message.reply('Usage: `!claimmail <mail number>`');
+          return;
+        }
+        
+        const claimMailResult = claimMail(data.users[userId], mailIdx);
+        
+        if (claimMailResult.success) {
+          saveData(data);
+          
+          const claimMailEmbed = new EmbedBuilder()
+            .setColor('#2ECC71')
+            .setTitle('📬 Mail Claimed!')
+            .setDescription(`${claimMailResult.message}\n\n${claimMailResult.rewards.join('\n')}`);
+          
+          await message.reply({ embeds: [claimMailEmbed] });
+        } else {
+          await message.reply(claimMailResult.message);
+        }
+        break;
+        
+      case 'sendmail':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        await message.reply('📨 **Send Mail to All Players**\n\nFormat: `!sendmail <message> | coins:<amount> gems:<amount> shards:<amount> character:<name> goldcrates:<amount> ...`\n\nExample: `!sendmail Happy holidays! | coins:500 gems:50 shards:5`');
+        break;
+        
+      case 'news':
+        const newsCount = parseInt(args[0]) || 5;
+        const latestNews = getLatestNews(Math.min(newsCount, 10));
+        
+        if (latestNews.length === 0) {
+          await message.reply('📰 No news yet!');
+          return;
+        }
+        
+        const newsList = latestNews.map(n => formatNewsDisplay(n)).join('\n\n─────────────\n\n');
+        
+        const newsEmbed = new EmbedBuilder()
+          .setColor('#1ABC9C')
+          .setTitle('📰 Latest News')
+          .setDescription(newsList)
+          .setFooter({ text: 'Stay updated with the latest announcements!' });
+        
+        await message.reply({ embeds: [newsEmbed] });
+        break;
+        
+      case 'postnews':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        await message.reply('📰 **Post News**\n\nFormat: `!postnews <title> | <content>`\n\nExample: `!postnews New Features! | Quests and ST Boosters are now available!`');
+        break;
+        
+      case 'leaderboard':
+      case 'lb':
+        const lbType = args[0]?.toLowerCase() || 'coins';
+        
+        let lbData;
+        let lbTitle;
+        let lbType2;
+        
+        if (lbType === 'coins' || lbType === 'coin') {
+          lbData = getTopCoins(data.users, 10);
+          lbTitle = '💰 Top 10 - Coins';
+          lbType2 = 'coins';
+        } else if (lbType === 'gems' || lbType === 'gem') {
+          lbData = getTopGems(data.users, 10);
+          lbTitle = '💎 Top 10 - Gems';
+          lbType2 = 'gems';
+        } else if (lbType === 'battles' || lbType === 'battle' || lbType === 'wins') {
+          lbData = getTopBattles(data.users, 10);
+          lbTitle = '⚔️ Top 10 - Battle Wins';
+          lbType2 = 'battles';
+        } else if (lbType === 'collection' || lbType === 'chars' || lbType === 'characters') {
+          lbData = getTopCollectors(data.users, 10);
+          lbTitle = '🎭 Top 10 - Character Collection';
+          lbType2 = 'collection';
+        } else {
+          await message.reply('Usage: `!leaderboard <coins/gems/battles/collection>`');
+          return;
+        }
+        
+        const lbDisplay = formatLeaderboard(lbData, lbType2);
+        
+        const lbEmbed = new EmbedBuilder()
+          .setColor('#F39C12')
+          .setTitle(lbTitle)
+          .setDescription(lbDisplay || 'No data yet!')
+          .setFooter({ text: 'Keep playing to climb the ranks!' });
+        
+        await message.reply({ embeds: [lbEmbed] });
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -650,10 +931,14 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <nix/bruce/buck>` - Choose starter' },
             { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!I <name>` - View character battle info\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
             { name: '⚔️ Battle', value: '`!b @user` - Challenge to battle\n`!b ai` - AI battle (coming soon)' },
+            { name: '📜 Quests', value: '`!quests [page]` - View quests\n`!quest <id>` - View quest details\n`!claim <id>` - Claim quest rewards' },
+            { name: '🔷 ST Boosters', value: '`!shards` - View shard info\n`!craft` - Craft booster (8 shards)\n`!boost <character>` - Use booster' },
+            { name: '📬 Mail & News', value: '`!mail [page]` - View mailbox\n`!claimmail <#>` - Claim mail\n`!news` - Latest news' },
+            { name: '🏆 Leaderboards', value: '`!leaderboard <coins/gems/battles/collection>` - View top 10' },
             { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character' }
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!sendmail` - Send mail to all\n`!postnews` - Post news' }
           );
         
         await message.reply({ embeds: [helpEmbed] });

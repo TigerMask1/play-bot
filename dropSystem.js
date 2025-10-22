@@ -67,7 +67,9 @@ async function executeDrop() {
     let selectedDrop;
     let characterName = '';
     
-    if (dropTypeRoll < 0.6) {
+    if (dropTypeRoll < 0.02) {
+      selectedDrop = { type: 'shards', min: 1, max: 2, emoji: '🔷' };
+    } else if (dropTypeRoll < 0.62) {
       const allOwnedChars = new Set();
       Object.values(activeData.users).forEach(user => {
         if (user.characters) {
@@ -83,7 +85,7 @@ async function executeDrop() {
       } else {
         selectedDrop = { type: 'coins', min: 1, max: 10, emoji: '💰' };
       }
-    } else if (dropTypeRoll < 0.9) {
+    } else if (dropTypeRoll < 0.92) {
       selectedDrop = { type: 'coins', min: 1, max: 10, emoji: '💰' };
     } else {
       selectedDrop = { type: 'gems', min: 1, max: 2, emoji: '💎' };
