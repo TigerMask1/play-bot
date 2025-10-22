@@ -1,4 +1,5 @@
 const CHARACTERS = require('./characters.js');
+const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 
 const CRATE_TYPES = {
   gold: {
@@ -84,12 +85,17 @@ function openCrate(data, userId, crateType) {
         user.pendingTokens = 0;
       }
       
+      const newMoves = assignMovesToCharacter(randomChar.name, newST);
+      const newHP = calculateBaseHP(newST);
+      
       user.characters.push({
         name: randomChar.name,
         emoji: randomChar.emoji,
         level: 1,
         tokens: startingTokens,
-        st: newST
+        st: newST,
+        moves: newMoves,
+        baseHp: newHP
       });
       
       rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}\n**ST:** ${newST}%`;

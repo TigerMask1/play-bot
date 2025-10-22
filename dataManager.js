@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 
@@ -45,13 +46,23 @@ function loadData() {
           char.st = generateST();
           needsSave = true;
         }
+        
+        if (!char.moves) {
+          char.moves = assignMovesToCharacter(char.name, char.st);
+          needsSave = true;
+        }
+        
+        if (!char.baseHp) {
+          char.baseHp = calculateBaseHP(char.st);
+          needsSave = true;
+        }
       });
     }
   });
   
   if (needsSave) {
     saveData(data);
-    console.log('✅ Backfilled missing ST values and pending tokens');
+    console.log('✅ Backfilled missing ST values, moves, HP, and pending tokens');
   }
   
   return data;

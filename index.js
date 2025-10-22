@@ -16,6 +16,8 @@ const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate } = require('./crateSystem.js');
 const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
+const { initiateBattle } = require('./battleSystem.js');
+const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay } = require('./battleUtils.js');
 
 const PREFIX = '!';
 const data = loadData();
@@ -57,7 +59,7 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
   
-  const isAdmin = message.member?.permissions.has(PermissionFlagsBits.Administrator);
+  const isAdmin = message.guild && message.member?.permissions.has(PermissionFlagsBits.Administrator);
   
   try {
     switch(command) {
@@ -92,13 +94,18 @@ client.on('messageCreate', async (message) => {
         
         const pendingTokens = data.users[userId].pendingTokens || 0;
         
+        const starterMoves = assignMovesToCharacter(starterChar.name, starterST);
+        const starterHP = calculateBaseHP(starterST);
+        
         data.users[userId].selectedCharacter = starterChar.name;
         data.users[userId].characters.push({
           name: starterChar.name,
           emoji: starterChar.emoji,
           level: 1,
           tokens: pendingTokens,
-          st: starterST
+          st: starterST,
+          moves: starterMoves,
+          baseHp: starterHP
         });
         data.users[userId].coins = 100;
         data.users[userId].gems = 10;
@@ -538,12 +545,17 @@ client.on('messageCreate', async (message) => {
         const wasFirstChar = data.users[charUser.id].characters.length === 0;
         const pendingToGrant = wasFirstChar ? (data.users[charUser.id].pendingTokens || 0) : 0;
         
+        const grantedMoves = assignMovesToCharacter(foundChar.name, grantedST);
+        const grantedHP = calculateBaseHP(grantedST);
+        
         data.users[charUser.id].characters.push({
           name: foundChar.name,
           emoji: foundChar.emoji,
           level: 1,
           tokens: pendingToGrant,
-          st: grantedST
+          st: grantedST,
+          moves: grantedMoves,
+          baseHp: grantedHP
         });
         
         if (wasFirstChar && pendingToGrant > 0) {
@@ -560,13 +572,84 @@ client.on('messageCreate', async (message) => {
         await message.reply(grantMessage);
         break;
         
+      case 'b':
+      case 'battle':
+        const battleOpponent = message.mentions.users.first();
+        const battleArg = args[0]?.toLowerCase();
+        
+        if (battleArg === 'ai') {
+          await message.reply('🤖 AI battles are not implemented yet! Stay tuned for future updates.');
+          return;
+        }
+        
+        if (!battleOpponent) {
+          await message.reply('Usage: `!b @user` to challenge someone or `!b ai` for AI (coming soon!)');
+          return;
+        }
+        
+        if (battleOpponent.id === userId) {
+          await message.reply('❌ You can\'t battle yourself!');
+          return;
+        }
+        
+        if (battleOpponent.bot) {
+          await message.reply('❌ You can\'t battle a bot!');
+          return;
+        }
+        
+        await initiateBattle(message, data, userId, battleOpponent.id);
+        break;
+        
+      case 'i':
+      case 'info':
+        const infoCharName = args.join(' ').toLowerCase();
+        
+        if (!infoCharName) {
+          await message.reply('Usage: `!I <character name>`');
+          return;
+        }
+        
+        const userInfoChar = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === infoCharName
+        );
+        
+        if (!userInfoChar) {
+          await message.reply('❌ You don\'t own this character!');
+          return;
+        }
+        
+        if (!userInfoChar.moves || !userInfoChar.baseHp) {
+          await message.reply('❌ This character doesn\'t have battle data yet! It will be added automatically.');
+          return;
+        }
+        
+        const moves = userInfoChar.moves;
+        const movesList = [
+          `**Special:** ${getMoveDisplay(moves.special, userInfoChar.level, userInfoChar.st, true)}`,
+          `**Move 1:** ${getMoveDisplay(moves.tierMoves[0], userInfoChar.level, userInfoChar.st, false)}`,
+          `**Move 2:** ${getMoveDisplay(moves.tierMoves[1], userInfoChar.level, userInfoChar.st, false)}`
+        ].join('\n');
+        
+        const infoEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle(`${userInfoChar.emoji} ${userInfoChar.name}`)
+          .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}`)
+          .addFields(
+            { name: '⚔️ Moves', value: movesList, inline: false },
+            { name: '📊 Battle Stats', value: `Base HP increases with ST\nMove damage scales with Level and ST\nSpecial move has enhanced ST scaling`, inline: false }
+          );
+        
+        await message.reply({ embeds: [infoEmbed] });
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle('🎮 Bot Commands')
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <nix/bruce/buck>` - Choose starter' },
-            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!I <name>` - View character battle info\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '⚔️ Battle', value: '`!b @user` - Challenge to battle\n`!b ai` - AI battle (coming soon)' },
             { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
