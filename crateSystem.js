@@ -27,6 +27,10 @@ const CRATE_TYPES = {
   }
 };
 
+function generateST() {
+  return parseFloat((Math.random() * 100).toFixed(2));
+}
+
 function openCrate(data, userId, crateType) {
   const crate = CRATE_TYPES[crateType];
   const user = data.users[userId];
@@ -39,10 +43,29 @@ function openCrate(data, userId, crateType) {
   }
   
   user.gems -= crate.cost;
-  user.tokens += crate.tokens;
   user.coins += crate.coins;
   
-  let rewards = `🎫 ${crate.tokens} tokens\n💰 ${crate.coins} coins`;
+  let rewards = `💰 ${crate.coins} coins`;
+  
+  if (!user.pendingTokens) {
+    user.pendingTokens = 0;
+  }
+  
+  if (user.characters.length > 0) {
+    const randomOwnedChar = user.characters[Math.floor(Math.random() * user.characters.length)];
+    randomOwnedChar.tokens += crate.tokens;
+    
+    if (user.pendingTokens > 0) {
+      randomOwnedChar.tokens += user.pendingTokens;
+      rewards += `\n🎫 ${crate.tokens + user.pendingTokens} ${randomOwnedChar.name} tokens (including ${user.pendingTokens} pending!)`;
+      user.pendingTokens = 0;
+    } else {
+      rewards += `\n🎫 ${crate.tokens} ${randomOwnedChar.name} tokens`;
+    }
+  } else {
+    user.pendingTokens += crate.tokens;
+    rewards += `\n🎫 ${crate.tokens} tokens saved (Total pending: ${user.pendingTokens})`;
+  }
   
   const roll = Math.random() * 100;
   
@@ -53,14 +76,26 @@ function openCrate(data, userId, crateType) {
     
     if (availableChars.length > 0) {
       const randomChar = availableChars[Math.floor(Math.random() * availableChars.length)];
+      const newST = generateST();
+      
+      let startingTokens = 0;
+      if (user.characters.length === 0 && user.pendingTokens > 0) {
+        startingTokens = user.pendingTokens;
+        user.pendingTokens = 0;
+      }
+      
       user.characters.push({
         name: randomChar.name,
         emoji: randomChar.emoji,
         level: 1,
-        tokens: 0
+        tokens: startingTokens,
+        st: newST
       });
       
-      rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}`;
+      rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}\n**ST:** ${newST}%`;
+      if (startingTokens > 0) {
+        rewards += `\n🎁 Received ${startingTokens} pending tokens!`;
+      }
     } else {
       user.gems += 50;
       rewards += `\n\n✨ Bonus: 50 gems (all characters owned!)`;

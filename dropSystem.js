@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveData } = require('./dataManager.js');
+const CHARACTERS = require('./characters.js');
 
 let dropInterval = null;
 let activeClient = null;
@@ -47,36 +48,70 @@ async function executeDrop() {
       const oldDrop = activeData.currentDrop;
       activeData.currentDrop = null;
       
+      let oldRewardText = '';
+      if (oldDrop.type === 'tokens') {
+        oldRewardText = `${oldDrop.amount} ${oldDrop.characterName} tokens`;
+      } else {
+        oldRewardText = `${oldDrop.amount} ${oldDrop.type}`;
+      }
+      
       const vanishEmbed = new EmbedBuilder()
         .setColor('#FF0000')
         .setTitle('💨 Drop Vanished!')
-        .setDescription(`The previous drop (${oldDrop.amount} ${oldDrop.type}) disappeared!`);
+        .setDescription(`The previous drop (${oldRewardText}) disappeared!`);
       
       await channel.send({ embeds: [vanishEmbed] });
     }
     
-    const dropTypes = [
-      { type: 'tokens', min: 1, max: 10, emoji: '🎫' },
-      { type: 'coins', min: 1, max: 10, emoji: '💰' },
-      { type: 'gems', min: 1, max: 2, emoji: '💎' }
-    ];
+    const dropTypeRoll = Math.random();
+    let selectedDrop;
+    let characterName = '';
     
-    const selectedDrop = dropTypes[Math.floor(Math.random() * dropTypes.length)];
+    if (dropTypeRoll < 0.6) {
+      const allOwnedChars = new Set();
+      Object.values(activeData.users).forEach(user => {
+        if (user.characters) {
+          user.characters.forEach(char => allOwnedChars.add(char.name));
+        }
+      });
+      
+      const ownedCharArray = Array.from(allOwnedChars);
+      
+      if (ownedCharArray.length > 0) {
+        characterName = ownedCharArray[Math.floor(Math.random() * ownedCharArray.length)];
+        selectedDrop = { type: 'tokens', min: 1, max: 10, emoji: '🎫', characterName: characterName };
+      } else {
+        selectedDrop = { type: 'coins', min: 1, max: 10, emoji: '💰' };
+      }
+    } else if (dropTypeRoll < 0.9) {
+      selectedDrop = { type: 'coins', min: 1, max: 10, emoji: '💰' };
+    } else {
+      selectedDrop = { type: 'gems', min: 1, max: 2, emoji: '💎' };
+    }
+    
     const amount = Math.floor(Math.random() * (selectedDrop.max - selectedDrop.min + 1)) + selectedDrop.min;
     const code = DROP_CODES[Math.floor(Math.random() * DROP_CODES.length)];
     
     activeData.currentDrop = {
       type: selectedDrop.type,
       amount: amount,
-      code: code
+      code: code,
+      characterName: characterName
     };
     
     saveData(activeData);
     
+    let rewardText = '';
+    if (selectedDrop.type === 'tokens') {
+      rewardText = `**Reward:** ${amount} ${characterName} tokens ${selectedDrop.emoji}`;
+    } else {
+      rewardText = `**Reward:** ${amount} ${selectedDrop.type} ${selectedDrop.emoji}`;
+    }
+    
     const dropEmbed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle('🎁 DROP APPEARED!')
-      .setDescription(`A wild drop appeared!\n\n**Reward:** ${amount} ${selectedDrop.emoji} ${selectedDrop.type}\n\nType \`!c ${code}\` to catch it!`)
+      .setDescription(`A wild drop appeared!\n\n${rewardText}\n\nType \`!c ${code}\` to catch it!`)
       .setFooter({ text: 'First person to type the command gets it!' })
       .setTimestamp();
     

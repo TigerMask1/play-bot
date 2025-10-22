@@ -20,6 +20,17 @@ const { initiateTrade } = require('./tradeSystem.js');
 const PREFIX = '!';
 const data = loadData();
 
+function generateST() {
+  return parseFloat((Math.random() * 100).toFixed(2));
+}
+
+function createProgressBar(current, required, length = 10) {
+  const percentage = Math.min(current / required, 1);
+  const filled = Math.floor(percentage * length);
+  const empty = length - filled;
+  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${current}/${required}`;
+}
+
 client.on('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
@@ -34,10 +45,9 @@ client.on('messageCreate', async (message) => {
     data.users[userId] = {
       coins: 0,
       gems: 0,
-      tokens: 0,
-      level: 1,
       characters: [],
-      selectedCharacter: null
+      selectedCharacter: null,
+      pendingTokens: 0
     };
     saveData(data);
   }
@@ -78,21 +88,35 @@ client.on('messageCreate', async (message) => {
         }
         
         const starterChar = CHARACTERS.find(c => c.name.toLowerCase() === starterChoice);
+        const starterST = generateST();
+        
+        const pendingTokens = data.users[userId].pendingTokens || 0;
+        
         data.users[userId].selectedCharacter = starterChar.name;
         data.users[userId].characters.push({
           name: starterChar.name,
           emoji: starterChar.emoji,
           level: 1,
-          tokens: 0
+          tokens: pendingTokens,
+          st: starterST
         });
         data.users[userId].coins = 100;
         data.users[userId].gems = 10;
+        data.users[userId].pendingTokens = 0;
         saveData(data);
+        
+        let embedDesc = `You chose **${starterChar.name} ${starterChar.emoji}**!\n\n**ST:** ${starterST}%\n\nStarting rewards:\n💰 100 Coins\n💎 10 Gems`;
+        
+        if (pendingTokens > 0) {
+          embedDesc += `\n🎫 ${pendingTokens} Pending Tokens received!`;
+        }
+        
+        embedDesc += `\n\nUse \`!profile\` to view your stats!`;
         
         const embed = new EmbedBuilder()
           .setColor('#00FF00')
           .setTitle('🎉 Character Selected!')
-          .setDescription(`You chose **${starterChar.name} ${starterChar.emoji}**!\n\nStarting rewards:\n💰 100 Coins\n💎 10 Gems\n\nUse \`!profile\` to view your stats!`);
+          .setDescription(embedDesc);
         await message.reply({ embeds: [embed] });
         break;
         
@@ -106,23 +130,50 @@ client.on('messageCreate', async (message) => {
         }
         
         const user = data.users[targetId];
-        const levelReq = getLevelRequirements(user.level);
+        let page = parseInt(args[0]) || 1;
+        const charsPerPage = 5;
+        const totalPages = Math.ceil(user.characters.length / charsPerPage);
+        
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        
+        const startIdx = (page - 1) * charsPerPage;
+        const endIdx = startIdx + charsPerPage;
+        const pageChars = user.characters.slice(startIdx, endIdx);
         
         const profileEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
           .setTitle(`${targetUser.username}'s Profile`)
           .addFields(
-            { name: '📊 Level', value: `${user.level}`, inline: true },
-            { name: '🎫 Tokens', value: `${user.tokens}/${levelReq}`, inline: true },
             { name: '💰 Coins', value: `${user.coins}`, inline: true },
             { name: '💎 Gems', value: `${user.gems}`, inline: true },
-            { name: '🎮 Characters', value: `${user.characters.length}`, inline: true },
-            { name: '⭐ Selected', value: user.selectedCharacter || 'None', inline: true }
+            { name: '🎮 Characters', value: `${user.characters.length}/51`, inline: true }
           );
         
+        if (user.selectedCharacter) {
+          profileEmbed.addFields({ name: '⭐ Selected', value: user.selectedCharacter, inline: true });
+        }
+        
+        if (user.pendingTokens > 0) {
+          profileEmbed.addFields({ name: '🎫 Pending Tokens', value: `${user.pendingTokens}`, inline: true });
+        }
+        
         if (user.characters.length > 0) {
-          const charList = user.characters.map(c => `${c.emoji} ${c.name} (Lvl ${c.level})`).join('\n');
-          profileEmbed.addFields({ name: '📦 Your Characters', value: charList.slice(0, 1024) });
+          pageChars.forEach(char => {
+            const req = getLevelRequirements(char.level);
+            const progress = createProgressBar(char.tokens, req, 8);
+            profileEmbed.addFields({
+              name: `${char.emoji} ${char.name} - Lvl ${char.level} | ST: ${char.st}%`,
+              value: `${progress}`,
+              inline: false
+            });
+          });
+          
+          if (totalPages > 1) {
+            profileEmbed.setFooter({ text: `Page ${page}/${totalPages} | Use !profile [page]` });
+          }
+        } else {
+          profileEmbed.setDescription('No characters yet! Use `!start` to begin.');
         }
         
         await message.reply({ embeds: [profileEmbed] });
@@ -136,11 +187,12 @@ client.on('messageCreate', async (message) => {
           const crateEmbed = new EmbedBuilder()
             .setColor('#FFD700')
             .setTitle('🎁 Available Crates')
+            .setDescription('Open crates to get character tokens and coins!\nYou might also get a new character!')
             .addFields(
-              { name: '🥇 Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 tokens\n💰 500 coins' },
-              { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 tokens\n💰 1800 coins' },
-              { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 tokens\n💰 2500 coins' },
-              { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 tokens\n💰 3500 coins' }
+              { name: '🥇 Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins' },
+              { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins' },
+              { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins' },
+              { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins' }
             )
             .setFooter({ text: 'Use: !crate <type>' });
           await message.reply({ embeds: [crateEmbed] });
@@ -166,22 +218,37 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'levelup':
-        const currentTokens = data.users[userId].tokens;
-        const currentLevel = data.users[userId].level;
-        const requiredTokens = getLevelRequirements(currentLevel);
+        const charToLevelName = args.join(' ').toLowerCase();
         
-        if (currentTokens >= requiredTokens) {
-          data.users[userId].tokens -= requiredTokens;
-          data.users[userId].level += 1;
+        if (!charToLevelName) {
+          await message.reply('Usage: `!levelup <character name>`');
+          return;
+        }
+        
+        const charToLevel = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === charToLevelName
+        );
+        
+        if (!charToLevel) {
+          await message.reply('❌ You don\'t own this character!');
+          return;
+        }
+        
+        const currentCharLevel = charToLevel.level;
+        const requiredTokens = getLevelRequirements(currentCharLevel);
+        
+        if (charToLevel.tokens >= requiredTokens) {
+          charToLevel.tokens -= requiredTokens;
+          charToLevel.level += 1;
           saveData(data);
           
           const lvlEmbed = new EmbedBuilder()
             .setColor('#00FF00')
             .setTitle('⬆️ LEVEL UP!')
-            .setDescription(`<@${userId}> leveled up!\n\n**Level ${currentLevel} → ${currentLevel + 1}**\n\nTokens used: ${requiredTokens}`);
+            .setDescription(`<@${userId}> leveled up **${charToLevel.name} ${charToLevel.emoji}**!\n\n**Level ${currentCharLevel} → ${currentCharLevel + 1}**\n\nTokens used: ${requiredTokens}`);
           await message.reply({ embeds: [lvlEmbed] });
         } else {
-          await message.reply(`❌ Not enough tokens! You need ${requiredTokens} but have ${currentTokens}.`);
+          await message.reply(`❌ Not enough ${charToLevel.name} tokens! You need ${requiredTokens} but have ${charToLevel.tokens}.`);
         }
         break;
         
@@ -204,17 +271,62 @@ client.on('messageCreate', async (message) => {
         }
         
         const charReq = getLevelRequirements(userChar.level);
+        const charProgress = createProgressBar(userChar.tokens, charReq, 10);
         
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle(`${userChar.emoji} ${userChar.name}`)
           .addFields(
             { name: 'Level', value: `${userChar.level}`, inline: true },
+            { name: 'ST', value: `${userChar.st}%`, inline: true },
             { name: 'Tokens', value: `${userChar.tokens}`, inline: true },
-            { name: 'Next Level', value: `${charReq} tokens`, inline: true }
+            { name: 'Progress to Next Level', value: charProgress, inline: false }
           );
         
         await message.reply({ embeds: [charEmbed] });
+        break;
+        
+      case 'release':
+      case 'leave':
+        const charToReleaseName = args.join(' ').toLowerCase();
+        
+        if (!charToReleaseName) {
+          await message.reply('Usage: `!release <character name>`');
+          return;
+        }
+        
+        const charIndex = data.users[userId].characters.findIndex(c => 
+          c.name.toLowerCase() === charToReleaseName
+        );
+        
+        if (charIndex === -1) {
+          await message.reply('❌ You don\'t own this character!');
+          return;
+        }
+        
+        const charToRelease = data.users[userId].characters[charIndex];
+        
+        if (charToRelease.level < 10) {
+          await message.reply(`❌ **${charToRelease.name}** must be at least level 10 to release! (Currently level ${charToRelease.level})`);
+          return;
+        }
+        
+        data.users[userId].characters.splice(charIndex, 1);
+        
+        if (data.users[userId].selectedCharacter === charToRelease.name) {
+          data.users[userId].selectedCharacter = data.users[userId].characters.length > 0 
+            ? data.users[userId].characters[0].name 
+            : null;
+        }
+        
+        saveData(data);
+        
+        const releaseEmbed = new EmbedBuilder()
+          .setColor('#FF6B6B')
+          .setTitle('👋 Character Released')
+          .setDescription(`<@${userId}> released **${charToRelease.name} ${charToRelease.emoji}**!\n\nLevel: ${charToRelease.level}\nST: ${charToRelease.st}%\nTokens: ${charToRelease.tokens}\n\nGoodbye, ${charToRelease.name}!`);
+        
+        await message.reply({ embeds: [releaseEmbed] });
         break;
         
       case 'setdrop':
@@ -260,24 +372,52 @@ client.on('messageCreate', async (message) => {
         
         if (data.currentDrop && data.currentDrop.code === code) {
           const drop = data.currentDrop;
-          data.currentDrop = null;
           
           if (drop.type === 'tokens') {
-            data.users[userId].tokens += drop.amount;
-          } else if (drop.type === 'coins') {
-            data.users[userId].coins += drop.amount;
-          } else if (drop.type === 'gems') {
-            data.users[userId].gems += drop.amount;
+            const charToReward = data.users[userId].characters.find(c => 
+              c.name.toLowerCase() === drop.characterName.toLowerCase()
+            );
+            
+            if (charToReward) {
+              data.currentDrop = null;
+              charToReward.tokens += drop.amount;
+              
+              saveData(data);
+              
+              const dropEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('🎉 DROP CAUGHT!')
+                .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${drop.amount} ${drop.characterName} tokens 🎫`);
+              
+              await message.reply({ embeds: [dropEmbed] });
+            } else {
+              await message.reply(`❌ You don't own **${drop.characterName}**, so you can't collect these tokens! Drop remains active.`);
+            }
+          } else {
+            data.currentDrop = null;
+            
+            if (drop.type === 'coins') {
+              data.users[userId].coins += drop.amount;
+            } else if (drop.type === 'gems') {
+              data.users[userId].gems += drop.amount;
+            }
+            
+            saveData(data);
+            
+            let rewardText = '';
+            if (drop.type === 'coins') {
+              rewardText = `${drop.amount} coins 💰`;
+            } else {
+              rewardText = `${drop.amount} gems 💎`;
+            }
+            
+            const dropEmbed = new EmbedBuilder()
+              .setColor('#00FF00')
+              .setTitle('🎉 DROP CAUGHT!')
+              .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${rewardText}`);
+            
+            await message.reply({ embeds: [dropEmbed] });
           }
-          
-          saveData(data);
-          
-          const dropEmbed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('🎉 DROP CAUGHT!')
-            .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${drop.amount} ${drop.type === 'tokens' ? '🎫' : drop.type === 'coins' ? '💰' : '💎'} ${drop.type}`);
-          
-          await message.reply({ embeds: [dropEmbed] });
         }
         break;
         
@@ -311,10 +451,11 @@ client.on('messageCreate', async (message) => {
         
         const grantUser = message.mentions.users.first();
         const grantType = args[1]?.toLowerCase();
-        const grantAmount = parseInt(args[2]);
+        const grantTarget = args.slice(2).join(' ');
+        const grantAmount = parseInt(grantTarget);
         
-        if (!grantUser || !grantType || !grantAmount) {
-          await message.reply('Usage: `!grant @user <tokens/coins/gems> <amount>`');
+        if (!grantUser || !grantType) {
+          await message.reply('Usage: `!grant @user <coins/gems> <amount>` or `!grant @user tokens <character> <amount>`');
           return;
         }
         
@@ -323,13 +464,40 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (['tokens', 'coins', 'gems'].includes(grantType)) {
+        if (grantType === 'tokens') {
+          const charNameForTokens = args.slice(2, -1).join(' ').toLowerCase();
+          const tokenAmount = parseInt(args[args.length - 1]);
+          
+          if (!charNameForTokens || !tokenAmount) {
+            await message.reply('Usage: `!grant @user tokens <character name> <amount>`');
+            return;
+          }
+          
+          const targetChar = data.users[grantUser.id].characters.find(c => 
+            c.name.toLowerCase() === charNameForTokens
+          );
+          
+          if (!targetChar) {
+            await message.reply('❌ That user doesn\'t own this character!');
+            return;
+          }
+          
+          targetChar.tokens += tokenAmount;
+          saveData(data);
+          
+          await message.reply(`✅ Granted ${tokenAmount} ${targetChar.name} tokens to <@${grantUser.id}>!`);
+        } else if (['coins', 'gems'].includes(grantType)) {
+          if (!grantAmount) {
+            await message.reply('Please specify an amount!');
+            return;
+          }
+          
           data.users[grantUser.id][grantType] += grantAmount;
           saveData(data);
           
           await message.reply(`✅ Granted ${grantAmount} ${grantType} to <@${grantUser.id}>!`);
         } else {
-          await message.reply('Invalid type! Use: tokens, coins, or gems');
+          await message.reply('Invalid type! Use: coins, gems, or tokens');
         }
         break;
         
@@ -366,15 +534,30 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
+        const grantedST = generateST();
+        const wasFirstChar = data.users[charUser.id].characters.length === 0;
+        const pendingToGrant = wasFirstChar ? (data.users[charUser.id].pendingTokens || 0) : 0;
+        
         data.users[charUser.id].characters.push({
           name: foundChar.name,
           emoji: foundChar.emoji,
           level: 1,
-          tokens: 0
+          tokens: pendingToGrant,
+          st: grantedST
         });
+        
+        if (wasFirstChar && pendingToGrant > 0) {
+          data.users[charUser.id].pendingTokens = 0;
+        }
+        
         saveData(data);
         
-        await message.reply(`✅ Granted **${foundChar.name} ${foundChar.emoji}** to <@${charUser.id}>!`);
+        let grantMessage = `✅ Granted **${foundChar.name} ${foundChar.emoji}** (ST: ${grantedST}%) to <@${charUser.id}>!`;
+        if (pendingToGrant > 0) {
+          grantMessage += `\n🎁 They also received ${pendingToGrant} pending tokens!`;
+        }
+        
+        await message.reply(grantMessage);
         break;
         
       case 'help':
@@ -383,11 +566,11 @@ client.on('messageCreate', async (message) => {
           .setTitle('🎮 Bot Commands')
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <nix/bruce/buck>` - Choose starter' },
-            { name: '👤 Profile', value: '`!profile [@user]` - View profile\n`!char <name>` - Character details' },
-            { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates\n`!levelup` - Level up with tokens' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant @user <type> <amt>` - Grant resources\n`!grantchar @user <name>` - Grant character' }
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character' }
           );
         
         await message.reply({ embeds: [helpEmbed] });
