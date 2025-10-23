@@ -59,6 +59,7 @@ client.on('messageCreate', async (message) => {
     saveData(data);
   }
   
+
   if (!data.users[userId].username) {
     data.users[userId].username = message.author.username;
   }
@@ -1087,10 +1088,10 @@ client.on('messageCreate', async (message) => {
         const botInfoEmbed = new EmbedBuilder()
           .setColor('#FF6B35')
           .setTitle('🎮 About This Bot')
-          .setDescription('**Character Collection & Battle Game**\n\nA comprehensive Discord bot featuring character collection, turn-based battles, leveling, crates, trading, and competitive rankings!')
+          .setDescription('**A Zooba-inspired game**\n\nA comprehensive Discord bot featuring character collection, turn-based battles, leveling, crates, trading, and competitive rankings!')
           .addFields(
             { name: '👨‍💻 Created By', value: '**TigerMask** (AKA Jaguar)\nMade with passion for the community!', inline: false },
-            { name: '🎯 Purpose', value: 'This is a **man-made, non-profit game** created purely for **entertainment purposes**. Enjoy collecting characters, battling friends, and climbing the leaderboards!', inline: false },
+            { name: '🎯 Purpose', value: 'This is a **fan-made, non-profit game** created purely for **entertainment purposes**. Enjoy collecting characters, battling friends, and climbing the leaderboards!', inline: false },
             { name: '🌟 Features', value: '• 51 unique characters to collect\n• Turn-based battle system\n• Character leveling & ST stats\n• Trophy-based competitive ranking\n• Daily rewards & message rewards\n• Trading system\n• Quests & achievements', inline: false },
             { name: '📚 Get Started', value: 'Type `!help` to see all commands\nType `!start` to begin your journey!', inline: false }
           )
