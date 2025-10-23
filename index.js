@@ -1,13 +1,14 @@
-// Keep-alive web server for Render
-const express = require("express");
-const app = express();
+// Simple keep-alive server using Node's built-in HTTP module
+const http = require("http");
+
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("Bot is alive!");
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot is alive!");
+}).listen(PORT, () => {
+  console.log(`🌐 Server running on port ${PORT}`);
 });
-
-app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
 
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
