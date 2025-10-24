@@ -1,8 +1,8 @@
 const { LOW_ST_MOVES, MID_ST_MOVES, HIGH_ST_MOVES, SPECIAL_MOVES, getMovesForST } = require('./moves.js');
 
 function calculateBaseHP(st) {
-  const minHP = 400;
-  const maxHP = 800;
+  const minHP = 250;
+  const maxHP = 400;
   const hpRange = maxHP - minHP;
   return Math.round(minHP + (st / 100) * hpRange);
 }
