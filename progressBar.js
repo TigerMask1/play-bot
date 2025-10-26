@@ -44,8 +44,8 @@ function createQuestProgressBar(current, max) {
 
 function createLevelProgressBar(currentTokens, requiredTokens) {
   const percentage = Math.min(100, (currentTokens / requiredTokens) * 100);
-  const filledLength = Math.round((percentage / 100) * 18);
-  const emptyLength = 18 - filledLength;
+  const filledLength = Math.round((percentage / 100) * 8);
+  const emptyLength = 8 - filledLength;
   
   const bar = '▓'.repeat(filledLength) + '░'.repeat(emptyLength);
   
