@@ -3,35 +3,19 @@ const path = require('path');
 const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 
 const DATA_FILE = path.join(__dirname, 'data.json');
-const SKINS_FILE = path.join(__dirname, 'skins.json');
+const USE_MONGODB = process.env.USE_MONGODB === 'true';
+
+let mongoManager = null;
+if (USE_MONGODB) {
+  mongoManager = require('./mongoManager.js');
+}
 
 function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
-function loadData() {
+function backfillUserData(data) {
   let needsSave = false;
-  let data;
-  
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const rawData = fs.readFileSync(DATA_FILE, 'utf8');
-      data = JSON.parse(rawData);
-    } else {
-      data = {
-        users: {},
-        dropChannel: null,
-        currentDrop: null
-      };
-    }
-  } catch (error) {
-    console.error('Error loading data:', error);
-    data = {
-      users: {},
-      dropChannel: null,
-      currentDrop: null
-    };
-  }
   
   Object.keys(data.users).forEach(userId => {
     const user = data.users[userId];
@@ -124,23 +108,88 @@ function loadData() {
     }
   });
   
-  if (!data.battleChannel) {
-    data.battleChannel = null;
+  if (!data.battleChannelId) {
+    data.battleChannelId = data.battleChannel || null;
+    delete data.battleChannel;
+    needsSave = true;
   }
   
-  if (needsSave) {
-    saveData(data);
-    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
+  if (!data.dropChannelId) {
+    data.dropChannelId = data.dropChannel || null;
+    delete data.dropChannel;
+    needsSave = true;
   }
   
-  return data;
+  delete data.currentDrop;
+  
+  return { data, needsSave };
+}
+
+async function loadData() {
+  if (USE_MONGODB) {
+    try {
+      const data = await mongoManager.loadData();
+      const { data: backfilledData, needsSave } = backfillUserData(data);
+      
+      if (needsSave) {
+        await mongoManager.saveData(backfilledData);
+        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
+      }
+      
+      return backfilledData;
+    } catch (error) {
+      console.error('Error loading from MongoDB:', error);
+      return {
+        users: {},
+        dropChannelId: null,
+        battleChannelId: null
+      };
+    }
+  } else {
+    let data;
+    
+    try {
+      if (fs.existsSync(DATA_FILE)) {
+        const rawData = fs.readFileSync(DATA_FILE, 'utf8');
+        data = JSON.parse(rawData);
+      } else {
+        data = {
+          users: {},
+          dropChannelId: null,
+          battleChannelId: null
+        };
+      }
+    } catch (error) {
+      console.error('Error loading JSON data:', error);
+      data = {
+        users: {},
+        dropChannelId: null,
+        battleChannelId: null
+      };
+    }
+    
+    const { data: backfilledData, needsSave } = backfillUserData(data);
+    
+    if (needsSave) {
+      saveData(backfilledData);
+      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
+    }
+    
+    return backfilledData;
+  }
 }
 
 function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error saving data:', error);
+  if (USE_MONGODB) {
+    mongoManager.saveData(data).catch(error => {
+      console.error('Error saving to MongoDB:', error);
+    });
+  } else {
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('Error saving JSON data:', error);
+    }
   }
 }
 
