@@ -3,6 +3,7 @@ const path = require('path');
 const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 
 const DATA_FILE = path.join(__dirname, 'data.json');
+const SKINS_FILE = path.join(__dirname, 'skins.json');
 
 function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
@@ -109,6 +110,16 @@ function loadData() {
           char.baseHp = calculateBaseHP(char.st);
           needsSave = true;
         }
+        
+        if (!char.currentSkin) {
+          char.currentSkin = 'default';
+          needsSave = true;
+        }
+        
+        if (!char.ownedSkins) {
+          char.ownedSkins = ['default'];
+          needsSave = true;
+        }
       });
     }
   });
@@ -119,7 +130,7 @@ function loadData() {
   
   if (needsSave) {
     saveData(data);
-    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, and mailbox');
+    console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
   }
   
   return data;
