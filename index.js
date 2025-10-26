@@ -52,16 +52,22 @@ const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 
 const PREFIX = '!';
-const data = loadData();
+let data;
+
+async function initializeBot() {
+  data = await loadData();
+  console.log('✅ Data loaded successfully');
+}
 
 function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
 
-client.on('ready', () => {
+client.on('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
+  await initializeBot();
 });
 
 client.on('messageCreate', async (message) => {
