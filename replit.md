@@ -4,6 +4,16 @@
 A Discord bot featuring a character collection system with character-specific tokens, ST stats, leveling, crates, random drops, and player trading. Users can collect 50+ unique characters, level them up individually, open crates, catch random drops, and trade resources with other players.
 
 ## Recent Changes
+- **October 26, 2025**: MongoDB Integration & Production Deployment
+  - **Dual Storage Modes**: Bot now supports both JSON (test) and MongoDB (production) modes
+  - **Seamless Migration**: One-command migration script to transfer test data to production
+  - **Environment-Based Switching**: Use `USE_MONGODB=true` to enable MongoDB mode
+  - **Automatic Backfilling**: Both storage modes support automatic data backfilling
+  - **Production Ready**: Designed for easy deployment with proper data persistence
+  - **Migration Script**: `npm run migrate` transfers all data from JSON to MongoDB
+  - **Data Safety**: Migration clears old MongoDB data to prevent duplicates
+  - **Zero Downtime**: Maintain test bot on JSON while production runs on MongoDB
+
 - **October 26, 2025**: Character Skin System
   - **Skin System**: Each character now has visual skins that display in embeds
   - **Default Skins**: All characters automatically have a default skin
@@ -57,9 +67,11 @@ A Discord bot featuring a character collection system with character-specific to
 ## Project Architecture
 
 ### Core Files
-- `index.js` - Main bot file with command handling
+- `index.js` - Main bot file with command handling and async data loading
 - `characters.js` - Database of all 50+ characters
-- `dataManager.js` - JSON file storage system with automatic backfilling
+- `dataManager.js` - Unified data manager supporting both JSON and MongoDB modes
+- `mongoManager.js` - MongoDB connection and operations handler
+- `migrate.js` - One-time migration script to transfer JSON data to MongoDB
 - `levelSystem.js` - Level progression calculations
 - `crateSystem.js` - Crate opening logic and rewards with pending tokens
 - `dropSystem.js` - Random drop spawning system with character-specific tokens
@@ -70,8 +82,24 @@ A Discord bot featuring a character collection system with character-specific to
 - `skinSystem.js` - Character skin management and image URL handling
 - `skins.json` - Database of all available skins for each character
 
+### Data Storage
+
+The bot supports two storage modes:
+
+#### JSON Mode (Test/Default)
+- Data stored in `data.json` file
+- Perfect for testing and development
+- No additional setup required
+- Enabled by default
+
+#### MongoDB Mode (Production)
+- Data stored in MongoDB database
+- Recommended for production deployment
+- Requires `MONGODB_URI` and `USE_MONGODB=true` environment variables
+- One-time migration available via `npm run migrate`
+
 ### Data Structure
-- User data stored in `data.json` with:
+- User data stored with:
   - Coins, gems (currencies)
   - Pending tokens (saved when user has no characters)
   - Character inventory with individual levels, tokens, ST, moves, HP, skins
@@ -229,7 +257,13 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
 ## Setup Requirements
 
 ### Environment Variables
+
+#### Required for All Modes
 - `DISCORD_BOT_TOKEN` - Your Discord bot token (Required)
+
+#### Optional for MongoDB Mode
+- `MONGODB_URI` - MongoDB connection string (Required only if using MongoDB)
+- `USE_MONGODB` - Set to `true` to enable MongoDB mode (defaults to `false` for JSON mode)
 
 ### Discord Bot Permissions
 - Read Messages/View Channels
@@ -248,7 +282,9 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
 ## Technical Details
 - **Platform**: Discord.js v14
 - **Runtime**: Node.js 20
-- **Data Storage**: JSON file system with automatic backfilling
+- **Data Storage**: Dual mode - JSON files (test) or MongoDB (production)
+- **Database**: MongoDB 6.20.0 (optional, for production)
+- **Migration**: One-command data transfer from JSON to MongoDB
 - **Drop Interval**: 20 seconds
 - **Trade Timeout**: 20 seconds
 - **Battle Invite Timeout**: 60 seconds
