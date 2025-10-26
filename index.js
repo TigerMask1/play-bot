@@ -49,6 +49,7 @@ const { craftBooster, useBooster, getBoosterInfo } = require('./stBoosterSystem.
 const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay } = require('./mailSystem.js');
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
+const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 
 const PREFIX = '!';
 const data = loadData();
@@ -237,6 +238,11 @@ client.on('messageCreate', async (message) => {
         
         if (user.selectedCharacter) {
           profileEmbed.addFields({ name: '⭐ Selected', value: user.selectedCharacter, inline: true });
+          const selectedChar = user.characters.find(c => c.name === user.selectedCharacter);
+          if (selectedChar) {
+            const selectedSkinUrl = getSkinUrl(selectedChar.name, selectedChar.currentSkin || 'default');
+            profileEmbed.setThumbnail(selectedSkinUrl);
+          }
         }
         
         if (user.pendingTokens > 0) {
@@ -370,16 +376,21 @@ client.on('messageCreate', async (message) => {
         
         const charReq = getLevelRequirements(userChar.level);
         const charProgress = createLevelProgressBar(userChar.tokens, charReq.tokens);
+        const charSkinUrl = getSkinUrl(userChar.name, userChar.currentSkin || 'default');
+        const availableSkins = userChar.ownedSkins || ['default'];
         
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle(`${userChar.emoji} ${userChar.name}`)
+          .setImage(charSkinUrl)
           .addFields(
             { name: 'Level', value: `${userChar.level}`, inline: true },
             { name: 'ST', value: `${userChar.st}%`, inline: true },
             { name: 'Tokens', value: `${userChar.tokens}/${charReq.tokens}`, inline: true },
             { name: 'Next Level Cost', value: `🎫 ${charReq.tokens} tokens\n💰 ${charReq.coins} coins`, inline: true },
-            { name: 'Progress to Next Level', value: charProgress, inline: false }
+            { name: 'Progress to Next Level', value: charProgress, inline: false },
+            { name: '🎨 Current Skin', value: userChar.currentSkin || 'default', inline: true },
+            { name: '🖼️ Owned Skins', value: availableSkins.join(', '), inline: true }
           );
         
         await message.reply({ embeds: [charEmbed] });
@@ -732,10 +743,13 @@ client.on('messageCreate', async (message) => {
           `**Move 2:** ${getMoveDisplay(moves.tierMoves[1], userInfoChar.level, userInfoChar.st, false)}`
         ].join('\n');
         
+        const infoSkinUrl = getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
+        
         const infoEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
           .setTitle(`${userInfoChar.emoji} ${userInfoChar.name}`)
-          .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}`)
+          .setImage(infoSkinUrl)
+          .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}\n**Skin:** ${userInfoChar.currentSkin || 'default'}`)
           .addFields(
             { name: '⚔️ Moves', value: movesList, inline: false },
             { name: '📊 Battle Stats', value: `Base HP increases with ST\nMove damage scales with Level and ST\nSpecial move has enhanced ST scaling`, inline: false }
