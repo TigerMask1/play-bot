@@ -95,7 +95,9 @@ function openCrate(data, userId, crateType) {
         tokens: startingTokens,
         st: newST,
         moves: newMoves,
-        baseHp: newHP
+        baseHp: newHP,
+        currentSkin: 'default',
+        ownedSkins: ['default']
       });
       
       rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}\n**ST:** ${newST}%`;

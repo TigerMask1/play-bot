@@ -4,6 +4,15 @@
 A Discord bot featuring a character collection system with character-specific tokens, ST stats, leveling, crates, random drops, and player trading. Users can collect 50+ unique characters, level them up individually, open crates, catch random drops, and trade resources with other players.
 
 ## Recent Changes
+- **October 26, 2025**: Character Skin System
+  - **Skin System**: Each character now has visual skins that display in embeds
+  - **Default Skins**: All characters automatically have a default skin
+  - **Skin Management**: Admins can add unlimited skins to any character
+  - **Player Commands**: Players can equip skins they own using `!equipskin`
+  - **Visual Embeds**: Character images now appear in `!char`, `!I`, and `!profile` commands
+  - **Easy Skin Creation**: Non-coders can add skins using simple admin commands
+  - **Data Preservation**: All existing player data is preserved with automatic backfilling
+
 - **October 22, 2025**: Economy & Competitive Update
   - **Message Rewards**: Players earn rewards every 25 messages (1-10 tokens, 1-20 coins, or 1-5 gems)
   - **Coin-Based Leveling**: Level-ups now require BOTH tokens and coins with increasing costs
@@ -58,14 +67,20 @@ A Discord bot featuring a character collection system with character-specific to
 - `battleSystem.js` - Turn-based battle system with invite flow
 - `battleUtils.js` - Damage calculations, HP formulas, move assignment
 - `moves.js` - Move database with ST-tier pools and special moves
+- `skinSystem.js` - Character skin management and image URL handling
+- `skins.json` - Database of all available skins for each character
 
 ### Data Structure
 - User data stored in `data.json` with:
   - Coins, gems (currencies)
   - Pending tokens (saved when user has no characters)
-  - Character inventory with individual levels, tokens, ST, moves, and HP
+  - Character inventory with individual levels, tokens, ST, moves, HP, skins
   - Selected character
-  - Each character has 3 moves (1 special, 2 tier moves) and base HP
+  - Each character has 3 moves (1 special, 2 tier moves), base HP, current skin, and owned skins
+- Skin data stored in `skins.json` with:
+  - Character name as key
+  - Skin variants as nested keys (default, and custom skins)
+  - Image URLs as values
 
 ## Features
 
@@ -78,7 +93,12 @@ A Discord bot featuring a character collection system with character-specific to
   - 1 special move (unique to each character type)
   - 2 moves from ST tier pool (Low: 1-40%, Mid: 41-75%, High: 76-100%)
 - **HP System**: Base HP ranges from 1000-1500, scales with ST
-- Characters have individual levels, tokens, ST, moves, and HP values
+- **Skin System**: Each character has visual skins (default + custom)
+  - All characters have a 'default' skin automatically
+  - Players can own multiple skins per character
+  - Only one skin can be equipped at a time
+  - Skins display as images in character embeds
+- Characters have individual levels, tokens, ST, moves, HP values, and skins
 
 ### Currency System
 - **Coins** 💰: Primary currency, earned from crates, drops, and messages (required for leveling)
@@ -179,6 +199,7 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
 - `!t @user` - Initiate trade
 - `!c <code>` - Catch drops
 - `!daily` - Claim daily rewards (24-hour cooldown)
+- `!equipskin <character> <skin_name>` - Equip a skin you own for a character
 - `!leaderboard <type>` - View leaderboards (coins/gems/battles/collection/trophies)
 - `!help` - Command list
 
@@ -191,6 +212,9 @@ Tokens go to a random owned character, or saved as pending tokens if you have no
 - `!grant @user tokens <character> <amount>` - Grant character-specific tokens
 - `!grantchar @user <character name>` - Grant character
 - `!settrophies @user <amount>` - Set player's trophy count
+- `!addskin <character> <skin_name> <image_url>` - Add a new skin to a character
+- `!grantskin @user <character> <skin_name>` - Grant a skin to a player's character
+- `!revokeskin @user <character> <skin_name>` - Revoke a skin from a player's character
 
 ### Trade Commands (During active trade)
 - `!offer coins <amount>` - Offer coins

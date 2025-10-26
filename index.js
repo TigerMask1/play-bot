@@ -182,7 +182,9 @@ client.on('messageCreate', async (message) => {
           tokens: pendingTokens,
           st: starterST,
           moves: starterMoves,
-          baseHp: starterHP
+          baseHp: starterHP,
+          currentSkin: 'default',
+          ownedSkins: ['default']
         });
         data.users[userId].coins = 100;
         data.users[userId].gems = 10;
@@ -668,7 +670,9 @@ client.on('messageCreate', async (message) => {
           tokens: pendingToGrant,
           st: grantedST,
           moves: grantedMoves,
-          baseHp: grantedHP
+          baseHp: grantedHP,
+          currentSkin: 'default',
+          ownedSkins: ['default']
         });
         
         if (wasFirstChar && pendingToGrant > 0) {
