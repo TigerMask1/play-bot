@@ -685,6 +685,172 @@ client.on('messageCreate', async (message) => {
         await message.reply(grantMessage);
         break;
         
+      case 'addskin':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const skinCharName = args[0];
+        const skinName = args[1];
+        const skinUrl = args[2];
+        
+        if (!skinCharName || !skinName || !skinUrl) {
+          await message.reply('Usage: `!addskin <character> <skin_name> <image_url>`\nExample: `!addskin Nix galaxy https://example.com/image.png`');
+          return;
+        }
+        
+        const foundSkinChar = CHARACTERS.find(c => c.name.toLowerCase() === skinCharName.toLowerCase());
+        if (!foundSkinChar) {
+          await message.reply('❌ Character not found!');
+          return;
+        }
+        
+        const { addSkinToCharacter } = require('./skinSystem.js');
+        addSkinToCharacter(foundSkinChar.name, skinName, skinUrl);
+        
+        await message.reply(`✅ Added skin **${skinName}** to **${foundSkinChar.name} ${foundSkinChar.emoji}**!\nImage: ${skinUrl}\n\nNow you can grant this skin to players using: \`!grantskin @user ${foundSkinChar.name} ${skinName}\``);
+        break;
+        
+      case 'grantskin':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const skinTargetUser = message.mentions.users.first();
+        const grantSkinCharName = args[1];
+        const grantSkinName = args[2];
+        
+        if (!skinTargetUser || !grantSkinCharName || !grantSkinName) {
+          await message.reply('Usage: `!grantskin @user <character> <skin_name>`');
+          return;
+        }
+        
+        if (!data.users[skinTargetUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const targetUserChar = data.users[skinTargetUser.id].characters.find(c => 
+          c.name.toLowerCase() === grantSkinCharName.toLowerCase()
+        );
+        
+        if (!targetUserChar) {
+          await message.reply('❌ That user doesn\'t own this character!');
+          return;
+        }
+        
+        if (!skinExists(targetUserChar.name, grantSkinName)) {
+          await message.reply(`❌ Skin **${grantSkinName}** doesn't exist for **${targetUserChar.name}**!\nUse \`!addskin ${targetUserChar.name} ${grantSkinName} <image_url>\` to create it first.`);
+          return;
+        }
+        
+        if (!targetUserChar.ownedSkins) {
+          targetUserChar.ownedSkins = ['default'];
+        }
+        
+        if (targetUserChar.ownedSkins.includes(grantSkinName)) {
+          await message.reply(`❌ <@${skinTargetUser.id}> already owns the **${grantSkinName}** skin for **${targetUserChar.name}**!`);
+          return;
+        }
+        
+        targetUserChar.ownedSkins.push(grantSkinName);
+        saveData(data);
+        
+        await message.reply(`✅ Granted **${grantSkinName}** skin for **${targetUserChar.name} ${targetUserChar.emoji}** to <@${skinTargetUser.id}>!\nThey can equip it using: \`!equipskin ${targetUserChar.name} ${grantSkinName}\``);
+        break;
+        
+      case 'revokeskin':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const revokeSkinUser = message.mentions.users.first();
+        const revokeSkinCharName = args[1];
+        const revokeSkinName = args[2];
+        
+        if (!revokeSkinUser || !revokeSkinCharName || !revokeSkinName) {
+          await message.reply('Usage: `!revokeskin @user <character> <skin_name>`');
+          return;
+        }
+        
+        if (revokeSkinName === 'default') {
+          await message.reply('❌ You cannot revoke the default skin!');
+          return;
+        }
+        
+        if (!data.users[revokeSkinUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const revokeUserChar = data.users[revokeSkinUser.id].characters.find(c => 
+          c.name.toLowerCase() === revokeSkinCharName.toLowerCase()
+        );
+        
+        if (!revokeUserChar) {
+          await message.reply('❌ That user doesn\'t own this character!');
+          return;
+        }
+        
+        if (!revokeUserChar.ownedSkins || !revokeUserChar.ownedSkins.includes(revokeSkinName)) {
+          await message.reply(`❌ <@${revokeSkinUser.id}> doesn't own the **${revokeSkinName}** skin!`);
+          return;
+        }
+        
+        revokeUserChar.ownedSkins = revokeUserChar.ownedSkins.filter(s => s !== revokeSkinName);
+        
+        if (revokeUserChar.currentSkin === revokeSkinName) {
+          revokeUserChar.currentSkin = 'default';
+        }
+        
+        saveData(data);
+        
+        await message.reply(`✅ Revoked **${revokeSkinName}** skin for **${revokeUserChar.name} ${revokeUserChar.emoji}** from <@${revokeSkinUser.id}>!`);
+        break;
+        
+      case 'equipskin':
+        const equipCharName = args[0];
+        const equipSkinName = args[1];
+        
+        if (!equipCharName || !equipSkinName) {
+          await message.reply('Usage: `!equipskin <character> <skin_name>`\nExample: `!equipskin Nix galaxy`');
+          return;
+        }
+        
+        const userCharToEquip = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === equipCharName.toLowerCase()
+        );
+        
+        if (!userCharToEquip) {
+          await message.reply('❌ You don\'t own this character!');
+          return;
+        }
+        
+        if (!userCharToEquip.ownedSkins) {
+          userCharToEquip.ownedSkins = ['default'];
+        }
+        
+        if (!userCharToEquip.ownedSkins.includes(equipSkinName)) {
+          await message.reply(`❌ You don't own the **${equipSkinName}** skin for **${userCharToEquip.name}**!\nYour owned skins: ${userCharToEquip.ownedSkins.join(', ')}`);
+          return;
+        }
+        
+        userCharToEquip.currentSkin = equipSkinName;
+        saveData(data);
+        
+        const equipSkinUrl = getSkinUrl(userCharToEquip.name, equipSkinName);
+        const equipEmbed = new EmbedBuilder()
+          .setColor('#E91E63')
+          .setTitle(`🎨 Skin Equipped!`)
+          .setDescription(`**${userCharToEquip.emoji} ${userCharToEquip.name}** is now wearing the **${equipSkinName}** skin!`)
+          .setImage(equipSkinUrl);
+        
+        await message.reply({ embeds: [equipEmbed] });
+        break;
+        
       case 'b':
       case 'battle':
         const battleOpponent = message.mentions.users.first();
