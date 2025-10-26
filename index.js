@@ -3,10 +3,23 @@ const http = require("http");
 
 const PORT = process.env.PORT || 3000;
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Bot is alive!");
-}).listen(PORT, () => {
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`⚠️ Port ${PORT} in use, trying alternative port...`);
+    server.listen(0, () => {
+      console.log(`🌐 Server running on port ${server.address().port}`);
+    });
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
+server.listen(PORT, () => {
   console.log(`🌐 Server running on port ${PORT}`);
 });
 
