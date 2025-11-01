@@ -1260,7 +1260,7 @@ client.on('messageCreate', async (message) => {
               { name: '👥 Participants', value: `${eventInfo.totalParticipants}`, inline: true }
             )
             .addFields(
-              { name: '📊 Your Stats', value: `**Points:** ${eventInfo.userScore}\n**Rank:** ${eventInfo.userRank}`, inline: false }
+              { name: '📊 Your Stats', value: `**Points:** ${eventInfo.userScore}`, inline: false }
             )
             .addFields(
               { name: '🏆 Prizes', value: '🥇 1st: 500 💎 + 5,000 💰\n🥈 2nd: 250 💎 + 2,500 💰\n🥉 3rd: 150 💎 + 1,500 💰\n🎖️ Top 5%: 75 💎 + 750 💰', inline: false }
@@ -1274,7 +1274,7 @@ client.on('messageCreate', async (message) => {
             .setTitle(`${eventInfo.displayName} - Results 🏁`)
             .setDescription('The event has ended! Here are your results:')
             .addFields(
-              { name: '📊 Your Performance', value: `**Final Score:** ${eventInfo.userScore}`, inline: false }
+              { name: '📊 Your Performance', value: `**Final Score:** ${eventInfo.userScore}\n**Final Rank:** ${eventInfo.userRank}`, inline: false }
             );
           
           if (eventInfo.leaderboard && eventInfo.leaderboard.length > 0) {
