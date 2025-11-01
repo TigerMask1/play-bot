@@ -1,5 +1,6 @@
 const CHARACTERS = require('./characters.js');
 const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
+const eventSystem = require('./eventSystem.js');
 
 const CRATE_TYPES = {
   gold: {
@@ -32,7 +33,7 @@ function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
-function openCrate(data, userId, crateType) {
+async function openCrate(data, userId, crateType) {
   const crate = CRATE_TYPES[crateType];
   const user = data.users[userId];
   
@@ -45,6 +46,8 @@ function openCrate(data, userId, crateType) {
   
   user.gems -= crate.cost;
   user.coins += crate.coins;
+  
+  await eventSystem.recordProgress(userId, user.username, 1, 'crate_master');
   
   let rewards = `💰 ${crate.coins} coins`;
   

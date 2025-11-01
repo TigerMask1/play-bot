@@ -301,7 +301,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const result = openCrate(data, userId, crateType);
+        const result = await openCrate(data, userId, crateType);
         
         if (!result.success) {
           await message.reply(`❌ ${result.message}`);
@@ -506,6 +506,8 @@ client.on('messageCreate', async (message) => {
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
               data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
               
+              await eventSystem.recordProgress(userId, data.users[userId].username, 1, 'drop_catcher');
+              
               saveData(data);
               
               const dropEmbed = new EmbedBuilder()
@@ -530,6 +532,8 @@ client.on('messageCreate', async (message) => {
             
             if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
             data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
+            
+            await eventSystem.recordProgress(userId, data.users[userId].username, 1, 'drop_catcher');
             
             saveData(data);
             

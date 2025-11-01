@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { saveData } = require('./dataManager.js');
 const { calculateBaseHP, calculateDamage, getMoveDisplay } = require('./battleUtils.js');
+const eventSystem = require('./eventSystem.js');
 
 const activeBattles = new Map();
 const battleInvites = new Map();
@@ -440,6 +441,8 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     
     if (!data.users[winner].questProgress) data.users[winner].questProgress = {};
     data.users[winner].questProgress.battlesWon = (data.users[winner].questProgress.battlesWon || 0) + 1;
+    
+    await eventSystem.recordProgress(winner, data.users[winner].username, 5, 'trophy_hunt');
     
     saveData(data);
     
