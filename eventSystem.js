@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const mongoManager = require('./mongoManager');
+const dataManager = require('./dataManager');
 const { ObjectId } = require('mongodb');
 
 const EVENT_TYPES = ['trophy_hunt', 'crate_master', 'drop_catcher'];
@@ -19,11 +20,11 @@ const EVENT_DESCRIPTIONS = {
 
 let currentEventTimer = null;
 let botClient = null;
-let dataManager = null;
+let eventChannelId = null;
 
 async function init(client, data) {
   botClient = client;
-  dataManager = data;
+  eventChannelId = data.eventChannelId;
   
   const activeEvent = await mongoManager.getCurrentEvent();
   
@@ -56,7 +57,11 @@ function scheduleEventEnd(event, timeUntilEnd) {
 }
 
 async function startNextEvent() {
-  const lastEvent = await mongoManager.getCurrentEvent();
+  const eventsCollection = await mongoManager.getCollection('events');
+  const lastEvent = await eventsCollection.findOne(
+    {},
+    { sort: { startAt: -1 } }
+  );
   
   let rotationIndex = 0;
   if (lastEvent && lastEvent.rotationIndex !== undefined) {
@@ -73,7 +78,7 @@ async function startNextEvent() {
     startAt,
     endAt,
     rotationIndex,
-    announcementChannelId: dataManager.eventChannelId,
+    announcementChannelId: eventChannelId,
     leaderboardSnapshot: null,
     rewardsDistributed: false
   };
@@ -129,7 +134,17 @@ async function distributeRewards(event, leaderboard) {
     const userId = participant.userId;
     
     if (!data.users[userId]) {
-      data.users[userId] = { coins: 0, gems: 0, characters: {} };
+      data.users[userId] = {
+        coins: 0,
+        gems: 0,
+        characters: [],
+        selectedCharacter: null,
+        pendingTokens: 0,
+        started: false,
+        trophies: 200,
+        messageCount: 0,
+        lastDailyClaim: null
+      };
     }
     
     if (i < 3 && i < rewards.length) {
