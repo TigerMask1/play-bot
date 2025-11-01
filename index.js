@@ -1274,7 +1274,7 @@ client.on('messageCreate', async (message) => {
             .setTitle(`${eventInfo.displayName} - Results 🏁`)
             .setDescription('The event has ended! Here are your results:')
             .addFields(
-              { name: '📊 Your Performance', value: `**Final Score:** ${eventInfo.userScore}\n**Final Rank:** ${eventInfo.userRank}`, inline: false }
+              { name: '📊 Your Performance', value: `**Final Score:** ${eventInfo.userScore}`, inline: false }
             );
           
           if (eventInfo.leaderboard && eventInfo.leaderboard.length > 0) {
