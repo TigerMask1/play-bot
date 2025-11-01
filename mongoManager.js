@@ -63,14 +63,16 @@ async function loadData() {
     return {
       users: userData,
       dropChannelId: config?.dropChannelId || null,
-      battleChannelId: config?.battleChannelId || null
+      battleChannelId: config?.battleChannelId || null,
+      eventChannelId: config?.eventChannelId || null
     };
   } catch (error) {
     console.error('Error loading data from MongoDB:', error);
     return {
       users: {},
       dropChannelId: null,
-      battleChannelId: null
+      battleChannelId: null,
+      eventChannelId: null
     };
   }
 }
@@ -100,7 +102,8 @@ async function saveData(data) {
       { 
         $set: { 
           dropChannelId: data.dropChannelId,
-          battleChannelId: data.battleChannelId
+          battleChannelId: data.battleChannelId,
+          eventChannelId: data.eventChannelId
         } 
       },
       { upsert: true }
@@ -129,11 +132,104 @@ async function clearAllData() {
   }
 }
 
+async function getCurrentEvent() {
+  try {
+    const eventsCollection = await getCollection('events');
+    const event = await eventsCollection.findOne(
+      { status: 'active' },
+      { sort: { startAt: -1 } }
+    );
+    return event;
+  } catch (error) {
+    console.error('Error getting current event:', error);
+    return null;
+  }
+}
+
+async function createEvent(eventData) {
+  try {
+    const eventsCollection = await getCollection('events');
+    await eventsCollection.createIndex({ status: 1, startAt: -1 });
+    const result = await eventsCollection.insertOne(eventData);
+    return result.insertedId;
+  } catch (error) {
+    console.error('Error creating event:', error);
+    return null;
+  }
+}
+
+async function updateEvent(eventId, updateData) {
+  try {
+    const eventsCollection = await getCollection('events');
+    await eventsCollection.updateOne(
+      { _id: eventId },
+      { $set: updateData }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error updating event:', error);
+    return false;
+  }
+}
+
+async function recordEventProgress(eventId, userId, username, delta) {
+  try {
+    const participantsCollection = await getCollection('event_participants');
+    await participantsCollection.createIndex({ eventId: 1, userId: 1 }, { unique: true });
+    await participantsCollection.createIndex({ eventId: 1, score: -1 });
+    
+    await participantsCollection.updateOne(
+      { eventId, userId },
+      { 
+        $inc: { score: delta },
+        $set: { username, updatedAt: new Date() },
+        $setOnInsert: { createdAt: new Date() }
+      },
+      { upsert: true }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error recording event progress:', error);
+    return false;
+  }
+}
+
+async function getEventParticipants(eventId) {
+  try {
+    const participantsCollection = await getCollection('event_participants');
+    const participants = await participantsCollection
+      .find({ eventId })
+      .sort({ score: -1 })
+      .toArray();
+    return participants;
+  } catch (error) {
+    console.error('Error getting event participants:', error);
+    return [];
+  }
+}
+
+async function getEventParticipant(eventId, userId) {
+  try {
+    const participantsCollection = await getCollection('event_participants');
+    const participant = await participantsCollection.findOne({ eventId, userId });
+    return participant;
+  } catch (error) {
+    console.error('Error getting event participant:', error);
+    return null;
+  }
+}
+
 module.exports = {
   connect,
   disconnect,
   loadData,
   saveData,
   clearAllData,
-  getCollection
+  getCollection,
+  getCurrentEvent,
+  createEvent,
+  updateEvent,
+  recordEventProgress,
+  getEventParticipants,
+  getEventParticipant
 };
