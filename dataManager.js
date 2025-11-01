@@ -120,6 +120,11 @@ function backfillUserData(data) {
     needsSave = true;
   }
   
+  if (!data.eventChannelId) {
+    data.eventChannelId = null;
+    needsSave = true;
+  }
+  
   delete data.currentDrop;
   
   return { data, needsSave };
@@ -142,7 +147,8 @@ async function loadData() {
       return {
         users: {},
         dropChannelId: null,
-        battleChannelId: null
+        battleChannelId: null,
+        eventChannelId: null
       };
     }
   } else {
@@ -156,7 +162,8 @@ async function loadData() {
         data = {
           users: {},
           dropChannelId: null,
-          battleChannelId: null
+          battleChannelId: null,
+          eventChannelId: null
         };
       }
     } catch (error) {
@@ -164,7 +171,8 @@ async function loadData() {
       data = {
         users: {},
         dropChannelId: null,
-        battleChannelId: null
+        battleChannelId: null,
+        eventChannelId: null
       };
     }
     

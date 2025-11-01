@@ -50,6 +50,7 @@ const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMa
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
+const eventSystem = require('./eventSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -68,6 +69,8 @@ client.on('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
+  await eventSystem.init(client, data);
+  console.log('✅ Event system initialized');
 });
 
 client.on('messageCreate', async (message) => {
@@ -1235,6 +1238,56 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [dailyEmbed] });
         break;
         
+      case 'event':
+        const eventInfo = await eventSystem.getEventInfo(userId);
+        
+        if (eventInfo.status === 'no_event') {
+          await message.reply('❌ No event is currently active.');
+          return;
+        }
+        
+        if (eventInfo.status === 'active') {
+          const eventEmbed = new EmbedBuilder()
+            .setColor('#00D9FF')
+            .setTitle(`${eventInfo.displayName} - Active! 🎉`)
+            .setDescription(eventInfo.description)
+            .addFields(
+              { name: '⏰ Time Remaining', value: eventInfo.timeRemaining, inline: true },
+              { name: '👥 Participants', value: `${eventInfo.totalParticipants}`, inline: true }
+            )
+            .addFields(
+              { name: '📊 Your Stats', value: `**Points:** ${eventInfo.userScore}\n**Rank:** ${eventInfo.userRank}`, inline: false }
+            )
+            .addFields(
+              { name: '🏆 Prizes', value: '🥇 1st: 500 💎 + 5,000 💰\n🥈 2nd: 250 💎 + 2,500 💰\n🥉 3rd: 150 💎 + 1,500 💰\n🎖️ Top 5%: 75 💎 + 750 💰', inline: false }
+            )
+            .setTimestamp();
+          
+          await message.reply({ embeds: [eventEmbed] });
+        } else if (eventInfo.status === 'ended') {
+          const resultEmbed = new EmbedBuilder()
+            .setColor('#FFD700')
+            .setTitle(`${eventInfo.displayName} - Results 🏁`)
+            .setDescription('The event has ended! Here are your results:')
+            .addFields(
+              { name: '📊 Your Performance', value: `**Final Score:** ${eventInfo.userScore}\n**Final Rank:** ${eventInfo.userRank}`, inline: false }
+            );
+          
+          if (eventInfo.leaderboard && eventInfo.leaderboard.length > 0) {
+            const top3Text = eventInfo.leaderboard.map((p, i) => {
+              const medals = ['🥇', '🥈', '🥉'];
+              return `${medals[i]} **${p.username}** - ${p.score} points`;
+            }).join('\n');
+            
+            resultEmbed.addFields({ name: '🏆 Top 3', value: top3Text, inline: false });
+          }
+          
+          resultEmbed.addFields({ name: '📅 Next Event', value: 'A new event is starting soon!', inline: false });
+          
+          await message.reply({ embeds: [resultEmbed] });
+        }
+        break;
+        
       case 'setbattle':
         if (!isAdmin) {
           await message.reply('❌ You need Administrator permission!');
@@ -1269,6 +1322,17 @@ client.on('messageCreate', async (message) => {
         saveData(data);
         
         await message.reply(`✅ Set <@${trophyUser.id}>'s trophies to **${trophyAmount}** 🏆`);
+        break;
+        
+      case 'setevent':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        data.eventChannelId = message.channel.id;
+        saveData(data);
+        await message.reply(`✅ Event announcement channel set to ${message.channel}! All event start/end announcements will be posted here.`);
         break;
         
       case 'reset':
