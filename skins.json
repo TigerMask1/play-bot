@@ -6,10 +6,12 @@
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Betsy001.webp"
   },
   "Bruce": {
-    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Bruce001-removebg-preview.png"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Bruce001-removebg-preview.png",
+    "royal_bruce": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/royal_bruce.png"
   },
   "Buck": {
-    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Buck001-removebg-preview.png"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Buck001-removebg-preview.png",
+    "royal_buck": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/royal_buck.png"
   },
   "Buddy": {
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Buddy1.png"
@@ -92,7 +94,8 @@
     "default": "https://picsum.photos/seed/nina/400/400"
   },
   "Nix": {
-    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Nix001-removebg-preview.png"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Nix001-removebg-preview.png",
+    "royal_nix": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/royal_nix.png"
     
   },
   "Ollie": {
