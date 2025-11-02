@@ -57,7 +57,8 @@
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Jack001.webp"
   },
   "Jade": {
-    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Jade.png"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Jade.png",
+    "Owner": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Owner.png"
   },
   "Joy": {
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Joy1.webp"
