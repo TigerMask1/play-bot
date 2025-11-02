@@ -1,9 +1,9 @@
 {
   "Bali": {
-    "default": "https://picsum.photos/seed/bali/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Bail1.webp"
   },
   "Betsy": {
-    "default": "https://picsum.photos/seed/betsy/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Betsy001.webp"
   },
   "Bruce": {
     "default": "https://picsum.photos/seed/bruce/400/400"
@@ -12,7 +12,7 @@
     "default": "https://picsum.photos/seed/buck/400/400"
   },
   "Buddy": {
-    "default": "https://picsum.photos/seed/buddy/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Buddy1.png"
   },
   "Caly": {
     "default": "https://raw.githubusercontent.com/TigerMask1/zooimg/main/Caly1.png"
@@ -42,7 +42,7 @@
     "default": "https://picsum.photos/seed/finn/400/400"
   },
   "Frank": {
-    "default": "https://picsum.photos/seed/frank/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Frank002.webp"
   },
   "Fuzzy": {
     "default": "https://picsum.photos/seed/fuzzy/400/400"
@@ -54,59 +54,59 @@
     "default": "https://picsum.photos/seed/iris/400/400"
   },
   "Jack": {
-    "default": "https://picsum.photos/seed/jack/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Jack001.webp"
   },
   "Jade": {
-    "default": "https://picsum.photos/seed/jade/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Jade001__1_-removebg-preview.png"
   },
   "Joy": {
-    "default": "https://picsum.photos/seed/joy/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Joy1.webp"
   },
   "Larry": {
     "default": "https://picsum.photos/seed/larry/400/400"
   },
   "Lennon": {
-    "default": "https://picsum.photos/seed/lennon/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Lennon1.webp"
   },
   "Lizzy": {
-    "default": "https://picsum.photos/seed/lizzy/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Lizzy001-removebg-preview.png"
   },
   "Louie": {
-    "default": "https://picsum.photos/seed/louie/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Louie001-removebg-preview.png"
   },
   "Max": {
     "default": "https://picsum.photos/seed/max/400/400"
   },
   "Milo": {
-    "default": "https://picsum.photos/seed/milo/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Milo001-removebg-preview.png"
   },
   "Molly": {
-    "default": "https://picsum.photos/seed/molly/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Molly001-removebg-preview.png"
   },
   "Nico": {
-    "default": "https://picsum.photos/seed/nico/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Nico1.png"
   },
   "Nina": {
     "default": "https://picsum.photos/seed/nina/400/400"
   },
   "Nix": {
-    "default": "https://picsum.photos/seed/nix/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Nix001-removebg-preview.png"
     
   },
   "Ollie": {
     "default": "https://picsum.photos/seed/ollie/400/400"
   },
   "Paco": {
-    "default": "https://picsum.photos/seed/paco/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Paco1.webp"
   },
   "Paolo": {
-    "default": "https://picsum.photos/seed/paolo/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Paolo001-removebg-preview.png"
   },
   "Pepper": {
-    "default": "https://picsum.photos/seed/pepper/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Pepper.webp"
   },
   "Phil": {
-    "default": "https://picsum.photos/seed/phil/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Phil1.webp"
   },
   "Poe": {
     "default": "https://picsum.photos/seed/poe/400/400"
@@ -118,39 +118,39 @@
     "default": "https://picsum.photos/seed/ravi/400/400"
   },
   "Rocky": {
-    "default": "https://picsum.photos/seed/rocky/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Rocky1.png"
   },
   "Romeo": {
-    "default": "https://picsum.photos/seed/romeo/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Romeo.webp"
   },
   "Rubie": {
-    "default": "https://picsum.photos/seed/rubie/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Ruby1.png"
   },
   "Shelly": {
-    "default": "https://picsum.photos/seed/shelly/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Shelly001-removebg-preview.png"
   },
   "Skippy": {
     "default": "https://picsum.photos/seed/skippy/400/400"
   },
   "Steve": {
-    "default": "https://picsum.photos/seed/steve/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Steve001-removebg-preview.png"
   },
   "Suzy": {
-    "default": "https://picsum.photos/seed/suzy/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Suzy1.webp"
   },
   "Tony": {
-    "default": "https://picsum.photos/seed/tony/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Tony001.webp"
   },
   "Ursula": {
-    "default": "https://picsum.photos/seed/ursula/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Ursula1.webp"
   },
   "Wanda": {
     "default": "https://picsum.photos/seed/wanda/400/400"
   },
   "Yara": {
-    "default": "https://picsum.photos/seed/yara/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Yara001-removebg-preview.png"
   },
   "Zac": {
-    "default": "https://picsum.photos/seed/zac/400/400"
+    "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Zac001-removebg-preview.png"
   }
 }
