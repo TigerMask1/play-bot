@@ -90,8 +90,8 @@
     "default": "https://picsum.photos/seed/nina/400/400"
   },
   "Nix": {
-    "default": "https://static.wikia.nocookie.net/zooba/images/4/4f/Nix001.png/revision/latest?cb=20230617161911"
-    "arctic nix": "https://static.wikia.nocookie.net/zooba/images/6/62/Arctic_Nix_Skin.png/revision/latest/scale-to-width-down/250?cb=20210309225018"
+    "default": "https://picsum.photos/seed/nix/400/400"
+    
   },
   "Ollie": {
     "default": "https://picsum.photos/seed/ollie/400/400"
