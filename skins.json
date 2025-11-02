@@ -40,7 +40,7 @@
   },
   "Finn": {
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Finn001-removebg-preview.png",
-    "neon finn": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Neon_finn.png"
+    "neon_finn": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Neon_finn.png"
   },
   "Frank": {
     "default": "https://cdn.jsdelivr.net/gh/TigerMask1/zooimg@main/Frank002.webp"
