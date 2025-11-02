@@ -669,7 +669,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const grantedST = generateST();
+        const grantedST = (!isNaN(parseInt(args[2])) && parseInt(args[2]) > 0 && parseInt(args[2]) <= 200) ? parseInt(args[2]) : generateST();
         const wasFirstChar = data.users[charUser.id].characters.length === 0;
         const pendingToGrant = wasFirstChar ? (data.users[charUser.id].pendingTokens || 0) : 0;
         
