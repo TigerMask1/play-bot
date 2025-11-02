@@ -70,7 +70,8 @@ client.on('ready', async () => {
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
   await eventSystem.init(client, data);
-  console.log('✅ Event system initialized');
+  startDropSystem(client, data);
+  console.log('✅ Event system initialized and drops on!');
 });
 
 client.on('messageCreate', async (message) => {
