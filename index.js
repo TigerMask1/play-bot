@@ -942,27 +942,94 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [infoEmbed] });
         break;
         
-      case 'quests':
-        const questPage = parseInt(args[0]) || 1;
-        const availableQuests = getAvailableQuests(data.users[userId]);
-        const questsPerPage = 5;
-        const totalQuestPages = Math.ceil(availableQuests.length / questsPerPage);
-        const startQuestIdx = (questPage - 1) * questsPerPage;
-        const endQuestIdx = startQuestIdx + questsPerPage;
-        const questsToShow = availableQuests.slice(startQuestIdx, endQuestIdx);
-        
-        const completedCount = data.users[userId].completedQuests?.length || 0;
-        
-        const questsList = questsToShow.map(q => formatQuestDisplay(data.users[userId], q)).join('\n\n');
-        
-        const questsEmbed = new EmbedBuilder()
-          .setColor('#E67E22')
-          .setTitle('📜 Quest Log')
-          .setDescription(`**Completed:** ${completedCount}/${QUESTS.length}\n\n${questsList || 'No quests available!'}`)
-          .setFooter({ text: `Page ${questPage}/${totalQuestPages} | Use !quest <id> to view details or !claim <id> to claim` });
-        
-        await message.reply({ embeds: [questsEmbed] });
-        break;
+      case 'quests': {
+  const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+  
+  const user = data.users[userId];
+  const availableQuests = getAvailableQuests(user);
+  const questsPerPage = 5;
+  const totalQuestPages = Math.ceil(availableQuests.length / questsPerPage);
+  let currentPage = 1;
+
+  // --- Embed builder ---
+  const buildQuestEmbed = (page) => {
+    const startIdx = (page - 1) * questsPerPage;
+    const endIdx = startIdx + questsPerPage;
+    const questsToShow = availableQuests.slice(startIdx, endIdx);
+    const completedCount = user.completedQuests?.length || 0;
+    const questsList = questsToShow.map(q => formatQuestDisplay(user, q)).join('\n\n') || 'No quests available!';
+
+    return new EmbedBuilder()
+      .setColor('#E67E22')
+      .setTitle('📜 Quest Log')
+      .setDescription(`**Completed:** ${completedCount}/${QUESTS.length}\n\n${questsList}`)
+      .setFooter({ text: `Page ${page}/${totalQuestPages} | Use !quest <id> for details` });
+  };
+
+  // --- Button row ---
+  const buildButtons = (page) => {
+    return new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('prev')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page === 1),
+      new ButtonBuilder()
+        .setCustomId('close')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('next')
+        .setEmoji('➡️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page === totalQuestPages)
+    );
+  };
+
+  // --- Send initial embed with buttons ---
+  const messageWithButtons = await message.reply({
+    embeds: [buildQuestEmbed(currentPage)],
+    components: [buildButtons(currentPage)]
+  });
+
+  // --- Collector to handle clicks ---
+  const collector = messageWithButtons.createMessageComponentCollector({
+    time: 120000 // 2 mins
+  });
+
+  collector.on('collect', async (interaction) => {
+    if (interaction.user.id !== userId) {
+      await interaction.reply({ content: "❌ This isn't your quest log!", ephemeral: true });
+      return;
+    }
+
+    if (interaction.customId === 'prev' && currentPage > 1) currentPage--;
+    else if (interaction.customId === 'next' && currentPage < totalQuestPages) currentPage++;
+    else if (interaction.customId === 'close') {
+      await interaction.message.delete().catch(() => {});
+      collector.stop('closed');
+      return;
+    }
+
+    await interaction.update({
+      embeds: [buildQuestEmbed(currentPage)],
+      components: [buildButtons(currentPage)]
+    });
+  });
+
+  collector.on('end', async (_, reason) => {
+    if (reason === 'closed') return;
+    const disabledRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('prev').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(true),
+      new ButtonBuilder().setCustomId('close').setEmoji('🗑️').setStyle(ButtonStyle.Danger).setDisabled(true),
+      new ButtonBuilder().setCustomId('next').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(true)
+    );
+
+    await messageWithButtons.edit({ components: [disabledRow] }).catch(() => {});
+  });
+
+  break;
+      }
         
       case 'quest':
         const questId = parseInt(args[0]);
