@@ -1244,7 +1244,8 @@ client.on('messageCreate', async (message) => {
         
       case 'event':
         const eventInfo = await eventSystem.getEventInfo(userId);
-        
+
+      
         if (eventInfo.status === 'no_event') {
           await message.reply('❌ No event is currently active.');
           return;
@@ -1291,7 +1292,105 @@ client.on('messageCreate', async (message) => {
           await message.reply({ embeds: [resultEmbed] });
         }
         break;
-        
+
+        case 'lastrank': {
+  const eventsCollection = await mongoManager.getCollection('events');
+
+  // 1️⃣ Fetch the most recent ended event
+  let lastEvent = await eventsCollection.findOne(
+    { status: 'ended' },
+    { sort: { endAt: -1 } }
+  );
+
+  // Fallback: if no ended event, get latest active one
+  if (!lastEvent) {
+    lastEvent = await eventsCollection.findOne({}, { sort: { startAt: -1 } });
+  }
+
+  if (!lastEvent) {
+    await message.reply('❌ No event data found.');
+    break;
+  }
+
+  const leaderboard = lastEvent.leaderboardSnapshot || [];
+  if (!leaderboard.length) {
+    await message.reply('⚠️ No leaderboard data found for the last event.');
+    break;
+  }
+
+  // Sort by score descending (just to be safe)
+  leaderboard.sort((a, b) => b.score - a.score);
+
+  // 2️⃣ Prepare top 3 players
+  const top3 = leaderboard.slice(0, 3);
+
+  // 3️⃣ Find invoking user
+  const userId = message.author.id;
+  const userEntryIndex = leaderboard.findIndex(p => p.userId === userId);
+  const totalPlayers = leaderboard.length;
+
+  let userRankText = '';
+  if (userEntryIndex !== -1) {
+    const userRank = userEntryIndex + 1;
+    const percentile = (userRank / totalPlayers) * 100;
+
+    let rankLabel;
+    if (percentile <= 5) rankLabel = 'Top 5% 🏆';
+    else if (percentile <= 10) rankLabel = 'Top 10% 🎖️';
+    else if (percentile <= 25) rankLabel = 'Top 25% 💪';
+    else rankLabel = 'Not in top ranks 😅';
+
+    userRankText = `You ranked **#${userRank}** out of **${totalPlayers}** players — ${rankLabel}`;
+  } else {
+    userRankText = `😔 You didn’t participate or didn’t make it to the rankings.`;
+  }
+
+  // 4️⃣ Prepare event details
+  const eventType = lastEvent.eventType || 'unknown';
+  const displayName = {
+    trophy_hunt: '🏆 Trophy Hunt',
+    crate_master: '📦 Crate Master',
+    drop_catcher: '💰 Drop Catcher'
+  }[eventType] || 'Unknown Event';
+
+  // 5️⃣ Build Embed
+  const embed = new EmbedBuilder()
+    .setColor('#FFD700')
+    .setTitle(`${displayName} — Last Event Results 🏁`)
+    .setDescription(`Here are the top 3 performers from the last event:`)
+    .setTimestamp()
+    .addFields(
+      {
+        name: '🥇 1st Place',
+        value: `**${top3[0]?.username || 'Unknown'}** — ${top3[0]?.score || 0} points`,
+        inline: false,
+      },
+      {
+        name: '🥈 2nd Place',
+        value: `**${top3[1]?.username || 'Unknown'}** — ${top3[1]?.score || 0} points`,
+        inline: false,
+      },
+      {
+        name: '🥉 3rd Place',
+        value: `**${top3[2]?.username || 'Unknown'}** — ${top3[2]?.score || 0} points`,
+        inline: false,
+      },
+      {
+        name: '🧍‍♂️ Your Rank',
+        value: userRankText,
+        inline: false,
+      },
+    )
+    .setFooter({
+      text: `Event Duration: ${new Date(lastEvent.startAt).toLocaleString()} → ${new Date(lastEvent.endAt).toLocaleString()}`,
+    });
+
+  if (!lastEvent.announcementChannelId)
+    embed.setFooter({ text: '⚠️ Announcement channel was missing for this event.' });
+
+  await message.reply({ embeds: [embed] });
+  break;
+        }
       case 'setbattle':
         if (!isAdmin) {
           await message.reply('❌ You need Administrator permission!');
