@@ -22,23 +22,43 @@ let currentEventTimer = null;
 let botClient = null;
 let eventChannelId = null;
 
+// ✅ Fixed permanent channel ID
+const FIXED_CHANNEL_ID = '1432171168168808620';
+
 async function init(client, data) {
   botClient = client;
-  eventChannelId = data.eventChannelId;
-  
+
+  // ✅ Always force event channel to the fixed ID
+  eventChannelId = FIXED_CHANNEL_ID;
+  data.eventChannelId = FIXED_CHANNEL_ID;
+
+  // ✅ Save it to your MongoDB/data file for consistency
+  await dataManager.saveData(data);
+
+  // ✅ Check if an active event exists
   const activeEvent = await mongoManager.getCurrentEvent();
-  
+
   if (activeEvent) {
+    // If it uses an old/wrong channel, fix it
+    if (activeEvent.announcementChannelId !== FIXED_CHANNEL_ID) {
+      await mongoManager.updateEvent(activeEvent._id, {
+        announcementChannelId: FIXED_CHANNEL_ID
+      });
+      console.log(`🔧 Updated active event channel to fixed ID: ${FIXED_CHANNEL_ID}`);
+    }
+
     const now = new Date();
     const endAt = new Date(activeEvent.endAt);
-    
+
     if (now >= endAt) {
       await endEvent(activeEvent);
       await startNextEvent();
     } else {
       const timeUntilEnd = endAt - now;
       scheduleEventEnd(activeEvent, timeUntilEnd);
-      console.log(`📅 Event "${EVENT_DISPLAY_NAMES[activeEvent.eventType]}" is active, ends in ${Math.round(timeUntilEnd / 1000 / 60)} minutes`);
+      console.log(
+        `📅 Event "${EVENT_DISPLAY_NAMES[activeEvent.eventType]}" is active, ends in ${Math.round(timeUntilEnd / 1000 / 60)} minutes`
+      );
     }
   } else {
     await startNextEvent();
@@ -49,7 +69,7 @@ function scheduleEventEnd(event, timeUntilEnd) {
   if (currentEventTimer) {
     clearTimeout(currentEventTimer);
   }
-  
+
   currentEventTimer = setTimeout(async () => {
     await endEvent(event);
     await startNextEvent();
@@ -58,59 +78,55 @@ function scheduleEventEnd(event, timeUntilEnd) {
 
 async function startNextEvent() {
   const eventsCollection = await mongoManager.getCollection('events');
-  const lastEvent = await eventsCollection.findOne(
-    {},
-    { sort: { startAt: -1 } }
-  );
-  
+  const lastEvent = await eventsCollection.findOne({}, { sort: { startAt: -1 } });
+
   let rotationIndex = 0;
   if (lastEvent && lastEvent.rotationIndex !== undefined) {
     rotationIndex = (lastEvent.rotationIndex + 1) % EVENT_TYPES.length;
   }
-  
+
   const eventType = EVENT_TYPES[rotationIndex];
   const startAt = new Date();
   const endAt = new Date(startAt.getTime() + EVENT_DURATION_MS);
-  
+
   const eventData = {
     eventType,
     status: 'active',
     startAt,
     endAt,
     rotationIndex,
-    announcementChannelId: eventChannelId,
+    announcementChannelId: FIXED_CHANNEL_ID, // ✅ Always fixed
     leaderboardSnapshot: null,
     rewardsDistributed: false
   };
-  
+
   const eventId = await mongoManager.createEvent(eventData);
   eventData._id = eventId;
-  
+
   scheduleEventEnd(eventData, EVENT_DURATION_MS);
-  
   await announceEventStart(eventData);
-  
+
   console.log(`🎉 Started new event: ${EVENT_DISPLAY_NAMES[eventType]}`);
 }
 
 async function endEvent(event) {
   const participants = await mongoManager.getEventParticipants(event._id);
-  
+
   const leaderboard = participants.map((p, index) => ({
     rank: index + 1,
     userId: p.userId,
     username: p.username,
     score: p.score
   }));
-  
+
   await mongoManager.updateEvent(event._id, {
     status: 'ended',
     leaderboardSnapshot: leaderboard
   });
-  
+
   await distributeRewards(event, leaderboard);
   await announceEventEnd(event, leaderboard);
-  
+
   console.log(`🏁 Ended event: ${EVENT_DISPLAY_NAMES[event.eventType]}`);
 }
 
@@ -118,21 +134,20 @@ async function distributeRewards(event, leaderboard) {
   if (leaderboard.length === 0) {
     return;
   }
-  
+
   const rewards = [
     { gems: 500, coins: 5000 },
     { gems: 250, coins: 2500 },
     { gems: 150, coins: 1500 }
   ];
-  
+
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
-  
   const data = await dataManager.loadData();
-  
+
   for (let i = 0; i < leaderboard.length; i++) {
     const participant = leaderboard[i];
     const userId = participant.userId;
-    
+
     if (!data.users[userId]) {
       data.users[userId] = {
         coins: 0,
@@ -146,7 +161,7 @@ async function distributeRewards(event, leaderboard) {
         lastDailyClaim: null
       };
     }
-    
+
     if (i < 3 && i < rewards.length) {
       data.users[userId].gems = (data.users[userId].gems || 0) + rewards[i].gems;
       data.users[userId].coins = (data.users[userId].coins || 0) + rewards[i].coins;
@@ -155,18 +170,18 @@ async function distributeRewards(event, leaderboard) {
       data.users[userId].coins = (data.users[userId].coins || 0) + 750;
     }
   }
-  
+
   await dataManager.saveData(data);
   await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
 }
 
 async function announceEventStart(event) {
-  if (!event.announcementChannelId || !botClient) return;
-  
+  if (!botClient) return;
+
   try {
-    const channel = await botClient.channels.fetch(event.announcementChannelId);
+    const channel = await botClient.channels.fetch(FIXED_CHANNEL_ID);
     if (!channel) return;
-    
+
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle(`${EVENT_DISPLAY_NAMES[event.eventType]} Has Started! 🎉`)
@@ -181,9 +196,13 @@ async function announceEventStart(event) {
         { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰', inline: true },
         { name: '🎖️ Top 5%', value: '75 💎 + 750 💰', inline: true }
       )
-      .addFields({ name: '📊 Track Progress', value: 'Use `!event` to see your current points!', inline: false })
+      .addFields({
+        name: '📊 Track Progress',
+        value: 'Use `!event` to see your current points!',
+        inline: false
+      })
       .setTimestamp();
-    
+
     await channel.send({ content: '@everyone', embeds: [embed] });
   } catch (error) {
     console.error('Error announcing event start:', error);
@@ -191,29 +210,33 @@ async function announceEventStart(event) {
 }
 
 async function announceEventEnd(event, leaderboard) {
-  if (!event.announcementChannelId || !botClient) return;
-  
+  if (!botClient) return;
+
   try {
-    const channel = await botClient.channels.fetch(event.announcementChannelId);
+    const channel = await botClient.channels.fetch(FIXED_CHANNEL_ID);
     if (!channel) return;
-    
+
     const embed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle(`${EVENT_DISPLAY_NAMES[event.eventType]} Has Ended! 🏁`)
       .setDescription('Thank you to all participants! Here are the winners:')
       .setTimestamp();
-    
+
     if (leaderboard.length === 0) {
-      embed.addFields({ name: '🏆 Winners', value: 'None - No participants', inline: false });
+      embed.addFields({
+        name: '🏆 Winners',
+        value: 'None - No participants',
+        inline: false
+      });
     } else {
       const top3 = leaderboard.slice(0, 3);
       const medals = ['🥇', '🥈', '🥉'];
-      
+
       for (let i = 0; i < 3; i++) {
         if (i < top3.length) {
           const participant = top3[i];
           embed.addFields({
-            name: `${medals[i]} ${i + 1}st Place`,
+            name: `${medals[i]} ${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'} Place`,
             value: `${participant.username} - ${participant.score} points`,
             inline: false
           });
@@ -225,10 +248,10 @@ async function announceEventEnd(event, leaderboard) {
           });
         }
       }
-      
+
       const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
       const top5PercentOthers = Math.max(0, top5PercentCount - 3);
-      
+
       if (top5PercentOthers > 0) {
         embed.addFields({
           name: '🎖️ Top 5%',
@@ -237,9 +260,13 @@ async function announceEventEnd(event, leaderboard) {
         });
       }
     }
-    
-    embed.addFields({ name: '📊 View Results', value: 'Use `!event` to see your rank and points!', inline: false });
-    
+
+    embed.addFields({
+      name: '📊 View Results',
+      value: 'Use `!event` to see your rank and points!',
+      inline: false
+    });
+
     await channel.send({ content: '@everyone', embeds: [embed] });
   } catch (error) {
     console.error('Error announcing event end:', error);
@@ -248,39 +275,47 @@ async function announceEventEnd(event, leaderboard) {
 
 async function recordProgress(userId, username, delta, eventType) {
   const activeEvent = await mongoManager.getCurrentEvent();
-  
+
   if (!activeEvent || activeEvent.status !== 'active') {
     return false;
   }
-  
+
   if (activeEvent.eventType !== eventType) {
     return false;
   }
-  
-  return await mongoManager.recordEventProgress(activeEvent._id, userId, username, delta);
+
+  return await mongoManager.recordEventProgress(
+    activeEvent._id,
+    userId,
+    username,
+    delta
+  );
 }
 
 async function getEventInfo(userId) {
   const activeEvent = await mongoManager.getCurrentEvent();
-  
+
   if (!activeEvent) {
     return { status: 'no_event', message: 'No event is currently active.' };
   }
-  
+
   const now = new Date();
   const endAt = new Date(activeEvent.endAt);
-  
+
   if (activeEvent.status === 'active' && now < endAt) {
     const participants = await mongoManager.getEventParticipants(activeEvent._id);
-    const userParticipant = await mongoManager.getEventParticipant(activeEvent._id, userId);
-    
+    const userParticipant = await mongoManager.getEventParticipant(
+      activeEvent._id,
+      userId
+    );
+
     const userScore = userParticipant ? userParticipant.score : 0;
     const userRank = participants.findIndex(p => p.userId === userId) + 1;
-    
+
     const timeRemaining = endAt - now;
     const hoursRemaining = Math.floor(timeRemaining / 1000 / 60 / 60);
     const minutesRemaining = Math.floor((timeRemaining / 1000 / 60) % 60);
-    
+
     return {
       status: 'active',
       eventType: activeEvent.eventType,
@@ -295,7 +330,7 @@ async function getEventInfo(userId) {
   } else {
     const leaderboard = activeEvent.leaderboardSnapshot || [];
     const userEntry = leaderboard.find(p => p.userId === userId);
-    
+
     return {
       status: 'ended',
       eventType: activeEvent.eventType,
