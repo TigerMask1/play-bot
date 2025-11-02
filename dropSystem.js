@@ -23,10 +23,10 @@ function startDropSystem(client, data) {
   activeData = data;
 
   // If no drop channel is defined, use the default
-  if (!activeData.dropChannel) {
+   
     activeData.dropChannel = DEFAULT_DROP_CHANNEL;
     saveData(activeData);
-  }
+  
 
   // Create an interval for executing drops
   dropInterval = setInterval(() => {
