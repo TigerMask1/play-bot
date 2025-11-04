@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const mongoManager = require('./mongoManager');
-const dataManager = require('./dataManager');
+const { loadData, saveData } = require('./dataManager');
 const { ObjectId } = require('mongodb');
 
 const EVENT_TYPES = ['trophy_hunt', 'crate_master', 'drop_catcher'];
@@ -130,10 +130,9 @@ async function endEvent(event) {
   console.log(`🏁 Ended event: ${EVENT_DISPLAY_NAMES[event.eventType]}`);
 }
 
-async function distributeRewards(event, leaderboard) {
-  if (leaderboard.length === 0) {
-    return;
-  }
+
+      async function distributeRewards(event, leaderboard) {
+  if (!leaderboard.length) return;
 
   const rewards = [
     { gems: 500, coins: 5000 },
@@ -141,39 +140,28 @@ async function distributeRewards(event, leaderboard) {
     { gems: 150, coins: 1500 }
   ];
 
-  const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
-  const data = await dataManager.loadData();
+  const sorted = [...leaderboard].sort((a, b) => b.score - a.score);
+  const top5PercentCount = Math.max(1, Math.ceil(sorted.length * 0.05));
+  const data = await loadData();
 
-  for (let i = 0; i < leaderboard.length; i++) {
-    const participant = leaderboard[i];
-    const userId = participant.userId;
+  for (let i = 0; i < sorted.length; i++) {
+    const participant = sorted[i];
+    const userId = String(participant.userId);
 
-    if (!data.users[userId]) {
-      data.users[userId] = {
-        coins: 0,
-        gems: 0,
-        characters: [],
-        selectedCharacter: null,
-        pendingTokens: 0,
-        started: false,
-        trophies: 200,
-        messageCount: 0,
-        lastDailyClaim: null
-      };
-    }
+    if (!data.users[userId]) continue;
 
-    if (i < 3 && i < rewards.length) {
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewards[i].gems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewards[i].coins;
+    if (i < 3) {
+      data.users[userId].gems += rewards[i].gems;
+      data.users[userId].coins += rewards[i].coins;
     } else if (i < top5PercentCount) {
-      data.users[userId].gems = (data.users[userId].gems || 0) + 75;
-      data.users[userId].coins = (data.users[userId].coins || 0) + 750;
+      data.users[userId].gems += 75;
+      data.users[userId].coins += 750;
     }
   }
 
-  await dataManager.saveData(data);
+  saveData(data);
   await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
-}
+      }
 
 async function announceEventStart(event) {
   if (!botClient) return;
