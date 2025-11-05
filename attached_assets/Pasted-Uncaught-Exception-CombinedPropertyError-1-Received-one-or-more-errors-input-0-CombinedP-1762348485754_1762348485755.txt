@@ -1,0 +1,30 @@
+Uncaught Exception: CombinedPropertyError (1)
+  Received one or more errors
+  input[0]
+  | CombinedPropertyError (1)
+  |   Received one or more errors
+  | 
+  |   input.value
+  |   | ExpectedConstraintError > s.string().lengthLessThanOrEqual()
+  |   |   Invalid string length
+  |   | 
+  |   |   Expected: expected.length <= 1024
+  |   | 
+  |   |   Received:
+  |   |   | '**How to Battle:**\n`!battle @user` - Challenge another player\n`!b ai` - Fight an AI opponent (great for practice!)\n\n**AI Difficulty Levels:**\n`!b easy` - Level 1-3, 20-50% ST (50 coins, 1 trophy)\n`!b normal` - Level 3-7, 40-80% ST (75 coins, 3 trophies)\n`!b hard` - Level 8-12, 75-95% ST (100 coins, 5 trophies)\n\n**Battle Mechanics:**\n⚡ **Energy System:**\n- Start with 50 energy, regen 10 per turn (max 100)\n- Each move costs energy based on damage\n- Manage energy wisely!\n\n💥 **Damage & Moves:**\n- Attack moves deal damage\n- Heal moves restore HP (cost less energy)\n- Special moves are powerful character-specific attacks\n- Critical hits (10% chance) deal 1.5x damage!\n\n🎭 **Character Abilities:**\nEvery character has a unique passive ability!\nExamples:\n- Bali: Crits deal 50% MORE damage\n- Frank: Can\'t be stunned or frozen\n- Duke: Start with +20 energy\n- Nix: 20% chance to freeze opponent\n\n🛡️ **Status Effects:**\n- Burn: Take damage over time\n- Freeze: Skip your next turn\n- Poison: Gradual damage\n- Paralyze: Chance to skip turn\n- Stun: Forced to skip turn\n\n**Battle Items:**\nUse `!shop` to buy potions, energy drinks, and stat boosters!\nUse items mid-battle for strategic advantages!\n\n**Rewards:**\n- Winner: +5 trophies, coins\n- Loser: -7 trophies\n- Both: Battle quest progress!'
+    at _ArrayValidator.handle (/opt/render/project/src/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:1254:70)
+    at _ArrayValidator.parse (/opt/render/project/src/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:972:90)
+    at EmbedBuilder.addFields (/opt/render/project/src/node_modules/@discordjs/builders/dist/index.js:239:31)
+    at createTutorialEmbed (/opt/render/project/src/tutorialSystem.js:536:6)
+    at handleTutorialProgress (/opt/render/project/src/tutorialSystem.js:565:12)
+    at Client.<anonymous> (/opt/render/project/src/index.js:157:33)
+    at Client.emit (node:events:518:28)
+    at MessageCreateAction.handle (/opt/render/project/src/node_modules/discord.js/src/client/actions/MessageCreate.js:32:14)
+    at module.exports [as MESSAGE_CREATE] (/opt/render/project/src/node_modules/discord.js/src/client/websocket/handlers/MESSAGE_CREATE.js:4:32)
+    at WebSocketManager.handlePacket (/opt/render/project/src/node_modules/discord.js/src/client/websocket/WebSocketManager.js:352:31)
+error Command failed.
+info Visit https://yarnpkg.com/en/docs/cli/node for documentation about this command.
+Exit code: 1
+Command: /opt/render/project/nodes/node-22.16.0/bin/node
+Arguments: index.js
+Directory: /opt/render/project/src
