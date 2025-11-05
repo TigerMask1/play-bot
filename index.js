@@ -54,6 +54,7 @@ const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { createTutorialEmbed, handleTutorialProgress, handleMentionResponse, hasCompletedTutorial } = require('./tutorialSystem.js');
+const { initRaidSystem, stopRaidSystem, joinRaid, adminStartRaid, adminEndRaid, showRaidInfo } = require('./zooRaidSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -74,6 +75,7 @@ client.on('clientReady', async () => {
   await initializeBot();
   await eventSystem.init(client, data);
   startDropSystem(client, data);
+  initRaidSystem(client, data);
   console.log('✅ Event system initialized and drops on!');
 });
 
@@ -1614,11 +1616,30 @@ client.on('messageCreate', async (message) => {
             { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news' },
+            { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         
         await message.reply({ embeds: [helpEmbed] });
+        break;
+        
+      case 'joinraid':
+        const raidCharName = args.join(' ');
+        await joinRaid(message, userId, raidCharName);
+        break;
+        
+      case 'raidinfo':
+        const raidNum = args[0];
+        await showRaidInfo(message, raidNum);
+        break;
+        
+      case 'startraid':
+        await adminStartRaid(message);
+        break;
+        
+      case 'endraid':
+        await adminEndRaid(message);
         break;
         
       case 'tutorial':
@@ -1652,6 +1673,9 @@ async function gracefulShutdown(signal) {
   try {
     stopDropSystem();
     console.log('✅ Stopped drop system');
+    
+    stopRaidSystem();
+    console.log('✅ Stopped raid system');
     
     await saveDataImmediate(data);
     console.log('✅ Flushed all pending data saves');
