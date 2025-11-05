@@ -44,3 +44,12 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 - **Discord.js v14**: Primary library for interacting with the Discord API.
 - **Node.js 20**: The runtime environment for the bot.
 - **MongoDB**: Optional, but recommended for production data storage. Requires a `MONGODB_URI` connection string.
+
+## Recent Changes (November 5, 2025)
+**Migration & Bug Fixes:**
+- ✅ Migrated project to Replit environment
+- ✅ Fixed deprecated `ephemeral` parameter usage across all interaction handlers (replaced with `flags: 64`)
+- ✅ Fixed `InteractionAlreadyReplied` error in shop system by reordering interaction updates
+- ✅ Fixed race condition in message handler where data was accessed before initialization
+- ✅ All dependencies installed and workflow configured
+- ⚠️ **Next Step:** Add `DISCORD_BOT_TOKEN` to secrets to start the bot

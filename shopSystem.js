@@ -220,12 +220,15 @@ async function handlePurchase(interaction, data) {
   
   if (result.success) {
     saveData(data);
+    
+    // Update the interaction first to show main shop
+    await showMainShop(interaction, data);
+    
+    // Then send a followUp message with the success notification
     await interaction.followUp({ 
       content: `✅ ${result.message}`, 
       flags: 64
     });
-    
-    await showMainShop(interaction, data);
   } else {
     await interaction.reply({ 
       content: `❌ ${result.message}`, 

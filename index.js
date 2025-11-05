@@ -79,6 +79,9 @@ client.on('ready', async () => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   
+  // Check if data is loaded yet
+  if (!data) return;
+  
   const userId = message.author.id;
   
   if (!data.users[userId]) {
