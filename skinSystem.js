@@ -2,68 +2,98 @@ const fs = require('fs');
 const path = require('path');
 
 const SKINS_FILE = path.join(__dirname, 'skins.json');
+const USE_MONGODB = process.env.USE_MONGODB === 'true';
 
-function loadSkins() {
-  try {
-    if (fs.existsSync(SKINS_FILE)) {
-      const rawData = fs.readFileSync(SKINS_FILE, 'utf8');
-      return JSON.parse(rawData);
+let mongoManager = null;
+if (USE_MONGODB) {
+  mongoManager = require('./mongoManager.js');
+}
+
+async function loadSkins() {
+  if (USE_MONGODB && mongoManager) {
+    try {
+      const collection = await mongoManager.getCollection('skins');
+      const skinDoc = await collection.findOne({ _id: 'character_skins' });
+      return skinDoc?.skins || {};
+    } catch (error) {
+      console.error('Error loading skins from MongoDB:', error);
+      return {};
     }
-  } catch (error) {
-    console.error('Error loading skins:', error);
+  } else {
+    try {
+      if (fs.existsSync(SKINS_FILE)) {
+        const rawData = fs.readFileSync(SKINS_FILE, 'utf8');
+        return JSON.parse(rawData);
+      }
+    } catch (error) {
+      console.error('Error loading skins from JSON:', error);
+    }
+    return {};
   }
-  return {};
 }
 
-function saveSkins(skins) {
-  try {
-    fs.writeFileSync(SKINS_FILE, JSON.stringify(skins, null, 2));
-  } catch (error) {
-    console.error('Error saving skins:', error);
+async function saveSkins(skins) {
+  if (USE_MONGODB && mongoManager) {
+    try {
+      const collection = await mongoManager.getCollection('skins');
+      await collection.updateOne(
+        { _id: 'character_skins' },
+        { $set: { skins } },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error('Error saving skins to MongoDB:', error);
+    }
+  } else {
+    try {
+      fs.writeFileSync(SKINS_FILE, JSON.stringify(skins, null, 2));
+    } catch (error) {
+      console.error('Error saving skins to JSON:', error);
+    }
   }
 }
 
-function getSkinUrl(characterName, skinName = 'default') {
-  const skins = loadSkins();
+async function getSkinUrl(characterName, skinName = 'default') {
+  const skins = await loadSkins();
   if (skins[characterName] && skins[characterName][skinName]) {
     return skins[characterName][skinName];
   }
   return skins[characterName]?.default || null;
 }
 
-function getAvailableSkins(characterName) {
-  const skins = loadSkins();
+async function getAvailableSkins(characterName) {
+  const skins = await loadSkins();
   if (skins[characterName]) {
     return Object.keys(skins[characterName]);
   }
   return ['default'];
 }
 
-function addSkinToCharacter(characterName, skinName, imageUrl) {
-  const skins = loadSkins();
+async function addSkinToCharacter(characterName, skinName, imageUrl) {
+  const skins = await loadSkins();
   if (!skins[characterName]) {
     skins[characterName] = { default: 'https://picsum.photos/seed/' + characterName.toLowerCase() + '/400/400' };
   }
   skins[characterName][skinName] = imageUrl;
-  saveSkins(skins);
+  await saveSkins(skins);
   return true;
 }
 
-function removeSkinFromCharacter(characterName, skinName) {
+async function removeSkinFromCharacter(characterName, skinName) {
   if (skinName === 'default') {
     return false;
   }
-  const skins = loadSkins();
+  const skins = await loadSkins();
   if (skins[characterName] && skins[characterName][skinName]) {
     delete skins[characterName][skinName];
-    saveSkins(skins);
+    await saveSkins(skins);
     return true;
   }
   return false;
 }
 
-function skinExists(characterName, skinName) {
-  const skins = loadSkins();
+async function skinExists(characterName, skinName) {
+  const skins = await loadSkins();
   return skins[characterName] && skins[characterName][skinName] !== undefined;
 }
 

@@ -112,6 +112,16 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.tutorialStage === undefined) {
+      user.tutorialStage = 'intro';
+      needsSave = true;
+    }
+    
+    if (user.tutorialCompleted === undefined) {
+      user.tutorialCompleted = false;
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {

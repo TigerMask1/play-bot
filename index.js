@@ -53,6 +53,7 @@ const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js')
 const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
+const { createTutorialEmbed, handleTutorialProgress, handleMentionResponse, hasCompletedTutorial } = require('./tutorialSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -96,7 +97,9 @@ client.on('messageCreate', async (message) => {
       trophies: 200,
       messageCount: 0,
       lastDailyClaim: null,
-      inventory: {}
+      inventory: {},
+      tutorialStage: 'intro',
+      tutorialCompleted: false
     };
     await saveDataImmediate(data);
   }
@@ -144,6 +147,31 @@ client.on('messageCreate', async (message) => {
     } else {
       saveData(data);
     }
+  }
+  
+  // Tutorial progress tracking - check for keywords in non-command messages
+  if (data.users[userId].started && !message.content.startsWith(PREFIX)) {
+    const tutorialEmbed = await handleTutorialProgress(message, data.users[userId], data, saveData);
+    if (tutorialEmbed) {
+      try {
+        await message.reply({ embeds: [tutorialEmbed] });
+      } catch (error) {
+        console.error('Error sending tutorial embed:', error);
+      }
+    }
+  }
+  
+  // Handle bot mentions for keyword responses
+  if (message.mentions.has(client.user) && !message.content.startsWith(PREFIX)) {
+    const mentionEmbed = await handleMentionResponse(message, data.users[userId]);
+    if (mentionEmbed) {
+      try {
+        await message.reply({ embeds: [mentionEmbed] });
+      } catch (error) {
+        console.error('Error sending mention response:', error);
+      }
+    }
+    return;
   }
   
   if (!message.content.startsWith(PREFIX)) return;
@@ -258,7 +286,7 @@ client.on('messageCreate', async (message) => {
           profileEmbed.addFields({ name: '⭐ Selected', value: user.selectedCharacter, inline: true });
           const selectedChar = user.characters.find(c => c.name === user.selectedCharacter);
           if (selectedChar) {
-            const selectedSkinUrl = getSkinUrl(selectedChar.name, selectedChar.currentSkin || 'default');
+            const selectedSkinUrl = await getSkinUrl(selectedChar.name, selectedChar.currentSkin || 'default');
             profileEmbed.setThumbnail(selectedSkinUrl);
           }
         }
@@ -427,7 +455,7 @@ client.on('messageCreate', async (message) => {
         
         const charReq = getLevelRequirements(userChar.level);
         const charProgress = createLevelProgressBar(userChar.tokens, charReq.tokens);
-        const charSkinUrl = getSkinUrl(userChar.name, userChar.currentSkin || 'default');
+        const charSkinUrl = await getSkinUrl(userChar.name, userChar.currentSkin || 'default');
         const availableSkins = userChar.ownedSkins || ['default'];
         
         const charEmbed = new EmbedBuilder()
@@ -818,7 +846,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!skinExists(targetUserChar.name, grantSkinName)) {
+        if (!(await skinExists(targetUserChar.name, grantSkinName))) {
           await message.reply(`❌ Skin **${grantSkinName}** doesn't exist for **${targetUserChar.name}**!\nUse \`!addskin ${targetUserChar.name} ${grantSkinName} <image_url>\` to create it first.`);
           return;
         }
@@ -918,7 +946,7 @@ client.on('messageCreate', async (message) => {
         userCharToEquip.currentSkin = equipSkinName;
         saveData(data);
         
-        const equipSkinUrl = getSkinUrl(userCharToEquip.name, equipSkinName);
+        const equipSkinUrl = await getSkinUrl(userCharToEquip.name, equipSkinName);
         const equipEmbed = new EmbedBuilder()
           .setColor('#E91E63')
           .setTitle(`🎨 Skin Equipped!`)
@@ -996,7 +1024,7 @@ client.on('messageCreate', async (message) => {
           `**Move 2:** ${getMoveDisplay(moves.tierMoves[1], userInfoChar.level, userInfoChar.st, false)}`
         ].join('\n');
         
-        const infoSkinUrl = getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
+        const infoSkinUrl = await getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
         const abilityDesc = getAbilityDescription(userInfoChar.name);
         
         const infoEmbed = new EmbedBuilder()
@@ -1591,6 +1619,25 @@ client.on('messageCreate', async (message) => {
           );
         
         await message.reply({ embeds: [helpEmbed] });
+        break;
+        
+      case 'tutorial':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You need to start first! Use `!start` to begin your journey!');
+          return;
+        }
+        
+        if (hasCompletedTutorial(data.users[userId])) {
+          await message.reply('✅ You\'ve already completed the tutorial! But you can still ask me questions by mentioning me with keywords like "battles", "crates", "quests", etc!');
+          return;
+        }
+        
+        const currentTutorialEmbed = createTutorialEmbed(data.users[userId].tutorialStage || 'intro');
+        if (currentTutorialEmbed) {
+          await message.reply({ embeds: [currentTutorialEmbed] });
+        } else {
+          await message.reply('❌ Tutorial not available right now!');
+        }
         break;
     }
   } catch (error) {
