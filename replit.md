@@ -49,7 +49,12 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 **Migration & Bug Fixes:**
 - ✅ Migrated project to Replit environment
 - ✅ Fixed deprecated `ephemeral` parameter usage across all interaction handlers (replaced with `flags: 64`)
+- ✅ Fixed deprecated `ready` event (changed to `clientReady` for Discord.js v14 compatibility)
 - ✅ Fixed `InteractionAlreadyReplied` error in shop system by reordering interaction updates
 - ✅ Fixed race condition in message handler where data was accessed before initialization
+- ✅ **Fixed event rewards bug:** Winners now receive mail notifications with their rewards when events end
+  - Previously rewards were saved but users weren't notified
+  - Now all winners get personalized mail messages via the mail system
+  - Winners can check `!mail` to see and claim their event rewards
 - ✅ All dependencies installed and workflow configured
 - ⚠️ **Next Step:** Add `DISCORD_BOT_TOKEN` to secrets to start the bot

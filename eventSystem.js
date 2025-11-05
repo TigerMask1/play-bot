@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const mongoManager = require('./mongoManager');
 const dataManager = require('./dataManager');
 const { ObjectId } = require('mongodb');
+const { sendMailToAll, addMailToUser } = require('./mailSystem');
 
 const EVENT_TYPES = ['trophy_hunt', 'crate_master', 'drop_catcher'];
 const EVENT_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -136,13 +137,14 @@ async function distributeRewards(event, leaderboard) {
   }
 
   const rewards = [
-    { gems: 500, coins: 5000 },
-    { gems: 250, coins: 2500 },
-    { gems: 150, coins: 1500 }
+    { gems: 500, coins: 5000, place: '🥇 1st Place' },
+    { gems: 250, coins: 2500, place: '🥈 2nd Place' },
+    { gems: 150, coins: 1500, place: '🥉 3rd Place' }
   ];
 
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
   const data = await dataManager.loadData();
+  const eventName = EVENT_DISPLAY_NAMES[event.eventType];
 
   for (let i = 0; i < leaderboard.length; i++) {
     const participant = leaderboard[i];
@@ -158,21 +160,47 @@ async function distributeRewards(event, leaderboard) {
         started: false,
         trophies: 200,
         messageCount: 0,
-        lastDailyClaim: null
+        lastDailyClaim: null,
+        mailbox: []
       };
     }
 
+    let rewardGems = 0;
+    let rewardCoins = 0;
+    let mailMessage = '';
+
     if (i < 3 && i < rewards.length) {
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewards[i].gems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewards[i].coins;
+      rewardGems = rewards[i].gems;
+      rewardCoins = rewards[i].coins;
+      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\nYou earned ${rewardGems} 💎 Gems and ${rewardCoins} 💰 Coins!`;
+      
+      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
+      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
     } else if (i < top5PercentCount) {
-      data.users[userId].gems = (data.users[userId].gems || 0) + 75;
-      data.users[userId].coins = (data.users[userId].coins || 0) + 750;
+      rewardGems = 75;
+      rewardCoins = 750;
+      mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\nYou earned ${rewardGems} 💎 Gems and ${rewardCoins} 💰 Coins!`;
+      
+      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
+      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
+    }
+
+    // Send mail notification to winner
+    if (rewardGems > 0 || rewardCoins > 0) {
+      const mail = sendMailToAll(
+        mailMessage,
+        { gems: rewardGems, coins: rewardCoins },
+        'Event System'
+      );
+      addMailToUser(data.users[userId], mail);
+      console.log(`📧 Sent event reward mail to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins`);
     }
   }
 
   await dataManager.saveData(data);
   await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
+  
+  console.log(`🎁 Distributed rewards to ${leaderboard.length} participants`);
 }
 
 async function announceEventStart(event) {
