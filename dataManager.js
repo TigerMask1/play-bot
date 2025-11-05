@@ -78,6 +78,36 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.bronzeCrates === undefined) {
+      user.bronzeCrates = 0;
+      needsSave = true;
+    }
+    
+    if (user.silverCrates === undefined) {
+      user.silverCrates = 0;
+      needsSave = true;
+    }
+    
+    if (user.goldCrates === undefined) {
+      user.goldCrates = 0;
+      needsSave = true;
+    }
+    
+    if (user.emeraldCrates === undefined) {
+      user.emeraldCrates = 0;
+      needsSave = true;
+    }
+    
+    if (user.legendaryCrates === undefined) {
+      user.legendaryCrates = 0;
+      needsSave = true;
+    }
+    
+    if (user.tyrantCrates === undefined) {
+      user.tyrantCrates = 0;
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {
@@ -138,7 +168,7 @@ async function loadData() {
       
       if (needsSave) {
         await mongoManager.saveData(backfilledData);
-        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
+        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, and skins');
       }
       
       return backfilledData;
@@ -180,7 +210,7 @@ async function loadData() {
     
     if (needsSave) {
       saveData(backfilledData);
-      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, and skins');
+      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, and skins');
     }
     
     return backfilledData;

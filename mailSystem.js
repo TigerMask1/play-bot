@@ -69,14 +69,24 @@ function claimMail(userData, mailIndex) {
     }
   }
   
+  if (mail.rewards.bronzeCrates) {
+    userData.bronzeCrates = (userData.bronzeCrates || 0) + mail.rewards.bronzeCrates;
+    rewardMessages.push(`🟫 ${mail.rewards.bronzeCrates} Bronze Crate(s)`);
+  }
+  
+  if (mail.rewards.silverCrates) {
+    userData.silverCrates = (userData.silverCrates || 0) + mail.rewards.silverCrates;
+    rewardMessages.push(`⚪ ${mail.rewards.silverCrates} Silver Crate(s)`);
+  }
+  
   if (mail.rewards.goldCrates) {
     userData.goldCrates = (userData.goldCrates || 0) + mail.rewards.goldCrates;
-    rewardMessages.push(`📦 ${mail.rewards.goldCrates} Gold Crate(s)`);
+    rewardMessages.push(`🟡 ${mail.rewards.goldCrates} Gold Crate(s)`);
   }
   
   if (mail.rewards.emeraldCrates) {
     userData.emeraldCrates = (userData.emeraldCrates || 0) + mail.rewards.emeraldCrates;
-    rewardMessages.push(`💚 ${mail.rewards.emeraldCrates} Emerald Crate(s)`);
+    rewardMessages.push(`🟢 ${mail.rewards.emeraldCrates} Emerald Crate(s)`);
   }
   
   if (mail.rewards.legendaryCrates) {

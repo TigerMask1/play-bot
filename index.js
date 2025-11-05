@@ -110,28 +110,28 @@ client.on('messageCreate', async (message) => {
     data.users[userId].messageCount = (data.users[userId].messageCount || 0) + 1;
     
     if (data.users[userId].messageCount % 25 === 0) {
-      const rewardType = Math.floor(Math.random() * 3);
+      const roll = Math.random() * 100;
       let rewardMessage = '';
       
-      if (rewardType === 0) {
-        if (data.users[userId].characters.length > 0) {
-          const randomChar = data.users[userId].characters[Math.floor(Math.random() * data.users[userId].characters.length)];
-          const tokenAmount = Math.floor(Math.random() * 10) + 1;
-          randomChar.tokens += tokenAmount;
-          rewardMessage = `🎉 **Message Reward!** You got **${tokenAmount}** ${randomChar.name} tokens for chatting!`;
-        } else {
-          const coinAmount = Math.floor(Math.random() * 11) + 10;
-          data.users[userId].coins += coinAmount;
-          rewardMessage = `🎉 **Message Reward!** You got **${coinAmount}** coins for chatting!`;
-        }
-      } else if (rewardType === 1) {
-        const coinAmount = Math.floor(Math.random() * 20) + 1;
-        data.users[userId].coins += coinAmount;
-        rewardMessage = `🎉 **Message Reward!** You got **${coinAmount}** coins for chatting!`;
-      } else {
-        const gemAmount = Math.floor(Math.random() * 5) + 1;
-        data.users[userId].gems += gemAmount;
-        rewardMessage = `🎉 **Message Reward!** You got **${gemAmount}** gems for chatting!`;
+      // 60% chance for bronze crate
+      if (roll < 60) {
+        data.users[userId].bronzeCrates = (data.users[userId].bronzeCrates || 0) + 1;
+        rewardMessage = `🎉 **Message Reward!** You got a 🟫 **Bronze Crate**! Use \`!opencrate bronze\` to open it!`;
+      }
+      // 25% chance for silver crate
+      else if (roll < 85) {
+        data.users[userId].silverCrates = (data.users[userId].silverCrates || 0) + 1;
+        rewardMessage = `🎉 **Message Reward!** You got a ⚪ **Silver Crate**! Use \`!opencrate silver\` to open it!`;
+      }
+      // 10% chance for emerald crate
+      else if (roll < 95) {
+        data.users[userId].emeraldCrates = (data.users[userId].emeraldCrates || 0) + 1;
+        rewardMessage = `🎉 **Message Reward!** You got a 🟢 **Emerald Crate**! Use \`!opencrate emerald\` to open it!`;
+      }
+      // 5% chance for gold crate
+      else {
+        data.users[userId].goldCrates = (data.users[userId].goldCrates || 0) + 1;
+        rewardMessage = `🎉 **Message Reward!** You got a 🟡 **Gold Crate**! Use \`!opencrate gold\` to open it!`;
       }
       
       saveData(data);
@@ -293,17 +293,23 @@ client.on('messageCreate', async (message) => {
         const validCrates = ['gold', 'emerald', 'legendary', 'tyrant'];
         
         if (!validCrates.includes(crateType)) {
+          const user = data.users[userId];
           const crateEmbed = new EmbedBuilder()
             .setColor('#FFD700')
             .setTitle('🎁 Available Crates')
-            .setDescription('Open crates to get character tokens and coins!\nYou might also get a new character!')
+            .setDescription('**Free Crates** (from message rewards):\n🟫 Bronze Crate - Use `!opencrate bronze`\n⚪ Silver Crate - Use `!opencrate silver`\n\n**Premium Crates** (purchase with gems):')
             .addFields(
-              { name: '🥇 Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins' },
-              { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins' },
-              { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins' },
-              { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins' }
+              { name: '🥇 Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins', inline: true },
+              { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins', inline: true },
+              { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins', inline: true },
+              { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins', inline: true }
             )
-            .setFooter({ text: 'Use: !crate <type>' });
+            .addFields({ 
+              name: '📦 Your Crates', 
+              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n🟡 Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
+              inline: false 
+            })
+            .setFooter({ text: 'Use: !crate <type> to buy | !opencrate <type> to open owned crates' });
           await message.reply({ embeds: [crateEmbed] });
           return;
         }
@@ -324,6 +330,33 @@ client.on('messageCreate', async (message) => {
           .setTimestamp();
         
         await message.reply({ embeds: [resultEmbed] });
+        break;
+      
+      case 'opencrate':
+        const openCrateType = args[0]?.toLowerCase();
+        const allCrates = ['bronze', 'silver', 'gold', 'emerald', 'legendary', 'tyrant'];
+        
+        if (!allCrates.includes(openCrateType)) {
+          await message.reply('Usage: `!opencrate <type>`\nAvailable: bronze, silver, gold, emerald, legendary, tyrant\n\nUse `!crate` to see your inventory!');
+          return;
+        }
+        
+        const openResult = await openCrate(data, userId, openCrateType);
+        
+        if (!openResult.success) {
+          await message.reply(`❌ ${openResult.message}`);
+          return;
+        }
+        
+        saveData(data);
+        
+        const openResultEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`🎁 ${openCrateType.toUpperCase()} CRATE OPENED!`)
+          .setDescription(`<@${userId}> opened a crate!\n\n${openResult.message}`)
+          .setTimestamp();
+        
+        await message.reply({ embeds: [openResultEmbed] });
         break;
         
       case 'levelup':
@@ -650,10 +683,27 @@ client.on('messageCreate', async (message) => {
         }
         
         const charUser = message.mentions.users.first();
-        const charToGrant = args.slice(1).join(' ');
+        if (!charUser) {
+          await message.reply('Usage: `!grantchar @user <character name> [ST]`\nExample: `!grantchar @user Nix 75`');
+          return;
+        }
         
-        if (!charUser || !charToGrant) {
-          await message.reply('Usage: `!grantchar @user <character name>`');
+        const restArgs = args.slice(1);
+        let customST = null;
+        let charToGrant = '';
+        
+        const lastArg = restArgs[restArgs.length - 1];
+        const stValue = parseFloat(lastArg);
+        
+        if (!isNaN(stValue) && stValue > 0 && stValue <= 100) {
+          customST = stValue;
+          charToGrant = restArgs.slice(0, -1).join(' ');
+        } else {
+          charToGrant = restArgs.join(' ');
+        }
+        
+        if (!charToGrant) {
+          await message.reply('Usage: `!grantchar @user <character name> [ST]`\nExample: `!grantchar @user Nix 75`');
           return;
         }
         
@@ -676,7 +726,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const grantedST = (!isNaN(parseInt(args[2])) && parseInt(args[2]) > 0 && parseInt(args[2]) <= 200) ? parseInt(args[2]) : generateST();
+        const grantedST = customST || generateST();
         const wasFirstChar = data.users[charUser.id].characters.length === 0;
         const pendingToGrant = wasFirstChar ? (data.users[charUser.id].pendingTokens || 0) : 0;
         
@@ -1216,7 +1266,39 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        await message.reply('📨 **Send Mail to All Players**\n\nFormat: `!sendmail <message> | coins:<amount> gems:<amount> shards:<amount> character:<name> goldcrates:<amount> ...`\n\nExample: `!sendmail Happy holidays! | coins:500 gems:50 shards:5`');
+        const fullMailText = args.join(' ');
+        if (!fullMailText.includes(' | ')) {
+          await message.reply('📨 **Send Mail to All Players**\n\nFormat: `!sendmail <message> | coins:<amount> gems:<amount> shards:<amount> character:<name> goldcrates:<amount> ...`\n\nExample: `!sendmail Happy holidays! | coins:500 gems:50 shards:5`');
+          return;
+        }
+        
+        const [mailMsg, rewardsText] = fullMailText.split(' | ');
+        const rewards = {};
+        
+        const rewardParts = rewardsText.split(' ');
+        for (const part of rewardParts) {
+          if (part.includes(':')) {
+            const [key, value] = part.split(':');
+            if (['coins', 'gems', 'shards', 'goldCrates', 'emeraldCrates', 'legendaryCrates', 'tyrantCrates', 'bronzeCrates', 'silverCrates'].includes(key)) {
+              rewards[key] = parseInt(value);
+            } else if (key === 'character') {
+              rewards.character = value;
+            }
+          }
+        }
+        
+        const mail = sendMailToAll(mailMsg, rewards, message.author.username);
+        let mailCount = 0;
+        
+        for (const userId in data.users) {
+          if (data.users[userId].started) {
+            addMailToUser(data.users[userId], mail);
+            mailCount++;
+          }
+        }
+        
+        saveData(data);
+        await message.reply(`✅ Sent mail to ${mailCount} players!`);
         break;
         
       case 'news':
@@ -1245,7 +1327,21 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        await message.reply('📰 **Post News**\n\nFormat: `!postnews <title> | <content>`\n\nExample: `!postnews New Features! | Quests and ST Boosters are now available!`');
+        const fullNewsText = args.join(' ');
+        if (!fullNewsText.includes(' | ')) {
+          await message.reply('📰 **Post News**\n\nFormat: `!postnews <title> | <content>`\n\nExample: `!postnews New Features! | Quests and ST Boosters are now available!`');
+          return;
+        }
+        
+        const [newsTitle, newsContent] = fullNewsText.split(' | ');
+        
+        if (!newsTitle || !newsContent) {
+          await message.reply('❌ Both title and content are required!');
+          return;
+        }
+        
+        postNews(newsTitle, newsContent);
+        await message.reply(`✅ News posted: **${newsTitle}**`);
         break;
         
       case 'leaderboard':

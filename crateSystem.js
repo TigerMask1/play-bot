@@ -3,29 +3,53 @@ const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 const eventSystem = require('./eventSystem.js');
 
 const CRATE_TYPES = {
+  bronze: {
+    cost: 0,
+    charChance: 0.5,
+    tokens: 15,
+    coins: 100,
+    points: 1,
+    emoji: '🟫'
+  },
+  silver: {
+    cost: 0,
+    charChance: 1,
+    tokens: 30,
+    coins: 250,
+    points: 2,
+    emoji: '⚪'
+  },
   gold: {
     cost: 100,
     charChance: 1.5,
     tokens: 50,
-    coins: 500
+    coins: 500,
+    points: 3,
+    emoji: '🟡'
   },
   emerald: {
     cost: 250,
     charChance: 5,
     tokens: 130,
-    coins: 1800
+    coins: 1800,
+    points: 5,
+    emoji: '🟢'
   },
   legendary: {
     cost: 500,
     charChance: 10,
     tokens: 200,
-    coins: 2500
+    coins: 2500,
+    points: 8,
+    emoji: '🟣'
   },
   tyrant: {
     cost: 750,
     charChance: 15,
     tokens: 300,
-    coins: 3500
+    coins: 3500,
+    points: 12,
+    emoji: '🔴'
   }
 };
 
@@ -37,17 +61,38 @@ async function openCrate(data, userId, crateType) {
   const crate = CRATE_TYPES[crateType];
   const user = data.users[userId];
   
-  if (user.gems < crate.cost) {
+  if (!crate) {
     return {
       success: false,
-      message: `Not enough gems! You need ${crate.cost} gems but have ${user.gems}.`
+      message: `Invalid crate type! Available: bronze, silver, gold, emerald, legendary, tyrant`
     };
   }
   
-  user.gems -= crate.cost;
+  // Check if user has the crate (for free crates)
+  const crateKey = `${crateType}Crates`;
+  if (crate.cost === 0) {
+    const userCrates = user[crateKey] || 0;
+    if (userCrates < 1) {
+      return {
+        success: false,
+        message: `You don't have any ${crateType} crates!`
+      };
+    }
+    user[crateKey] = userCrates - 1;
+  } else {
+    // Check if user has enough gems for paid crates
+    if (user.gems < crate.cost) {
+      return {
+        success: false,
+        message: `Not enough gems! You need ${crate.cost} gems but have ${user.gems}.`
+      };
+    }
+    user.gems -= crate.cost;
+  }
+  
   user.coins += crate.coins;
   
-  await eventSystem.recordProgress(userId, user.username, 1, 'crate_master');
+  await eventSystem.recordProgress(userId, user.username, crate.points, 'crate_master');
   
   let rewards = `💰 ${crate.coins} coins`;
   
