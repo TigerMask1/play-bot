@@ -47,6 +47,22 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 
 ## Recent Changes (November 5, 2025)
 
+**Interactive Tutorial & MongoDB Skin Storage (November 5, 2025):**
+- ✅ **Comprehensive Tutorial System** - Interactive 8-stage tutorial for new players
+  - Covers all game mechanics: characters, battles, crates, quests, economy, advanced tips
+  - Keyword-based progression through tutorial stages
+  - One-time use per account (prevents tutorial spam)
+  - Tutorial command: `!tutorial` to start/resume
+  - Smart mention detection with 40+ keyword responses for instant help
+  - Examples: Mention bot with "battles", "crates", "quests" for quick explanations
+  - Tracks progress automatically through MongoDB/JSON
+- ✅ **MongoDB Skin Storage** - Skin system now fully integrated with MongoDB
+  - Skins stored in MongoDB collection instead of separate JSON file
+  - Command: `!addskin <character> <skin_name> <image_url>` now saves to MongoDB
+  - Automatic fallback to JSON file if MongoDB not enabled
+  - All skin functions properly async with await patterns
+  - Improves scalability and data consistency
+
 **Major System Overhaul (November 5, 2025):**
 - ✅ **Shop System Redesign** - Complete fix for interaction flow issues
   - Eliminated UI replacement bugs that caused "X" to appear incorrectly
