@@ -179,6 +179,12 @@ async function completeTrade(trade, data, channel) {
   receiverData.coins += trade.initiatorOffer.coins;
   receiverData.gems += trade.initiatorOffer.gems;
   
+  if (!initiatorData.questProgress) initiatorData.questProgress = {};
+  initiatorData.questProgress.tradesCompleted = (initiatorData.questProgress.tradesCompleted || 0) + 1;
+  
+  if (!receiverData.questProgress) receiverData.questProgress = {};
+  receiverData.questProgress.tradesCompleted = (receiverData.questProgress.tradesCompleted || 0) + 1;
+  
   saveData(data);
   
   const successEmbed = new EmbedBuilder()

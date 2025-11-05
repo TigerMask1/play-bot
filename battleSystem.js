@@ -1053,6 +1053,22 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     
     if (!data.users[winner].questProgress) data.users[winner].questProgress = {};
     data.users[winner].questProgress.battlesWon = (data.users[winner].questProgress.battlesWon || 0) + 1;
+    data.users[winner].questProgress.totalBattles = (data.users[winner].questProgress.totalBattles || 0) + 1;
+    
+    data.users[winner].questProgress.currentWinStreak = (data.users[winner].questProgress.currentWinStreak || 0) + 1;
+    data.users[winner].questProgress.maxWinStreak = Math.max(
+      data.users[winner].questProgress.maxWinStreak || 0,
+      data.users[winner].questProgress.currentWinStreak
+    );
+    
+    const winnerChar = winner === battle.player1 ? battle.player1Character : battle.player2Character;
+    if (winnerChar.level >= 30) {
+      data.users[winner].questProgress.highLevelWin = 1;
+    }
+    
+    if (!data.users[loser].questProgress) data.users[loser].questProgress = {};
+    data.users[loser].questProgress.totalBattles = (data.users[loser].questProgress.totalBattles || 0) + 1;
+    data.users[loser].questProgress.currentWinStreak = 0;
     
     await eventSystem.recordProgress(winner, data.users[winner].username, 5, 'trophy_hunt');
     

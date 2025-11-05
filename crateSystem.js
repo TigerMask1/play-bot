@@ -92,6 +92,13 @@ async function openCrate(data, userId, crateType) {
   
   user.coins += crate.coins;
   
+  if (!user.questProgress) user.questProgress = {};
+  user.questProgress.cratesOpened = (user.questProgress.cratesOpened || 0) + 1;
+  
+  if (crateType === 'tyrant') {
+    user.questProgress.tyrantCratesOpened = (user.questProgress.tyrantCratesOpened || 0) + 1;
+  }
+  
   await eventSystem.recordProgress(userId, user.username, crate.points, 'crate_master');
   
   let rewards = `💰 ${crate.coins} coins`;
@@ -147,6 +154,8 @@ async function openCrate(data, userId, crateType) {
         currentSkin: 'default',
         ownedSkins: ['default']
       });
+      
+      user.questProgress.charsFromCrates = (user.questProgress.charsFromCrates || 0) + 1;
       
       rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}\n**ST:** ${newST}%`;
       if (startingTokens > 0) {

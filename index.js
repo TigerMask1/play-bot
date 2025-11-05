@@ -480,6 +480,9 @@ client.on('messageCreate', async (message) => {
             : null;
         }
         
+        if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
+        data.users[userId].questProgress.charsReleased = (data.users[userId].questProgress.charsReleased || 0) + 1;
+        
         saveData(data);
         
         const releaseEmbed = new EmbedBuilder()
