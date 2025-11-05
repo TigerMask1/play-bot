@@ -98,7 +98,7 @@ async function initiateBattle(message, data, challengerId, opponentId) {
   collector.on('collect', async (interaction) => {
     if (interaction.customId === `battle_decline_${inviteId}`) {
       if (interaction.user.id !== opponentId) {
-        await interaction.reply({ content: '❌ Only the challenged player can decline!', ephemeral: true });
+        await interaction.reply({ content: '❌ Only the challenged player can decline!', flags: 64 });
         return;
       }
       
@@ -116,7 +116,7 @@ async function initiateBattle(message, data, challengerId, opponentId) {
       collector.stop();
     } else if (interaction.customId === `battle_accept_${inviteId}`) {
       if (interaction.user.id !== opponentId) {
-        await interaction.reply({ content: '❌ Only the challenged player can accept!', ephemeral: true });
+        await interaction.reply({ content: '❌ Only the challenged player can accept!', flags: 64 });
         return;
       }
       
@@ -536,7 +536,7 @@ async function showItemMenu(interaction, battle, data, isPlayer1) {
   const items = getUserBattleItems(user);
   
   if (items.length === 0) {
-    await interaction.reply({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', ephemeral: true });
+    await interaction.reply({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', flags: 64 });
     return;
   }
   

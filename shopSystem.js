@@ -156,7 +156,7 @@ async function showCategoryItems(interaction, data, category) {
   const items = getItemsByCategory(category);
   
   if (items.length === 0) {
-    await interaction.reply({ content: '❌ No items in this category!', ephemeral: true });
+    await interaction.reply({ content: '❌ No items in this category!', flags: 64 });
     return;
   }
   
@@ -220,16 +220,16 @@ async function handlePurchase(interaction, data) {
   
   if (result.success) {
     saveData(data);
-    await interaction.reply({ 
+    await interaction.followUp({ 
       content: `✅ ${result.message}`, 
-      ephemeral: true 
+      flags: 64
     });
     
     await showMainShop(interaction, data);
   } else {
     await interaction.reply({ 
       content: `❌ ${result.message}`, 
-      ephemeral: true 
+      flags: 64
     });
   }
 }

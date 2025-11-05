@@ -1011,7 +1011,7 @@ client.on('messageCreate', async (message) => {
 
   collector.on('collect', async (interaction) => {
     if (interaction.user.id !== userId) {
-      await interaction.reply({ content: "❌ This isn't your quest log!", ephemeral: true });
+      await interaction.reply({ content: "❌ This isn't your quest log!", flags: 64 });
       return;
     }
 
