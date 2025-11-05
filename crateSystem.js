@@ -5,7 +5,7 @@ const eventSystem = require('./eventSystem.js');
 const CRATE_TYPES = {
   bronze: {
     cost: 0,
-    charChance: 0.5,
+    charChance: 0.02,
     tokens: 15,
     coins: 100,
     points: 1,
