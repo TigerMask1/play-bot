@@ -46,6 +46,31 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 - **MongoDB**: Optional, but recommended for production data storage. Requires a `MONGODB_URI` connection string.
 
 ## Recent Changes (November 5, 2025)
+
+**Major System Overhaul (November 5, 2025):**
+- ✅ **Shop System Redesign** - Complete fix for interaction flow issues
+  - Eliminated UI replacement bugs that caused "X" to appear incorrectly
+  - Simplified purchase flow with ephemeral confirmations
+  - Shop now stays open during purchases for better UX
+  - All purchases immediately saved to prevent data loss
+- ✅ **Battle Abilities - Full Implementation** - All 51 character abilities now work correctly
+  - Added dodge chance (Donna's ability) - 15% chance to completely avoid attacks
+  - Implemented HP-based damage bonuses (Finn, Max) - damage scales with HP percentage
+  - Enhanced status immunity system (Frank, Louie) - prevents specific status effects
+  - All passive abilities now trigger correctly during battles
+- ✅ **AI Battle System** - Single-player battles with intelligent AI opponents
+  - Command: `!b ai`, `!b easy`, `!b normal`, or `!b hard` for difficulty
+  - AI makes smart decisions based on HP, energy, and move effectiveness
+  - AI uses healing moves strategically when low on health
+  - Different difficulty levels: Easy (Lvl 1-3, 20-50% ST), Normal (Lvl 3-7, 40-80% ST), Hard (Lvl 8-12, 75-95% ST)
+  - Rewards scale with difficulty: Easy (50 coins, 1 trophy), Normal (75 coins, 3 trophies), Hard (100 coins, 5 trophies)
+  - Full integration with status effects and character abilities
+- ✅ **Status Effects - Enhanced Reliability** - All status effects verified working
+  - Burn, freeze, poison, paralyze, stun, and regeneration all function correctly
+  - Status immunity properly prevents unwanted effects
+  - Turn-based durations work as intended
+
+## Recent Changes (November 5, 2025 - Earlier)
 **Migration & Bug Fixes:**
 - ✅ Migrated project to Replit environment
 - ✅ Fixed deprecated `ephemeral` parameter usage across all interaction handlers (replaced with `flags: 64`)
