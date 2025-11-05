@@ -53,6 +53,15 @@ function applyEffect(battle, playerId, effect, duration = 3) {
   }
   
   const effectKey = playerId === battle.player1 ? 'player1' : 'player2';
+  const targetAbility = playerId === battle.player1 ? battle.player1Ability : battle.player2Ability;
+  
+  if (targetAbility && targetAbility.effect.statusImmunity) {
+    const immuneEffects = targetAbility.effect.statusImmunity;
+    const effectNameLower = effect.name.toLowerCase();
+    if (immuneEffects.some(immune => effectNameLower.includes(immune))) {
+      return false;
+    }
+  }
   
   const existingEffect = battle.effects[effectKey].find(e => e.effectId === effect.name);
   if (existingEffect) {
@@ -67,6 +76,8 @@ function applyEffect(battle, playerId, effect, duration = 3) {
       damageDealt: 0
     });
   }
+  
+  return true;
 }
 
 function removeEffect(battle, playerId, effectType) {

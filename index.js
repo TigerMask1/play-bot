@@ -927,21 +927,24 @@ client.on('messageCreate', async (message) => {
         
       case 'b':
       case 'battle':
-        const battleOpponent = message.mentions.users.first();
         const battleArg = args[0]?.toLowerCase();
         
-        if (battleArg === 'ai') {
-          await message.reply('🤖 AI battles are not implemented yet! Stay tuned for future updates.');
+        if (battleArg === 'ai' || battleArg === 'easy' || battleArg === 'normal' || battleArg === 'hard') {
+          const difficulty = (battleArg === 'easy' || battleArg === 'normal' || battleArg === 'hard') ? battleArg : 'normal';
+          const { startAIBattle } = require('./aiBattleSystem.js');
+          await startAIBattle(message, data, userId, client.user.id, difficulty, CHARACTERS);
           return;
         }
         
+        const battleOpponent = message.mentions.users.first();
+        
         if (!battleOpponent) {
-          await message.reply('Usage: `!b @user` to challenge someone or `!b ai` for AI (coming soon!)');
+          await message.reply('Usage: `!b @user` to challenge someone\n`!b ai` for AI battle (normal difficulty)\n`!b easy/normal/hard` for AI with difficulty');
           return;
         }
         
         if (battleOpponent.id === userId) {
-          await message.reply('❌ You can\'t battle yourself!');
+          await message.reply('❌ You can\'t battle yourself! Use `!b ai` for an AI battle.');
           return;
         }
         

@@ -832,6 +832,18 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       baseDamage = Math.round(baseDamage * opponentBuffs.defense.value);
     }
     
+    const currentHP = isPlayer1 ? battle.player1HP : battle.player2HP;
+    const currentMaxHP = isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP;
+    const currentHPPercent = currentHP / currentMaxHP;
+    
+    if (currentAbility && currentAbility.effect.highHpDamageBonus && currentHPPercent >= (currentAbility.effect.hpThreshold || 0.7)) {
+      baseDamage = Math.round(baseDamage * (1 + currentAbility.effect.highHpDamageBonus));
+    }
+    
+    if (currentAbility && currentAbility.effect.lowHpSelfDamageBonus && currentHPPercent <= 0.3) {
+      baseDamage = Math.round(baseDamage * (1 + currentAbility.effect.lowHpSelfDamageBonus));
+    }
+    
     if (opponentAbility && opponentAbility.effect.damageReduction) {
       baseDamage = Math.round(baseDamage * (1 - opponentAbility.effect.damageReduction));
     }
@@ -839,6 +851,11 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
     const opponentHP = isPlayer1 ? battle.player2HP : battle.player1HP;
     const opponentMaxHP = isPlayer1 ? battle.player2MaxHP : battle.player1MaxHP;
     let opponentShield = isPlayer1 ? battle.player2Shield : battle.player1Shield;
+    
+    if (opponentAbility && opponentAbility.effect.dodgeChance && Math.random() < opponentAbility.effect.dodgeChance) {
+      baseDamage = 0;
+      await channel.send(`${opponentAbility.emoji} **${opponentAbility.name}**: ${opponentChar.emoji} ${opponentChar.name} dodged the attack!`);
+    }
     
     if (opponentAbility && opponentAbility.effect.firstHitReduction && !((isPlayer1 ? battle.player2AbilityState : battle.player1AbilityState).firstHitTaken)) {
       baseDamage = Math.round(baseDamage * (1 - opponentAbility.effect.firstHitReduction));
