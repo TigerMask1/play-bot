@@ -15,14 +15,26 @@ async function connect() {
   }
 
   try {
-    client = new MongoClient(uri);
+    client = new MongoClient(uri, {
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      retryWrites: true,
+      retryReads: true,
+      compressors: ['zlib']
+    });
     await client.connect();
     db = client.db('discord_bot');
     connected = true;
-    console.log('✅ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB with connection pooling (pool size: 5-50)');
     return db;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
+    connected = false;
+    client = null;
     throw error;
   }
 }

@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { saveData } = require('./dataManager.js');
+const { saveData, saveDataImmediate } = require('./dataManager.js');
 const { calculateBaseHP, calculateDamage, calculateEnergyCost, calculateCriticalHit, getMoveDisplay } = require('./battleUtils.js');
 const { getCharacterAbility } = require('./characterAbilities.js');
 const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay, clearAllEffects } = require('./moveEffects.js');
@@ -461,10 +461,16 @@ async function promptTurn(battle, channel, data) {
     );
   }
   
+  const passButton = new ButtonBuilder()
+    .setCustomId(`pass_${battle.id}`)
+    .setLabel('Pass Turn')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('⏭️');
+  
   const fleeButton = new ButtonBuilder()
     .setCustomId(`flee_${battle.id}`)
     .setLabel('Flee')
-    .setStyle(ButtonStyle.Secondary);
+    .setStyle(ButtonStyle.Danger);
   
   const itemButton = new ButtonBuilder()
     .setCustomId(`items_${battle.id}`)
@@ -474,11 +480,17 @@ async function promptTurn(battle, channel, data) {
   
   const rows = [
     new ActionRowBuilder().addComponents(moveButtons.slice(0, 3)),
-    new ActionRowBuilder().addComponents(fleeButton, itemButton)
+    new ActionRowBuilder().addComponents(passButton, itemButton, fleeButton)
   ];
   
   const effectsDisplay1 = getEffectsDisplay(battle, battle.player1);
   const effectsDisplay2 = getEffectsDisplay(battle, battle.player2);
+  
+  const { getSkinUrl } = require('./skinSystem.js');
+  const player1Skin = battle.player1Character.skin || 'default';
+  const player2Skin = battle.player2Character.skin || 'default';
+  const currentCharSkin = isPlayer1 ? player1Skin : player2Skin;
+  const currentCharSkinUrl = getSkinUrl(currentChar.name, currentCharSkin);
   
   const turnEmbed = new EmbedBuilder()
     .setColor('#FFA500')
@@ -497,6 +509,10 @@ async function promptTurn(battle, channel, data) {
       }
     );
   
+  if (currentCharSkinUrl) {
+    turnEmbed.setThumbnail(currentCharSkinUrl);
+  }
+  
   const turnMessage = await channel.send({ embeds: [turnEmbed], components: rows });
   
   const filter = (interaction) => {
@@ -507,17 +523,45 @@ async function promptTurn(battle, channel, data) {
   const collector = turnMessage.createMessageComponentCollector({ filter, max: 1, time: 60000 });
   
   collector.on('collect', async (interaction) => {
-    if (interaction.customId === `flee_${battle.id}`) {
-      const winner = isPlayer1 ? battle.player2 : battle.player1;
-      await interaction.update({ content: `💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`, embeds: [], components: [] });
-      await endBattle(battle, channel, data, 'flee', winner);
-      return;
-    } else if (interaction.customId === `items_${battle.id}`) {
-      await showItemMenu(interaction, battle, data, isPlayer1);
-      return;
-    } else if (interaction.customId.startsWith('move_')) {
-      const moveIndex = parseInt(interaction.customId.split('_')[1]);
-      await executeMove(interaction, battle, channel, data, moveIndex, isPlayer1);
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate().catch(() => {});
+      }
+      
+      if (interaction.customId === `pass_${battle.id}`) {
+        await interaction.editReply({ content: `⏭️ ${currentChar.emoji} ${currentChar.name} passed their turn!`, embeds: [], components: [] }).catch(async () => {
+          await interaction.update({ content: `⏭️ ${currentChar.emoji} ${currentChar.name} passed their turn!`, embeds: [], components: [] });
+        });
+        battle.currentTurn = isPlayer1 ? battle.player2 : battle.player1;
+        setTimeout(() => {
+          if (activeBattles.has(battle.player1)) {
+            promptTurn(battle, channel, data);
+          }
+        }, 1500);
+        return;
+      } else if (interaction.customId === `flee_${battle.id}`) {
+        const winner = isPlayer1 ? battle.player2 : battle.player1;
+        await interaction.editReply({ content: `💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`, embeds: [], components: [] }).catch(async () => {
+          await interaction.update({ content: `💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`, embeds: [], components: [] });
+        });
+        await endBattle(battle, channel, data, 'flee', winner);
+        return;
+      } else if (interaction.customId === `items_${battle.id}`) {
+        await showItemMenu(interaction, battle, data, isPlayer1);
+        return;
+      } else if (interaction.customId.startsWith('move_')) {
+        const moveIndex = parseInt(interaction.customId.split('_')[1]);
+        await executeMove(interaction, battle, channel, data, moveIndex, isPlayer1);
+      }
+    } catch (error) {
+      console.error('Battle interaction error:', error);
+      try {
+        if (!interaction.replied) {
+          await interaction.followUp({ content: '❌ An error occurred. Continuing battle...', flags: 64 });
+        }
+      } catch (e) {
+        console.error('Error sending error message:', e);
+      }
     }
   });
   
@@ -536,7 +580,14 @@ async function showItemMenu(interaction, battle, data, isPlayer1) {
   const items = getUserBattleItems(user);
   
   if (items.length === 0) {
-    await interaction.reply({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', flags: 64 });
+    await interaction.editReply({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', embeds: [], components: [] }).catch(async () => {
+      await interaction.followUp({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', flags: 64 });
+    });
+    setTimeout(() => {
+      if (activeBattles.has(battle.player1)) {
+        promptTurn(battle, battle.channel, data);
+      }
+    }, 2000);
     return;
   }
   
@@ -564,18 +615,41 @@ async function showItemMenu(interaction, battle, data, isPlayer1) {
     .setDescription(items.map(i => `${i.emoji} **${i.name}** x${i.count}\n${i.description}`).join('\n\n'))
     .setFooter({ text: 'Select an item to use' });
   
-  await interaction.update({ embeds: [itemEmbed], components: rows });
+  await interaction.editReply({ embeds: [itemEmbed], components: rows }).catch(async () => {
+    await interaction.update({ embeds: [itemEmbed], components: rows });
+  });
   
   const filter = (i) => i.user.id === userId && i.customId.endsWith(battle.id);
   const collector = interaction.message.createMessageComponentCollector({ filter, max: 1, time: 30000 });
   
   collector.on('collect', async (i) => {
-    if (i.customId === `back_to_battle_${battle.id}`) {
-      await i.update({ content: 'Returning to battle...', embeds: [], components: [] });
-      await promptTurn(battle, battle.channel, data);
-    } else if (i.customId.startsWith('use_item_')) {
-      const itemId = i.customId.split('_')[2];
-      await useItemInBattle(i, battle, data, itemId, isPlayer1);
+    try {
+      if (!i.deferred && !i.replied) {
+        await i.deferUpdate().catch(() => {});
+      }
+      
+      if (i.customId === `back_to_battle_${battle.id}`) {
+        await i.editReply({ content: 'Returning to battle...', embeds: [], components: [] }).catch(async () => {
+          await i.update({ content: 'Returning to battle...', embeds: [], components: [] });
+        });
+        setTimeout(() => {
+          if (activeBattles.has(battle.player1)) {
+            promptTurn(battle, battle.channel, data);
+          }
+        }, 1000);
+      } else if (i.customId.startsWith('use_item_')) {
+        const itemId = i.customId.split('_')[2];
+        await useItemInBattle(i, battle, data, itemId, isPlayer1);
+      }
+    } catch (error) {
+      console.error('Item menu error:', error);
+    }
+  });
+  
+  collector.on('end', (collected, reason) => {
+    if (reason === 'time' && collected.size === 0 && activeBattles.has(battle.player1)) {
+      battle.channel.send('⏱️ Item selection timed out, returning to battle...');
+      promptTurn(battle, battle.channel, data);
     }
   });
 }
@@ -588,7 +662,14 @@ async function useItemInBattle(interaction, battle, data, itemId, isPlayer1) {
   const result = useItem(user, itemId);
   
   if (!result.success) {
-    await interaction.update({ content: `❌ ${result.message}`, embeds: [], components: [] });
+    await interaction.editReply({ content: `❌ ${result.message}`, embeds: [], components: [] }).catch(async () => {
+      await interaction.update({ content: `❌ ${result.message}`, embeds: [], components: [] });
+    });
+    setTimeout(() => {
+      if (activeBattles.has(battle.player1)) {
+        promptTurn(battle, battle.channel, data);
+      }
+    }, 2000);
     return;
   }
   
@@ -632,9 +713,11 @@ async function useItemInBattle(interaction, battle, data, itemId, isPlayer1) {
     message += `✨ All negative effects removed!`;
   }
   
-  saveData(data);
+  await saveDataImmediate(data);
   
-  await interaction.update({ content: message, embeds: [], components: [] });
+  await interaction.editReply({ content: message, embeds: [], components: [] }).catch(async () => {
+    await interaction.update({ content: message, embeds: [], components: [] });
+  });
   
   setTimeout(() => {
     if (activeBattles.has(battle.player1)) {
@@ -666,8 +749,14 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
   const currentEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
   
   if (currentEnergy < energyCost) {
-    await interaction.update({ content: '❌ Not enough energy!', embeds: [], components: [] });
-    await promptTurn(battle, channel, data);
+    await interaction.editReply({ content: '❌ Not enough energy! Try a different move or use an energy item.', embeds: [], components: [] }).catch(async () => {
+      await interaction.update({ content: '❌ Not enough energy! Try a different move or use an energy item.', embeds: [], components: [] });
+    });
+    setTimeout(() => {
+      if (activeBattles.has(battle.player1)) {
+        promptTurn(battle, channel, data);
+      }
+    }, 2000);
     return;
   }
   
@@ -833,21 +922,34 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       applyEffect(battle, isPlayer1 ? battle.player2 : battle.player1, MOVE_EFFECTS.FREEZE, 1);
     }
     
+    let abilityEffects = '';
+    if (currentAbility && currentAbility.effect.lifesteal) {
+      abilityEffects += `\n💉 Lifesteal: Gained ${Math.round(finalDamage * currentAbility.effect.lifesteal)} HP!`;
+    }
+    if (currentAbility && currentAbility.effect.energySteal) {
+      abilityEffects += `\n⚡ Energy Steal: +${currentAbility.effect.energySteal} energy!`;
+    }
+    if (currentAbility && currentAbility.effect.damageToEnergy) {
+      abilityEffects += `\n⚡ Gained ${Math.floor(finalDamage / 10)} energy from damage!`;
+    }
+    
     const attackEmbed = new EmbedBuilder()
       .setColor(isCritical ? '#FF0000' : '#FFA500')
       .setTitle(isCritical ? '💥 CRITICAL HIT!' : '⚔️ Attack!')
-      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nDealt ${finalDamage} damage to ${opponentChar.emoji} **${opponentChar.name}**!${isCritical ? ' ⭐' : ''}`)
+      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nDealt ${finalDamage} damage to ${opponentChar.emoji} **${opponentChar.name}**!${isCritical ? ' ⭐' : ''}${abilityEffects}`)
       .setFooter({ text: `Energy used: ${energyCost}⚡` });
     
-    await interaction.update({ embeds: [attackEmbed], components: [] });
+    await interaction.editReply({ embeds: [], components: [] }).catch(() => {});
+    await channel.send({ embeds: [attackEmbed] });
   } else if (baseDamage < 0) {
     const healAmount = Math.abs(baseDamage);
     const currentHP = isPlayer1 ? battle.player1HP : battle.player2HP;
     const maxHP = isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP;
     const actualHeal = Math.min(healAmount, maxHP - currentHP);
     
+    let bonusHeal = 0;
     if (currentAbility && currentAbility.effect.healingBonus) {
-      const bonusHeal = Math.round(actualHeal * currentAbility.effect.healingBonus);
+      bonusHeal = Math.round(actualHeal * currentAbility.effect.healingBonus);
       if (isPlayer1) {
         battle.player1HP = Math.min(battle.player1HP + actualHeal + bonusHeal, battle.player1MaxHP);
       } else {
@@ -861,15 +963,18 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       }
     }
     
+    let energyBonus = 0;
     if (currentAbility && currentAbility.effect.healToEnergy) {
+      energyBonus = currentAbility.effect.healToEnergy;
       if (isPlayer1) {
-        battle.player1Energy = Math.min(battle.player1Energy + currentAbility.effect.healToEnergy, MAX_ENERGY);
+        battle.player1Energy = Math.min(battle.player1Energy + energyBonus, MAX_ENERGY);
       } else {
-        battle.player2Energy = Math.min(battle.player2Energy + currentAbility.effect.healToEnergy, MAX_ENERGY);
+        battle.player2Energy = Math.min(battle.player2Energy + energyBonus, MAX_ENERGY);
       }
     }
     
     if (currentAbility && currentAbility.effect.healRestoresEnergy) {
+      energyBonus += currentAbility.effect.healRestoresEnergy;
       if (isPlayer1) {
         battle.player1Energy = Math.min(battle.player1Energy + currentAbility.effect.healRestoresEnergy, MAX_ENERGY);
       } else {
@@ -880,10 +985,11 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
     const healEmbed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('💚 Heal!')
-      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nRestored ${actualHeal} HP!`)
+      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nRestored ${actualHeal}${bonusHeal > 0 ? ` + ${bonusHeal} (bonus)` : ''} HP!${energyBonus > 0 ? `\n⚡ Gained ${energyBonus} energy!` : ''}`)
       .setFooter({ text: `Energy used: ${energyCost}⚡` });
     
-    await interaction.update({ embeds: [healEmbed], components: [] });
+    await interaction.editReply({ embeds: [], components: [] }).catch(() => {});
+    await channel.send({ embeds: [healEmbed] });
   } else {
     const buffEmbed = new EmbedBuilder()
       .setColor('#FFFF00')
@@ -891,7 +997,8 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!`)
       .setFooter({ text: `Energy used: ${energyCost}⚡` });
     
-    await interaction.update({ embeds: [buffEmbed], components: [] });
+    await interaction.editReply({ embeds: [], components: [] }).catch(() => {});
+    await channel.send({ embeds: [buffEmbed] });
   }
   
   if ((isPlayer1 ? battle.player2HP : battle.player1HP) <= 0) {
@@ -932,7 +1039,7 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     
     await eventSystem.recordProgress(winner, data.users[winner].username, 5, 'trophy_hunt');
     
-    saveData(data);
+    await saveDataImmediate(data);
     
     if (reason === 'flee') {
       const fleeEmbed = new EmbedBuilder()

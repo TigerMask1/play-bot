@@ -10,6 +10,10 @@ if (USE_MONGODB) {
   mongoManager = require('./mongoManager.js');
 }
 
+let saveQueue = [];
+let saveTimeout = null;
+const SAVE_BATCH_DELAY = 2000;
+
 function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
@@ -219,9 +223,22 @@ async function loadData() {
 
 function saveData(data) {
   if (USE_MONGODB) {
-    mongoManager.saveData(data).catch(error => {
-      console.error('Error saving to MongoDB:', error);
-    });
+    saveQueue.push(data);
+    
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    
+    saveTimeout = setTimeout(() => {
+      if (saveQueue.length > 0) {
+        const dataToSave = saveQueue[saveQueue.length - 1];
+        saveQueue = [];
+        
+        mongoManager.saveData(dataToSave).catch(error => {
+          console.error('Error saving to MongoDB:', error);
+        });
+      }
+    }, SAVE_BATCH_DELAY);
   } else {
     try {
       fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
@@ -231,4 +248,24 @@ function saveData(data) {
   }
 }
 
-module.exports = { loadData, saveData };
+function saveDataImmediate(data) {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  saveQueue = [];
+  
+  if (USE_MONGODB) {
+    return mongoManager.saveData(data);
+  } else {
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+      return Promise.resolve(true);
+    } catch (error) {
+      console.error('Error saving JSON data:', error);
+      return Promise.resolve(false);
+    }
+  }
+}
+
+module.exports = { loadData, saveData, saveDataImmediate };

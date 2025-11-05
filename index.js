@@ -36,7 +36,7 @@ const client = new Client({
 });
 
 const CHARACTERS = require('./characters.js');
-const { loadData, saveData } = require('./dataManager.js');
+const { loadData, saveData, saveDataImmediate } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate } = require('./crateSystem.js');
 const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
@@ -98,7 +98,7 @@ client.on('messageCreate', async (message) => {
       lastDailyClaim: null,
       inventory: {}
     };
-    saveData(data);
+    await saveDataImmediate(data);
   }
   
 
@@ -205,7 +205,7 @@ client.on('messageCreate', async (message) => {
         data.users[userId].coins = 100;
         data.users[userId].gems = 10;
         data.users[userId].pendingTokens = 0;
-        saveData(data);
+        await saveDataImmediate(data);
         
         let embedDesc = `You chose **${starterChar.name} ${starterChar.emoji}**!\n\n**ST:** ${starterST}%\n\nStarting rewards:\n💰 100 Coins\n💎 10 Gems`;
         
@@ -321,7 +321,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        saveData(data);
+        await saveDataImmediate(data);
         
         const resultEmbed = new EmbedBuilder()
           .setColor('#FFD700')
@@ -348,7 +348,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        saveData(data);
+        await saveDataImmediate(data);
         
         const openResultEmbed = new EmbedBuilder()
           .setColor('#FFD700')
@@ -383,7 +383,7 @@ client.on('messageCreate', async (message) => {
           charToLevel.tokens -= requirements.tokens;
           data.users[userId].coins -= requirements.coins;
           charToLevel.level += 1;
-          saveData(data);
+          await saveDataImmediate(data);
           
           const lvlEmbed = new EmbedBuilder()
             .setColor('#00FF00')
@@ -1141,7 +1141,7 @@ client.on('messageCreate', async (message) => {
         const claimResult = claimQuest(data.users[userId], questToClaim);
         
         if (claimResult.success) {
-          saveData(data);
+          await saveDataImmediate(data);
           const claimEmbed = new EmbedBuilder()
             .setColor('#2ECC71')
             .setTitle('🎉 Quest Completed!')
@@ -1173,7 +1173,7 @@ client.on('messageCreate', async (message) => {
         const craftResult = craftBooster(data.users[userId]);
         
         if (craftResult.success) {
-          saveData(data);
+          await saveDataImmediate(data);
           await message.reply(craftResult.message);
         } else {
           await message.reply(craftResult.message);
@@ -1411,7 +1411,7 @@ client.on('messageCreate', async (message) => {
         data.users[userId].coins += coinReward;
         data.users[userId].gems += gemReward;
         data.users[userId].lastDailyClaim = now.toISOString();
-        saveData(data);
+        await saveDataImmediate(data);
         
         const dailyEmbed = new EmbedBuilder()
           .setColor('#FFD700')
@@ -1591,6 +1591,42 @@ client.on('messageCreate', async (message) => {
     console.error('Command error:', error);
     await message.reply('❌ An error occurred while processing your command!');
   }
+});
+
+async function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  
+  try {
+    stopDropSystem();
+    console.log('✅ Stopped drop system');
+    
+    await saveDataImmediate(data);
+    console.log('✅ Flushed all pending data saves');
+    
+    if (process.env.USE_MONGODB === 'true') {
+      const mongoManager = require('./mongoManager.js');
+      await mongoManager.disconnect();
+    }
+    
+    await client.destroy();
+    console.log('✅ Discord client disconnected');
+    
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  saveDataImmediate(data).then(() => {
+    process.exit(1);
+  }).catch(() => {
+    process.exit(1);
+  });
 });
 
 const token = process.env.DISCORD_BOT_TOKEN;
