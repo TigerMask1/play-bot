@@ -25,7 +25,8 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Items & Inventory:** MongoDB-compatible inventory for tracking battle items.
 - **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking and rewards.
 - **Admin Tools:** Commands for managing resources, characters, skins, and bot channels.
-- **Zoo Raids System:** Cooperative multiplayer boss battles with hourly spawns, turn-based combat, damage leaderboards, and tiered rewards.
+- **Zoo Raids System:** Cooperative multiplayer boss battles with hourly spawns, turn-based combat, damage leaderboards, and tiered rewards. Server-specific raids (Server ID: 1430516117851340893) spawn in designated channel (ID: 1435599092679049319) every hour.
+- **Key & Cage System:** Two-tier character unlock system with character-specific keys (1000 required to unlock) and cage keys (250 for random unlock). Players earn 1 character key per raid; keys auto-convert to gems (1:1) for owned characters. Top 3 event winners receive cage keys (5/3/1 respectively). Includes !keys, !unlock, and !cage commands.
 - **Tutorial System:** Interactive 8-stage tutorial for new players covering all game mechanics, with keyword-based progression and smart mention detection for help.
 
 **System Design Choices:**
