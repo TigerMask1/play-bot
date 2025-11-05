@@ -21,7 +21,16 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 - **Crate System:** Four tiers of crates (Gold, Emerald, Legendary, Tyrant) offering varying probabilities of characters, tokens, and coins. Includes a "pending tokens" system for tokens received before character ownership.
 - **Drop System:** Random drops spawn every 20 seconds, offering character-specific tokens, coins, or gems, claimable by the first user.
 - **Trading System:** Secure player-to-player trading with dual confirmation and a timeout.
-- **Battle System:** Turn-based combat with Pokemon-style mechanics. Features battle invites, character selection, character-specific moves (with cooldowns for special moves), a damage formula scaling with level and ST, and trophy rewards.
+- **Battle System:** Strategic turn-based combat with comprehensive mechanics:
+  - **Energy System:** Players start with 50 energy, regenerate 10 per turn (max 100). Moves cost energy based on damage output.
+  - **Character Abilities:** Each of the 51 characters has a unique passive ability that provides strategic advantages (e.g., critical damage boosts, energy cost reduction, healing, shields).
+  - **Critical Hits:** 15% base chance, affected by character abilities and stat buffs, dealing 1.5x damage.
+  - **Status Effects:** Burn, freeze, poison, paralyze, stun, and regeneration effects with turn-based durations.
+  - **Battle Items:** Consumable items (healing potions, energy drinks, stat boosts, cleanse) can be used mid-battle for strategic advantages.
+  - **Shop System:** Interactive shop (`!shop`) with category browsing to purchase battle items with coins and gems.
+  - **Enhanced UI:** Real-time HP and energy bars, active status effects display, buff/debuff tracking.
+  - **Buff System:** Temporary stat modifications (attack, defense, critical chance) with turn-based durations.
+- **Items & Inventory:** MongoDB-compatible inventory system tracking owned battle items with quantities.
 - **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time progress tracking, competitive rewards, and automatic announcements.
 - **Admin Tools:** Extensive admin commands for managing resources, characters, skins, and setting up bot channels.
 

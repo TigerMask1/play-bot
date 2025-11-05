@@ -1,10 +1,17 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { saveData } = require('./dataManager.js');
-const { calculateBaseHP, calculateDamage, getMoveDisplay } = require('./battleUtils.js');
+const { calculateBaseHP, calculateDamage, calculateEnergyCost, calculateCriticalHit, getMoveDisplay } = require('./battleUtils.js');
+const { getCharacterAbility } = require('./characterAbilities.js');
+const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay, clearAllEffects } = require('./moveEffects.js');
+const { getUserBattleItems, useItem } = require('./itemsSystem.js');
 const eventSystem = require('./eventSystem.js');
 
 const activeBattles = new Map();
 const battleInvites = new Map();
+
+const STARTING_ENERGY = 50;
+const ENERGY_PER_TURN = 10;
+const MAX_ENERGY = 100;
 
 async function initiateBattle(message, data, challengerId, opponentId) {
   if (battleInvites.has(challengerId)) {
@@ -154,10 +161,22 @@ async function startCharacterSelection(channel, data, player1Id, player2Id) {
     player2HP: 0,
     player1MaxHP: 0,
     player2MaxHP: 0,
+    player1Energy: STARTING_ENERGY,
+    player2Energy: STARTING_ENERGY,
+    player1Shield: 0,
+    player2Shield: 0,
+    player1Buffs: {},
+    player2Buffs: {},
+    player1Ability: null,
+    player2Ability: null,
+    player1AbilityState: {},
+    player2AbilityState: {},
     currentTurn: null,
     channel: channel,
     timeout: null,
-    started: false
+    started: false,
+    effects: { player1: [], player2: [] },
+    turnCount: 0
   };
   
   activeBattles.set(player1Id, battle);
@@ -202,16 +221,42 @@ async function startCharacterSelection(channel, data, player1Id, player2Id) {
       return;
     }
     
+    const ability = getCharacterAbility(selectedChar.name);
+    
     if (userId === player1Id && !battle.player1Character) {
       battle.player1Character = selectedChar;
       battle.player1HP = selectedChar.baseHp;
       battle.player1MaxHP = selectedChar.baseHp;
-      await m.reply(`✅ You selected **${selectedChar.name} ${selectedChar.emoji}**!`);
+      battle.player1Ability = ability;
+      
+      if (ability && ability.effect.startingEnergyBonus) {
+        battle.player1Energy += ability.effect.startingEnergyBonus;
+      }
+      if (ability && ability.effect.startWithMaxEnergy) {
+        battle.player1Energy = MAX_ENERGY;
+      }
+      if (ability && ability.effect.startingShield) {
+        battle.player1Shield = Math.round(selectedChar.baseHp * ability.effect.startingShield);
+      }
+      
+      await m.reply(`✅ You selected **${selectedChar.name} ${selectedChar.emoji}**!${ability ? `\n${ability.emoji} **${ability.name}**: ${ability.description}` : ''}`);
     } else if (userId === player2Id && !battle.player2Character) {
       battle.player2Character = selectedChar;
       battle.player2HP = selectedChar.baseHp;
       battle.player2MaxHP = selectedChar.baseHp;
-      await m.reply(`✅ You selected **${selectedChar.name} ${selectedChar.emoji}**!`);
+      battle.player2Ability = ability;
+      
+      if (ability && ability.effect.startingEnergyBonus) {
+        battle.player2Energy += ability.effect.startingEnergyBonus;
+      }
+      if (ability && ability.effect.startWithMaxEnergy) {
+        battle.player2Energy = MAX_ENERGY;
+      }
+      if (ability && ability.effect.startingShield) {
+        battle.player2Shield = Math.round(selectedChar.baseHp * ability.effect.startingShield);
+      }
+      
+      await m.reply(`✅ You selected **${selectedChar.name} ${selectedChar.emoji}**!${ability ? `\n${ability.emoji} **${ability.name}**: ${ability.description}` : ''}`);
     }
     
     if (battle.player1Character && battle.player2Character) {
@@ -232,17 +277,37 @@ async function startCharacterSelection(channel, data, player1Id, player2Id) {
 async function startBattle(battle, channel, data) {
   battle.started = true;
   battle.currentTurn = Math.random() < 0.5 ? battle.player1 : battle.player2;
-  battle.turnCount = 0;
-  battle.player1SpecialUsed = false;
-  battle.player2SpecialUsed = false;
+  
+  const ability1 = battle.player1Ability;
+  const ability2 = battle.player2Ability;
+  
+  if (ability1 && ability1.effect.randomStartBuff) {
+    const buffTypes = ['attack', 'defense', 'critical'];
+    const randomBuff = buffTypes[Math.floor(Math.random() * buffTypes.length)];
+    battle.player1Buffs[randomBuff] = { value: 1.2, duration: 4 };
+  }
+  
+  if (ability2 && ability2.effect.randomStartBuff) {
+    const buffTypes = ['attack', 'defense', 'critical'];
+    const randomBuff = buffTypes[Math.floor(Math.random() * buffTypes.length)];
+    battle.player2Buffs[randomBuff] = { value: 1.2, duration: 4 };
+  }
   
   const battleStartEmbed = new EmbedBuilder()
     .setColor('#FFD700')
     .setTitle('⚔️ BATTLE BEGINS!')
     .setDescription(`**${battle.player1Character.emoji} ${battle.player1Character.name}** vs **${battle.player2Character.emoji} ${battle.player2Character.name}**\n\n<@${battle.currentTurn}> goes first!`)
     .addFields(
-      { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-      { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
+      { 
+        name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, 
+        value: `HP: ${battle.player1HP}/${battle.player1MaxHP}${battle.player1Shield > 0 ? ` 🛡️${battle.player1Shield}` : ''}\n⚡ Energy: ${battle.player1Energy}/${MAX_ENERGY}${battle.player1Ability ? `\n${battle.player1Ability.emoji} ${battle.player1Ability.name}` : ''}`, 
+        inline: true 
+      },
+      { 
+        name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, 
+        value: `HP: ${battle.player2HP}/${battle.player2MaxHP}${battle.player2Shield > 0 ? ` 🛡️${battle.player2Shield}` : ''}\n⚡ Energy: ${battle.player2Energy}/${MAX_ENERGY}${battle.player2Ability ? `\n${battle.player2Ability.emoji} ${battle.player2Ability.name}` : ''}`, 
+        inline: true 
+      }
     );
   
   await channel.send({ embeds: [battleStartEmbed] });
@@ -256,160 +321,204 @@ async function startBattle(battle, channel, data) {
   await promptTurn(battle, channel, data);
 }
 
+function createEnergyBar(current, max) {
+  const barLength = 10;
+  const filledBars = Math.round((current / max) * barLength);
+  const emptyBars = barLength - filledBars;
+  return '█'.repeat(filledBars) + '░'.repeat(emptyBars) + ` ${current}/${max}`;
+}
+
+function createHPBar(current, max) {
+  const barLength = 10;
+  const filledBars = Math.round((current / max) * barLength);
+  const emptyBars = barLength - filledBars;
+  const percentage = Math.round((current / max) * 100);
+  return '█'.repeat(filledBars) + '░'.repeat(emptyBars) + ` ${current}/${max} (${percentage}%)`;
+}
+
 async function promptTurn(battle, channel, data) {
+  battle.turnCount++;
+  
   const currentPlayer = battle.currentTurn;
   const isPlayer1 = currentPlayer === battle.player1;
   const currentChar = isPlayer1 ? battle.player1Character : battle.player2Character;
+  const opponentChar = isPlayer1 ? battle.player2Character : battle.player1Character;
   
-  const moves = currentChar.moves;
-  const allMoves = [moves.special, ...moves.tierMoves];
+  let currentEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
+  const currentAbility = isPlayer1 ? battle.player1Ability : battle.player2Ability;
+  const currentAbilityState = isPlayer1 ? battle.player1AbilityState : battle.player2AbilityState;
   
-  const specialUsed = isPlayer1 ? battle.player1SpecialUsed : battle.player2SpecialUsed;
-  const canUseSpecial = battle.turnCount >= 3 && !specialUsed;
-  
-  const moveList = allMoves.map((move, index) => {
-    const isSpecial = index === 0;
-    const display = getMoveDisplay(move, currentChar.level, currentChar.st, isSpecial);
-    
-    if (isSpecial && !canUseSpecial) {
-      if (specialUsed) {
-        return `**${index + 1}.** ${display} ❌ (Already used)`;
-      } else {
-        return `**${index + 1}.** ${display} 🔒 (Available turn ${3 - battle.turnCount})`;
-      }
-    }
-    
-    return `**${index + 1}.** ${display}`;
-  }).join('\n');
-  
-  const turnEmbed = new EmbedBuilder()
-    .setColor('#FFA500')
-    .setTitle(`⚡ <@${currentPlayer}>'s Turn!`)
-    .setDescription(`**Your Character:** ${currentChar.emoji} ${currentChar.name}\n\n**Choose an action:**\nType the move number (1-3) or type **flight** to flee!\n\n${moveList}`)
-    .addFields(
-      { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-      { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
-    );
-  
-  await channel.send({ embeds: [turnEmbed] });
-  
-  const filter = (m) => m.author.id === currentPlayer && !m.content.startsWith('!');
-  
-  const collector = channel.createMessageCollector({ filter, max: 1, time: 60000 });
-  
-  collector.on('collect', async (m) => {
-    const action = m.content.toLowerCase().trim();
-    
-    if (action === 'flight' || action === 'flee' || action === 'run') {
-      const winner = isPlayer1 ? battle.player2 : battle.player1;
-      await m.reply(`💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`);
-      await endBattle(battle, channel, data, 'flee', winner);
-      return;
-    }
-    
-    const moveIndex = parseInt(action) - 1;
-    
-    if (isNaN(moveIndex) || moveIndex < 0 || moveIndex > 2) {
-      await m.reply('❌ Invalid choice! Please type 1, 2, 3, or flight.');
-      await promptTurn(battle, channel, data);
-      return;
-    }
-    
-    const selectedMove = allMoves[moveIndex];
-    const isSpecial = moveIndex === 0;
-    
-    if (isSpecial) {
-      const specialUsed = isPlayer1 ? battle.player1SpecialUsed : battle.player2SpecialUsed;
-      const canUseSpecial = battle.turnCount >= 3 && !specialUsed;
-      
-      if (!canUseSpecial) {
-        if (specialUsed) {
-          await m.reply('❌ You already used your special move!');
-        } else {
-          await m.reply(`❌ Special move unlocks in turn ${3 - battle.turnCount}!`);
-        }
-        await promptTurn(battle, channel, data);
-        return;
-      }
-      
-      if (isPlayer1) {
-        battle.player1SpecialUsed = true;
-      } else {
-        battle.player2SpecialUsed = true;
-      }
-    }
-    
-    battle.turnCount++;
-    const damage = calculateDamage(selectedMove, currentChar.level, currentChar.st, isSpecial);
-    
-    const opponentPlayer = isPlayer1 ? battle.player2 : battle.player1;
-    const opponentChar = isPlayer1 ? battle.player2Character : battle.player1Character;
-    
-    if (damage < 0) {
-      const healAmount = Math.abs(damage);
-      const currentHP = isPlayer1 ? battle.player1HP : battle.player2HP;
-      const maxHP = isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP;
-      const actualHeal = Math.min(healAmount, maxHP - currentHP);
-      
-      if (isPlayer1) {
-        battle.player1HP = Math.min(battle.player1HP + actualHeal, battle.player1MaxHP);
-      } else {
-        battle.player2HP = Math.min(battle.player2HP + actualHeal, battle.player2MaxHP);
-      }
-      
-      const healEmbed = new EmbedBuilder()
-        .setColor('#00FF00')
-        .setTitle('💚 Heal!')
-        .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nRestored ${actualHeal} HP!`)
-        .addFields(
-          { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-          { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
-        );
-      
-      await channel.send({ embeds: [healEmbed] });
-    } else if (damage === 0) {
-      const buffEmbed = new EmbedBuilder()
-        .setColor('#FFFF00')
-        .setTitle('✨ Support Move!')
-        .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!`)
-        .addFields(
-          { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-          { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
-        );
-      
-      await channel.send({ embeds: [buffEmbed] });
+  if (currentAbility && currentAbility.effect.healPerTurn) {
+    const healAmount = Math.round((isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP) * currentAbility.effect.healPerTurn);
+    if (isPlayer1) {
+      battle.player1HP = Math.min(battle.player1HP + healAmount, battle.player1MaxHP);
     } else {
-      if (isPlayer1) {
-        battle.player2HP = Math.max(0, battle.player2HP - damage);
-      } else {
-        battle.player1HP = Math.max(0, battle.player1HP - damage);
-      }
-      
-      const attackEmbed = new EmbedBuilder()
-        .setColor('#FF0000')
-        .setTitle('💥 Attack!')
-        .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nDealt ${damage} damage to ${opponentChar.emoji} **${opponentChar.name}**!`)
-        .addFields(
-          { name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
-          { name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: ${battle.player2HP}/${battle.player2MaxHP}`, inline: true }
-        );
-      
-      await channel.send({ embeds: [attackEmbed] });
+      battle.player2HP = Math.min(battle.player2HP + healAmount, battle.player2MaxHP);
     }
-    
-    if (battle.player1HP <= 0 || battle.player2HP <= 0) {
-      const winner = battle.player1HP > 0 ? battle.player1 : battle.player2;
-      await endBattle(battle, channel, data, 'knockout', winner);
-      return;
+    await channel.send(`${currentAbility.emoji} **${currentAbility.name}**: ${currentChar.emoji} ${currentChar.name} healed ${healAmount} HP!`);
+  }
+  
+  if (currentAbility && currentAbility.effect.hpRegenPerTurn) {
+    const healAmount = currentAbility.effect.hpRegenPerTurn;
+    if (isPlayer1) {
+      battle.player1HP = Math.min(battle.player1HP + healAmount, battle.player1MaxHP);
+    } else {
+      battle.player2HP = Math.min(battle.player2HP + healAmount, battle.player2MaxHP);
     }
-    
-    battle.currentTurn = opponentPlayer;
-    
+    await channel.send(`${currentAbility.emoji} **${currentAbility.name}**: ${currentChar.emoji} ${currentChar.name} regenerated ${healAmount} HP!`);
+  }
+  
+  if (currentAbility && currentAbility.effect.energyRegenPerTurn) {
+    currentEnergy = Math.min(currentEnergy + currentAbility.effect.energyRegenPerTurn, MAX_ENERGY);
+    if (isPlayer1) {
+      battle.player1Energy = currentEnergy;
+    } else {
+      battle.player2Energy = currentEnergy;
+    }
+  }
+  
+  currentEnergy = Math.min(currentEnergy + ENERGY_PER_TURN, MAX_ENERGY);
+  if (isPlayer1) {
+    battle.player1Energy = currentEnergy;
+  } else {
+    battle.player2Energy = currentEnergy;
+  }
+  
+  if (currentAbility && currentAbility.effect.energyRegenBonus) {
+    const bonusEnergy = Math.round(ENERGY_PER_TURN * currentAbility.effect.energyRegenBonus);
+    currentEnergy = Math.min(currentEnergy + bonusEnergy, MAX_ENERGY);
+    if (isPlayer1) {
+      battle.player1Energy = currentEnergy;
+    } else {
+      battle.player2Energy = currentEnergy;
+    }
+  }
+  
+  const effectsResult = processEffects(battle, currentPlayer);
+  
+  if (effectsResult.damage > 0) {
+    if (isPlayer1) {
+      battle.player1HP = Math.max(0, battle.player1HP - effectsResult.damage);
+    } else {
+      battle.player2HP = Math.max(0, battle.player2HP - effectsResult.damage);
+    }
+  }
+  
+  if (effectsResult.heal > 0) {
+    if (isPlayer1) {
+      battle.player1HP = Math.min(battle.player1HP + effectsResult.heal, battle.player1MaxHP);
+    } else {
+      battle.player2HP = Math.min(battle.player2HP + effectsResult.heal, battle.player2MaxHP);
+    }
+  }
+  
+  if (effectsResult.messages.length > 0) {
+    await channel.send(`${currentChar.emoji} **${currentChar.name}**:\n${effectsResult.messages.join('\n')}`);
+  }
+  
+  if ((isPlayer1 ? battle.player1HP : battle.player2HP) <= 0) {
+    const winner = isPlayer1 ? battle.player2 : battle.player1;
+    await endBattle(battle, channel, data, 'knockout', winner);
+    return;
+  }
+  
+  if (effectsResult.skipTurn) {
+    await channel.send(`${currentChar.emoji} **${currentChar.name}** is frozen/stunned and skips this turn!`);
+    battle.currentTurn = isPlayer1 ? battle.player2 : battle.player1;
     setTimeout(() => {
       if (activeBattles.has(battle.player1)) {
         promptTurn(battle, channel, data);
       }
     }, 2000);
+    return;
+  }
+  
+  const moves = currentChar.moves;
+  const allMoves = [moves.special, ...moves.tierMoves];
+  
+  const moveButtons = [];
+  for (let i = 0; i < allMoves.length; i++) {
+    const move = allMoves[i];
+    const isSpecial = i === 0;
+    let energyCost = calculateEnergyCost(move, isSpecial);
+    
+    if (currentAbility && currentAbility.effect.energyCostReduction) {
+      energyCost = Math.round(energyCost * (1 - currentAbility.effect.energyCostReduction));
+    }
+    if (currentAbility && currentAbility.effect.normalMoveCostReduction && !isSpecial) {
+      energyCost = Math.round(energyCost * (1 - currentAbility.effect.normalMoveCostReduction));
+    }
+    
+    const display = getMoveDisplay(move, currentChar.level, currentChar.st, isSpecial, energyCost);
+    const canAfford = currentEnergy >= energyCost;
+    
+    moveButtons.push(
+      new ButtonBuilder()
+        .setCustomId(`move_${i}_${battle.id}`)
+        .setLabel(`${display}`)
+        .setStyle(isSpecial ? ButtonStyle.Danger : ButtonStyle.Primary)
+        .setDisabled(!canAfford)
+    );
+  }
+  
+  const fleeButton = new ButtonBuilder()
+    .setCustomId(`flee_${battle.id}`)
+    .setLabel('Flee')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const itemButton = new ButtonBuilder()
+    .setCustomId(`items_${battle.id}`)
+    .setLabel('Items')
+    .setStyle(ButtonStyle.Success)
+    .setEmoji('🎒');
+  
+  const rows = [
+    new ActionRowBuilder().addComponents(moveButtons.slice(0, 3)),
+    new ActionRowBuilder().addComponents(fleeButton, itemButton)
+  ];
+  
+  const effectsDisplay1 = getEffectsDisplay(battle, battle.player1);
+  const effectsDisplay2 = getEffectsDisplay(battle, battle.player2);
+  
+  const turnEmbed = new EmbedBuilder()
+    .setColor('#FFA500')
+    .setTitle(`⚡ <@${currentPlayer}>'s Turn! (Turn ${battle.turnCount})`)
+    .setDescription(`**Your Character:** ${currentChar.emoji} ${currentChar.name}${currentAbility ? `\n${currentAbility.emoji} **${currentAbility.name}**` : ''}\n\n**Choose your action:**`)
+    .addFields(
+      { 
+        name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, 
+        value: `HP: ${createHPBar(battle.player1HP, battle.player1MaxHP)}${battle.player1Shield > 0 ? `\n🛡️ Shield: ${battle.player1Shield}` : ''}\n⚡ ${createEnergyBar(battle.player1Energy, MAX_ENERGY)}${effectsDisplay1 ? `\n${effectsDisplay1}` : ''}`, 
+        inline: false 
+      },
+      { 
+        name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, 
+        value: `HP: ${createHPBar(battle.player2HP, battle.player2MaxHP)}${battle.player2Shield > 0 ? `\n🛡️ Shield: ${battle.player2Shield}` : ''}\n⚡ ${createEnergyBar(battle.player2Energy, MAX_ENERGY)}${effectsDisplay2 ? `\n${effectsDisplay2}` : ''}`, 
+        inline: false 
+      }
+    );
+  
+  const turnMessage = await channel.send({ embeds: [turnEmbed], components: rows });
+  
+  const filter = (interaction) => {
+    return interaction.user.id === currentPlayer && 
+           (interaction.customId.endsWith(battle.id));
+  };
+  
+  const collector = turnMessage.createMessageComponentCollector({ filter, max: 1, time: 60000 });
+  
+  collector.on('collect', async (interaction) => {
+    if (interaction.customId === `flee_${battle.id}`) {
+      const winner = isPlayer1 ? battle.player2 : battle.player1;
+      await interaction.update({ content: `💨 ${currentChar.emoji} ${currentChar.name} fled from battle!`, embeds: [], components: [] });
+      await endBattle(battle, channel, data, 'flee', winner);
+      return;
+    } else if (interaction.customId === `items_${battle.id}`) {
+      await showItemMenu(interaction, battle, data, isPlayer1);
+      return;
+    } else if (interaction.customId.startsWith('move_')) {
+      const moveIndex = parseInt(interaction.customId.split('_')[1]);
+      await executeMove(interaction, battle, channel, data, moveIndex, isPlayer1);
+    }
   });
   
   collector.on('end', (collected, reason) => {
@@ -419,6 +528,385 @@ async function promptTurn(battle, channel, data) {
       endBattle(battle, channel, data, 'timeout', winner);
     }
   });
+}
+
+async function showItemMenu(interaction, battle, data, isPlayer1) {
+  const userId = isPlayer1 ? battle.player1 : battle.player2;
+  const user = data.users[userId];
+  const items = getUserBattleItems(user);
+  
+  if (items.length === 0) {
+    await interaction.reply({ content: '❌ You don\'t have any battle items! Visit the shop with `!shop`.', ephemeral: true });
+    return;
+  }
+  
+  const itemButtons = items.slice(0, 5).map(item => 
+    new ButtonBuilder()
+      .setCustomId(`use_item_${item.id}_${battle.id}`)
+      .setLabel(`${item.emoji} ${item.name} (${item.count})`)
+      .setStyle(ButtonStyle.Success)
+  );
+  
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_battle_${battle.id}`)
+    .setLabel('Back')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const rows = [];
+  if (itemButtons.length > 0) {
+    rows.push(new ActionRowBuilder().addComponents(itemButtons.slice(0, Math.min(5, itemButtons.length))));
+  }
+  rows.push(new ActionRowBuilder().addComponents(backButton));
+  
+  const itemEmbed = new EmbedBuilder()
+    .setColor('#00FF00')
+    .setTitle('🎒 Battle Items')
+    .setDescription(items.map(i => `${i.emoji} **${i.name}** x${i.count}\n${i.description}`).join('\n\n'))
+    .setFooter({ text: 'Select an item to use' });
+  
+  await interaction.update({ embeds: [itemEmbed], components: rows });
+  
+  const filter = (i) => i.user.id === userId && i.customId.endsWith(battle.id);
+  const collector = interaction.message.createMessageComponentCollector({ filter, max: 1, time: 30000 });
+  
+  collector.on('collect', async (i) => {
+    if (i.customId === `back_to_battle_${battle.id}`) {
+      await i.update({ content: 'Returning to battle...', embeds: [], components: [] });
+      await promptTurn(battle, battle.channel, data);
+    } else if (i.customId.startsWith('use_item_')) {
+      const itemId = i.customId.split('_')[2];
+      await useItemInBattle(i, battle, data, itemId, isPlayer1);
+    }
+  });
+}
+
+async function useItemInBattle(interaction, battle, data, itemId, isPlayer1) {
+  const userId = isPlayer1 ? battle.player1 : battle.player2;
+  const user = data.users[userId];
+  const char = isPlayer1 ? battle.player1Character : battle.player2Character;
+  
+  const result = useItem(user, itemId);
+  
+  if (!result.success) {
+    await interaction.update({ content: `❌ ${result.message}`, embeds: [], components: [] });
+    return;
+  }
+  
+  const effect = result.effect;
+  let message = `${result.item.emoji} ${char.emoji} **${char.name}** used **${result.item.name}**!\n\n`;
+  
+  if (effect.type === 'heal') {
+    const currentHP = isPlayer1 ? battle.player1HP : battle.player2HP;
+    const maxHP = isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP;
+    const healAmount = Math.min(effect.value, maxHP - currentHP);
+    
+    if (isPlayer1) {
+      battle.player1HP = Math.min(battle.player1HP + healAmount, battle.player1MaxHP);
+    } else {
+      battle.player2HP = Math.min(battle.player2HP + healAmount, battle.player2MaxHP);
+    }
+    
+    message += `💚 Restored ${healAmount} HP!`;
+  } else if (effect.type === 'energy') {
+    const currentEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
+    const energyGain = Math.min(effect.value, MAX_ENERGY - currentEnergy);
+    
+    if (isPlayer1) {
+      battle.player1Energy = Math.min(battle.player1Energy + energyGain, MAX_ENERGY);
+    } else {
+      battle.player2Energy = Math.min(battle.player2Energy + energyGain, MAX_ENERGY);
+    }
+    
+    message += `⚡ Restored ${energyGain} energy!`;
+  } else if (effect.type === 'buff') {
+    const buffs = isPlayer1 ? battle.player1Buffs : battle.player2Buffs;
+    buffs[effect.stat] = { value: effect.value, duration: effect.duration };
+    if (isPlayer1) {
+      battle.player1Buffs = buffs;
+    } else {
+      battle.player2Buffs = buffs;
+    }
+    message += `✨ ${effect.stat.toUpperCase()} boosted for ${effect.duration} turns!`;
+  } else if (effect.type === 'cleanse') {
+    clearAllEffects(battle, userId);
+    message += `✨ All negative effects removed!`;
+  }
+  
+  saveData(data);
+  
+  await interaction.update({ content: message, embeds: [], components: [] });
+  
+  setTimeout(() => {
+    if (activeBattles.has(battle.player1)) {
+      promptTurn(battle, battle.channel, data);
+    }
+  }, 2000);
+}
+
+async function executeMove(interaction, battle, channel, data, moveIndex, isPlayer1) {
+  const currentChar = isPlayer1 ? battle.player1Character : battle.player2Character;
+  const opponentChar = isPlayer1 ? battle.player2Character : battle.player1Character;
+  const currentAbility = isPlayer1 ? battle.player1Ability : battle.player2Ability;
+  const currentAbilityState = isPlayer1 ? battle.player1AbilityState : battle.player2AbilityState;
+  
+  const moves = currentChar.moves;
+  const allMoves = [moves.special, ...moves.tierMoves];
+  const selectedMove = allMoves[moveIndex];
+  const isSpecial = moveIndex === 0;
+  
+  let energyCost = calculateEnergyCost(selectedMove, isSpecial);
+  
+  if (currentAbility && currentAbility.effect.energyCostReduction) {
+    energyCost = Math.round(energyCost * (1 - currentAbility.effect.energyCostReduction));
+  }
+  if (currentAbility && currentAbility.effect.normalMoveCostReduction && !isSpecial) {
+    energyCost = Math.round(energyCost * (1 - currentAbility.effect.normalMoveCostReduction));
+  }
+  
+  const currentEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
+  
+  if (currentEnergy < energyCost) {
+    await interaction.update({ content: '❌ Not enough energy!', embeds: [], components: [] });
+    await promptTurn(battle, channel, data);
+    return;
+  }
+  
+  if (isPlayer1) {
+    battle.player1Energy -= energyCost;
+  } else {
+    battle.player2Energy -= energyCost;
+  }
+  
+  if (currentAbility && currentAbility.effect.specialEnergyRefund && isSpecial) {
+    const refund = Math.round(energyCost * currentAbility.effect.specialEnergyRefund);
+    if (isPlayer1) {
+      battle.player1Energy = Math.min(battle.player1Energy + refund, MAX_ENERGY);
+    } else {
+      battle.player2Energy = Math.min(battle.player2Energy + refund, MAX_ENERGY);
+    }
+  }
+  
+  let baseDamage = calculateDamage(selectedMove, currentChar.level, currentChar.st, isSpecial);
+  
+  if (baseDamage > 0) {
+    let critChance = 0.15;
+    
+    if (currentAbility && currentAbility.effect.criticalChanceBonus) {
+      critChance += currentAbility.effect.criticalChanceBonus;
+    }
+    
+    const buffs = isPlayer1 ? battle.player1Buffs : battle.player2Buffs;
+    if (buffs.critical) {
+      critChance += buffs.critical.value / 100;
+    }
+    
+    const opponentAbility = isPlayer1 ? battle.player2Ability : battle.player1Ability;
+    if (opponentAbility && opponentAbility.effect.opponentCritReduction) {
+      critChance = Math.max(0, critChance - opponentAbility.effect.opponentCritReduction);
+    }
+    
+    const critResult = calculateCriticalHit(baseDamage, critChance);
+    baseDamage = critResult.damage;
+    const isCritical = critResult.isCritical;
+    
+    if (isCritical && currentAbility && currentAbility.effect.criticalDamageBonus) {
+      baseDamage = Math.round(baseDamage * (1 + currentAbility.effect.criticalDamageBonus));
+    }
+    
+    if (isCritical && currentAbility && currentAbility.effect.criticalEnergyGain) {
+      if (isPlayer1) {
+        battle.player1Energy = Math.min(battle.player1Energy + currentAbility.effect.criticalEnergyGain, MAX_ENERGY);
+      } else {
+        battle.player2Energy = Math.min(battle.player2Energy + currentAbility.effect.criticalEnergyGain, MAX_ENERGY);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.firstAttackBonus && !currentAbilityState.firstAttackUsed) {
+      baseDamage = Math.round(baseDamage * (1 + currentAbility.effect.firstAttackBonus));
+      currentAbilityState.firstAttackUsed = true;
+    }
+    
+    if (currentAbility && currentAbility.effect.specialDamageBonus && isSpecial) {
+      baseDamage = Math.round(baseDamage * (1 + currentAbility.effect.specialDamageBonus));
+    }
+    
+    if (currentAbility && currentAbility.effect.flatDamageBonus) {
+      baseDamage += currentAbility.effect.flatDamageBonus;
+    }
+    
+    if (buffs.attack) {
+      baseDamage = Math.round(baseDamage * buffs.attack.value);
+    }
+    
+    const opponentBuffs = isPlayer1 ? battle.player2Buffs : battle.player1Buffs;
+    if (opponentBuffs.defense) {
+      baseDamage = Math.round(baseDamage * opponentBuffs.defense.value);
+    }
+    
+    if (opponentAbility && opponentAbility.effect.damageReduction) {
+      baseDamage = Math.round(baseDamage * (1 - opponentAbility.effect.damageReduction));
+    }
+    
+    const opponentHP = isPlayer1 ? battle.player2HP : battle.player1HP;
+    const opponentMaxHP = isPlayer1 ? battle.player2MaxHP : battle.player1MaxHP;
+    let opponentShield = isPlayer1 ? battle.player2Shield : battle.player1Shield;
+    
+    if (opponentAbility && opponentAbility.effect.firstHitReduction && !((isPlayer1 ? battle.player2AbilityState : battle.player1AbilityState).firstHitTaken)) {
+      baseDamage = Math.round(baseDamage * (1 - opponentAbility.effect.firstHitReduction));
+      if (isPlayer1) {
+        battle.player2AbilityState.firstHitTaken = true;
+      } else {
+        battle.player1AbilityState.firstHitTaken = true;
+      }
+    }
+    
+    if (opponentAbility && opponentAbility.effect.damageBlock && opponentShield === 0) {
+      const blockRemaining = opponentAbility.effect.damageBlock - ((isPlayer1 ? battle.player2AbilityState : battle.player1AbilityState).damageBlocked || 0);
+      if (blockRemaining > 0) {
+        const blocked = Math.min(baseDamage, blockRemaining);
+        baseDamage = Math.max(0, baseDamage - blocked);
+        if (isPlayer1) {
+          battle.player2AbilityState.damageBlocked = (battle.player2AbilityState.damageBlocked || 0) + blocked;
+        } else {
+          battle.player1AbilityState.damageBlocked = (battle.player1AbilityState.damageBlocked || 0) + blocked;
+        }
+      }
+    }
+    
+    let finalDamage = baseDamage;
+    if (opponentShield > 0) {
+      const shieldDamage = Math.min(opponentShield, finalDamage);
+      opponentShield -= shieldDamage;
+      finalDamage -= shieldDamage;
+      
+      if (isPlayer1) {
+        battle.player2Shield = opponentShield;
+      } else {
+        battle.player1Shield = opponentShield;
+      }
+    }
+    
+    if (isPlayer1) {
+      battle.player2HP = Math.max(0, battle.player2HP - finalDamage);
+    } else {
+      battle.player1HP = Math.max(0, battle.player1HP - finalDamage);
+    }
+    
+    if (currentAbility && currentAbility.effect.lifesteal) {
+      const lifeStealAmount = Math.round(finalDamage * currentAbility.effect.lifesteal);
+      if (isPlayer1) {
+        battle.player1HP = Math.min(battle.player1HP + lifeStealAmount, battle.player1MaxHP);
+      } else {
+        battle.player2HP = Math.min(battle.player2HP + lifeStealAmount, battle.player2MaxHP);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.energySteal) {
+      const energyStolen = currentAbility.effect.energySteal;
+      if (isPlayer1) {
+        battle.player1Energy = Math.min(battle.player1Energy + energyStolen, MAX_ENERGY);
+        battle.player2Energy = Math.max(0, battle.player2Energy - energyStolen);
+      } else {
+        battle.player2Energy = Math.min(battle.player2Energy + energyStolen, MAX_ENERGY);
+        battle.player1Energy = Math.max(0, battle.player1Energy - energyStolen);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.damageToEnergy) {
+      const energyGained = Math.floor(finalDamage / 10);
+      if (isPlayer1) {
+        battle.player1Energy = Math.min(battle.player1Energy + energyGained, MAX_ENERGY);
+      } else {
+        battle.player2Energy = Math.min(battle.player2Energy + energyGained, MAX_ENERGY);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.burnChance && Math.random() < currentAbility.effect.burnChance) {
+      applyEffect(battle, isPlayer1 ? battle.player2 : battle.player1, MOVE_EFFECTS.BURN, 3);
+    }
+    
+    if (currentAbility && currentAbility.effect.paralyzeChance && Math.random() < currentAbility.effect.paralyzeChance) {
+      applyEffect(battle, isPlayer1 ? battle.player2 : battle.player1, MOVE_EFFECTS.PARALYZE, 1);
+    }
+    
+    if (currentAbility && currentAbility.effect.freezeChance && Math.random() < currentAbility.effect.freezeChance) {
+      applyEffect(battle, isPlayer1 ? battle.player2 : battle.player1, MOVE_EFFECTS.FREEZE, 1);
+    }
+    
+    const attackEmbed = new EmbedBuilder()
+      .setColor(isCritical ? '#FF0000' : '#FFA500')
+      .setTitle(isCritical ? '💥 CRITICAL HIT!' : '⚔️ Attack!')
+      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nDealt ${finalDamage} damage to ${opponentChar.emoji} **${opponentChar.name}**!${isCritical ? ' ⭐' : ''}`)
+      .setFooter({ text: `Energy used: ${energyCost}⚡` });
+    
+    await interaction.update({ embeds: [attackEmbed], components: [] });
+  } else if (baseDamage < 0) {
+    const healAmount = Math.abs(baseDamage);
+    const currentHP = isPlayer1 ? battle.player1HP : battle.player2HP;
+    const maxHP = isPlayer1 ? battle.player1MaxHP : battle.player2MaxHP;
+    const actualHeal = Math.min(healAmount, maxHP - currentHP);
+    
+    if (currentAbility && currentAbility.effect.healingBonus) {
+      const bonusHeal = Math.round(actualHeal * currentAbility.effect.healingBonus);
+      if (isPlayer1) {
+        battle.player1HP = Math.min(battle.player1HP + actualHeal + bonusHeal, battle.player1MaxHP);
+      } else {
+        battle.player2HP = Math.min(battle.player2HP + actualHeal + bonusHeal, battle.player2MaxHP);
+      }
+    } else {
+      if (isPlayer1) {
+        battle.player1HP = Math.min(battle.player1HP + actualHeal, battle.player1MaxHP);
+      } else {
+        battle.player2HP = Math.min(battle.player2HP + actualHeal, battle.player2MaxHP);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.healToEnergy) {
+      if (isPlayer1) {
+        battle.player1Energy = Math.min(battle.player1Energy + currentAbility.effect.healToEnergy, MAX_ENERGY);
+      } else {
+        battle.player2Energy = Math.min(battle.player2Energy + currentAbility.effect.healToEnergy, MAX_ENERGY);
+      }
+    }
+    
+    if (currentAbility && currentAbility.effect.healRestoresEnergy) {
+      if (isPlayer1) {
+        battle.player1Energy = Math.min(battle.player1Energy + currentAbility.effect.healRestoresEnergy, MAX_ENERGY);
+      } else {
+        battle.player2Energy = Math.min(battle.player2Energy + currentAbility.effect.healRestoresEnergy, MAX_ENERGY);
+      }
+    }
+    
+    const healEmbed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('💚 Heal!')
+      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!\n\nRestored ${actualHeal} HP!`)
+      .setFooter({ text: `Energy used: ${energyCost}⚡` });
+    
+    await interaction.update({ embeds: [healEmbed], components: [] });
+  } else {
+    const buffEmbed = new EmbedBuilder()
+      .setColor('#FFFF00')
+      .setTitle('✨ Support Move!')
+      .setDescription(`${currentChar.emoji} **${currentChar.name}** used **${selectedMove.name}**!`)
+      .setFooter({ text: `Energy used: ${energyCost}⚡` });
+    
+    await interaction.update({ embeds: [buffEmbed], components: [] });
+  }
+  
+  if ((isPlayer1 ? battle.player2HP : battle.player1HP) <= 0) {
+    const winner = isPlayer1 ? battle.player1 : battle.player2;
+    await endBattle(battle, channel, data, 'knockout', winner);
+    return;
+  }
+  
+  battle.currentTurn = isPlayer1 ? battle.player2 : battle.player1;
+  
+  setTimeout(() => {
+    if (activeBattles.has(battle.player1)) {
+      promptTurn(battle, channel, data);
+    }
+  }, 3000);
 }
 
 async function endBattle(battle, channel, data, reason, winner = null) {
