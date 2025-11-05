@@ -1,13 +1,14 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveData } = require('./dataManager.js');
 const CHARACTERS = require('./characters.js');
+const { isMainServer, getServerConfig, getDropInterval, isServerSetup } = require('./serverConfigManager.js');
 
-let dropInterval = null;
+let dropIntervals = new Map();
 let activeClient = null;
 let activeData = null;
 
-// Default drop channel ID (used if none set)
-const DEFAULT_DROP_CHANNEL = '1430525383635107850';
+const MAIN_SERVER_ID = '1430516117851340893';
+const MAIN_DROP_CHANNEL = '1430525383635107850';
 
 const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 'win', 'get', 'take'];
 
@@ -16,31 +17,49 @@ const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 
 // ======================================================
 
 function startDropSystem(client, data) {
-  // Clear existing interval if running
-  if (dropInterval) stopDropSystem();
-
   activeClient = client;
   activeData = data;
 
-  // If no drop channel is defined, use the default
-   
-    activeData.dropChannel = DEFAULT_DROP_CHANNEL;
-    saveData(activeData);
+  client.guilds.cache.forEach(guild => {
+    startDropsForServer(guild.id);
+  });
+
+  console.log(`✅ Drop system initialized for ${dropIntervals.size} servers`);
+}
+
+function startDropsForServer(serverId) {
+  if (dropIntervals.has(serverId)) {
+    clearInterval(dropIntervals.get(serverId));
+  }
+
+  if (!isMainServer(serverId) && !isServerSetup(serverId)) {
+    console.log(`⚠️ Server ${serverId} not set up yet, skipping drops`);
+    return;
+  }
+
+  const interval = getDropInterval(serverId);
   
+  const intervalId = setInterval(() => {
+    executeDrop(serverId);
+  }, interval);
 
-  // Create an interval for executing drops
-  dropInterval = setInterval(() => {
-    executeDrop();
-  }, 20000); // 20 seconds
-
-  console.log(`✅ Drop system started! Channel: ${activeData.dropChannel}`);
+  dropIntervals.set(serverId, intervalId);
+  console.log(`✅ Drops started for server ${serverId} (every ${interval/1000}s)`);
 }
 
 function stopDropSystem() {
-  if (dropInterval) {
-    clearInterval(dropInterval);
-    dropInterval = null;
-    console.log('⏹️ Drop system stopped!');
+  dropIntervals.forEach((intervalId, serverId) => {
+    clearInterval(intervalId);
+  });
+  dropIntervals.clear();
+  console.log('⏹️ Drop system stopped for all servers!');
+}
+
+function stopDropsForServer(serverId) {
+  if (dropIntervals.has(serverId)) {
+    clearInterval(dropIntervals.get(serverId));
+    dropIntervals.delete(serverId);
+    console.log(`⏹️ Drops stopped for server ${serverId}`);
   }
 }
 
@@ -48,20 +67,38 @@ function stopDropSystem() {
 //  CORE DROP LOGIC
 // ======================================================
 
-async function executeDrop() {
-  if (!activeData?.dropChannel || !activeClient) return;
+async function executeDrop(serverId) {
+  if (!activeClient || !activeData) return;
 
   try {
-    const channel = await activeClient.channels.fetch(activeData.dropChannel).catch(() => null);
+    let dropChannelId;
+    
+    if (isMainServer(serverId)) {
+      dropChannelId = MAIN_DROP_CHANNEL;
+    } else {
+      const config = getServerConfig(serverId);
+      if (!config || !config.dropChannelId) {
+        console.error(`❌ No drop channel configured for server ${serverId}`);
+        return;
+      }
+      dropChannelId = config.dropChannelId;
+    }
+
+    const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
     if (!channel) {
-      console.error('❌ Drop channel not found!');
+      console.error(`❌ Drop channel ${dropChannelId} not found for server ${serverId}!`);
       return;
     }
 
+    // Initialize server drops if needed
+    if (!activeData.serverDrops) {
+      activeData.serverDrops = {};
+    }
+
     // ===== PHASE 1: Handle previous drop =====
-    if (activeData.currentDrop) {
-      const oldDrop = activeData.currentDrop;
-      activeData.currentDrop = null;
+    if (activeData.serverDrops[serverId]) {
+      const oldDrop = activeData.serverDrops[serverId];
+      delete activeData.serverDrops[serverId];
 
       // Try deleting old drop message
       if (oldDrop.messageId) {
@@ -128,13 +165,14 @@ async function executeDrop() {
 
     const dropMessage = await channel.send({ embeds: [dropEmbed] });
 
-    // Store new drop data
-    activeData.currentDrop = {
+    // Store new drop data per server
+    activeData.serverDrops[serverId] = {
       type: selectedDrop.type,
       amount,
       code,
       characterName,
-      messageId: dropMessage.id
+      messageId: dropMessage.id,
+      serverId
     };
 
     saveData(activeData);
@@ -144,48 +182,19 @@ async function executeDrop() {
   }
 }
 
-// ======================================================
-//  COMMAND HANDLERS (for your main bot file)
-// ======================================================
+function getActiveData() {
+  return activeData;
+}
 
-async function handleDropCommands(message, args, client, data) {
-  const command = args[0]?.toLowerCase();
-
-  switch (command) {
-    case 'setdrop': {
-      if (!message.member.permissions.has('Administrator')) {
-        return message.reply('❌ Only admins can set the drop channel!');
-      }
-
-      activeData.dropChannel = message.channel.id;
-      saveData(activeData);
-      message.reply(`✅ Drop channel set to <#${message.channel.id}>`);
-      break;
-    }
-
-    case 'startdrops': {
-      if (!dropInterval) {
-        startDropSystem(client, data);
-        message.reply('✅ Drop system started!');
-      } else {
-        message.reply('⚠️ Drop system is already running.');
-      }
-      break;
-    }
-
-    case 'stopdrops': {
-      stopDropSystem();
-      message.reply('⏹️ Drop system stopped.');
-      break;
-    }
-
-    default:
-      message.reply('Usage: `!drops setdrop | startdrops | stopdrops`');
-  }
+function getActiveClient() {
+  return activeClient;
 }
 
 module.exports = { 
   startDropSystem, 
-  stopDropSystem, 
-  handleDropCommands 
+  stopDropSystem,
+  stopDropsForServer,
+  startDropsForServer,
+  getActiveData,
+  getActiveClient
 };

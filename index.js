@@ -56,6 +56,9 @@ const eventSystem = require('./eventSystem.js');
 const { createTutorialEmbed, handleTutorialProgress, handleMentionResponse, hasCompletedTutorial } = require('./tutorialSystem.js');
 const { initRaidSystem, stopRaidSystem, joinRaid, adminStartRaid, adminEndRaid, showRaidInfo } = require('./zooRaidSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
+const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
+const { startPromotionSystem } = require('./promotionSystem.js');
+const { startDropsForServer } = require('./dropSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -74,10 +77,33 @@ client.on('clientReady', async () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
+  await loadServerConfigs();
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   initRaidSystem(client, data);
-  console.log('✅ Event system initialized and drops on!');
+  startPromotionSystem(client);
+  console.log('✅ All systems initialized!');
+});
+
+client.on('guildCreate', async (guild) => {
+  console.log(`✅ Bot added to new server: ${guild.name} (${guild.id})`);
+  
+  if (!isMainServer(guild.id) && !isServerSetup(guild.id)) {
+    try {
+      const owner = await guild.fetchOwner();
+      const setupEmbed = new EmbedBuilder()
+        .setColor('#00D9FF')
+        .setTitle('👋 Thanks for adding ZooBot!')
+        .setDescription(`Hi! Before I can start working in this server, I need some setup:\n\n**Required Commands:**\n\`!setup\` - Start the setup process\n\nThis will help you configure:\n🎁 **Drop Channel** - Where drops will appear\n🎯 **Events Channel** - Where events will be announced\n\n**Note:** Only bot admins can run setup commands.\nUse \`!addadmin @user\` to add admins (super admins only).`)
+        .setFooter({ text: 'Looking for more features? Check out our main server!' });
+      
+      await owner.send({ embeds: [setupEmbed] }).catch(() => {
+        console.log(`Could not DM owner of ${guild.name}`);
+      });
+    } catch (error) {
+      console.error('Error sending setup message:', error);
+    }
+  }
 });
 
 client.on('messageCreate', async (message) => {
@@ -182,10 +208,95 @@ client.on('messageCreate', async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
   
-  const isAdmin = message.guild && message.member?.permissions.has(PermissionFlagsBits.Administrator);
+  const serverId = message.guild?.id;
+  const isAdmin = isSuperAdmin(userId) || isBotAdmin(userId, serverId);
   
   try {
     switch(command) {
+      case 'setup':
+        if (!serverId || isMainServer(serverId)) {
+          await message.reply('❌ This command is only for non-main servers!');
+          return;
+        }
+        
+        if (!isSuperAdmin(userId) && !message.member?.permissions.has(PermissionFlagsBits.Administrator)) {
+          await message.reply('❌ Only server administrators can run initial setup!');
+          return;
+        }
+        
+        const setupEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle('🛠️ Server Setup')
+          .setDescription(`Welcome! Let's set up ZooBot for your server.\n\n**Required Steps:**\n1. Set drop channel: \`!setdropchannel #channel\`\n2. Set events channel: \`!seteventschannel #channel\`\n3. Add bot admins: \`!addadmin @user\` (super admins only)\n\n**Current Status:**\n${isServerSetup(serverId) ? '✅ Setup complete!' : '⚠️ Setup incomplete'}\n\n**Note:** Drops appear every 30 seconds on non-main servers.\nFor faster drops (20s) and exclusive features like raids and AI battles, join our main server!`)
+          .setFooter({ text: 'Use the commands above to complete setup' });
+        
+        await message.reply({ embeds: [setupEmbed] });
+        break;
+        
+      case 'setdropchannel':
+        if (!serverId || isMainServer(serverId)) {
+          await message.reply('❌ This command is only for non-main servers!');
+          return;
+        }
+        
+        const dropChannel = message.mentions.channels.first() || message.channel;
+        const dropResult = await setDropChannel(serverId, dropChannel.id, userId);
+        
+        await message.reply(dropResult.message);
+        
+        if (dropResult.success && dropResult.setupComplete) {
+          startDropsForServer(serverId);
+        }
+        break;
+        
+      case 'seteventschannel':
+        if (!serverId || isMainServer(serverId)) {
+          await message.reply('❌ This command is only for non-main servers!');
+          return;
+        }
+        
+        const eventsChannel = message.mentions.channels.first() || message.channel;
+        const eventsResult = await setEventsChannel(serverId, eventsChannel.id, userId);
+        
+        await message.reply(eventsResult.message);
+        
+        if (eventsResult.success && eventsResult.setupComplete) {
+          startDropsForServer(serverId);
+        }
+        break;
+        
+      case 'addadmin':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const userToAdd = message.mentions.users.first();
+        if (!userToAdd) {
+          await message.reply('❌ Please mention a user! Usage: `!addadmin @user`');
+          return;
+        }
+        
+        const addResult = await addBotAdmin(serverId, userToAdd.id, userId);
+        await message.reply(addResult.message);
+        break;
+        
+      case 'removeadmin':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const userToRemove = message.mentions.users.first();
+        if (!userToRemove) {
+          await message.reply('❌ Please mention a user! Usage: `!removeadmin @user`');
+          return;
+        }
+        
+        const removeResult = await removeBotAdmin(serverId, userToRemove.id, userId);
+        await message.reply(removeResult.message);
+        break;
+        
       case 'start':
         if (data.users[userId].selectedCharacter === null) {
           const embed = new EmbedBuilder()
@@ -565,8 +676,12 @@ client.on('messageCreate', async (message) => {
         
         if (!code) return;
         
-        if (data.currentDrop && data.currentDrop.code === code) {
-          const drop = data.currentDrop;
+        if (!serverId) return;
+        
+        if (!data.serverDrops) data.serverDrops = {};
+        
+        if (data.serverDrops[serverId] && data.serverDrops[serverId].code === code) {
+          const drop = data.serverDrops[serverId];
           
           if (drop.type === 'tokens') {
             const charToReward = data.users[userId].characters.find(c => 
@@ -574,7 +689,7 @@ client.on('messageCreate', async (message) => {
             );
             
             if (charToReward) {
-              data.currentDrop = null;
+              delete data.serverDrops[serverId];
               charToReward.tokens += drop.amount;
               
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
@@ -594,7 +709,7 @@ client.on('messageCreate', async (message) => {
               await message.reply(`❌ You don't own **${drop.characterName}**, so you can't collect these tokens! Drop remains active.`);
             }
           } else {
-            data.currentDrop = null;
+            delete data.serverDrops[serverId];
             
             if (drop.type === 'coins') {
               data.users[userId].coins += drop.amount;
@@ -964,6 +1079,17 @@ client.on('messageCreate', async (message) => {
         const battleArg = args[0]?.toLowerCase();
         
         if (battleArg === 'ai' || battleArg === 'easy' || battleArg === 'normal' || battleArg === 'hard') {
+          if (serverId && !isMainServer(serverId)) {
+            const mainServerEmbed = new EmbedBuilder()
+              .setColor('#FF6B35')
+              .setTitle('⚔️ AI Battles - Main Server Only!')
+              .setDescription(`AI battles are exclusive to our main server!\n\n**Main Server Features:**\n⚡ Faster drops (20s vs 30s)\n🤖 AI battle system\n🦁 Zoo raids every hour\n🎯 More events and rewards\n\n[Join our main server to unlock these features!](https://discord.gg/yourinvitelink)`)
+              .setFooter({ text: 'You can still battle other players with !battle @user' });
+            
+            await message.reply({ embeds: [mainServerEmbed] });
+            return;
+          }
+          
           const difficulty = (battleArg === 'easy' || battleArg === 'normal' || battleArg === 'hard') ? battleArg : 'normal';
           const { startAIBattle } = require('./aiBattleSystem.js');
           await startAIBattle(message, data, userId, client.user.id, difficulty, CHARACTERS);
@@ -1627,20 +1753,49 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'joinraid':
+        if (serverId && !isMainServer(serverId)) {
+          const raidServerEmbed = new EmbedBuilder()
+            .setColor('#FF6B35')
+            .setTitle('🦁 Zoo Raids - Main Server Only!')
+            .setDescription(`Zoo raids are exclusive to our main server!\n\n**Join our main server for:**\n🦁 Hourly cooperative boss battles\n🏆 Damage leaderboards & rewards\n🔑 Character keys from raids\n⚡ Faster drops (20s vs 30s)\n🤖 AI battle system\n\n[Join our main server now!](https://discord.gg/yourinvitelink)`)
+            .setFooter({ text: 'More exclusive features await on the main server!' });
+          
+          await message.reply({ embeds: [raidServerEmbed] });
+          return;
+        }
+        
         const raidCharName = args.join(' ');
         await joinRaid(message, userId, raidCharName);
         break;
         
       case 'raidinfo':
+        if (serverId && !isMainServer(serverId)) {
+          const raidInfoServerEmbed = new EmbedBuilder()
+            .setColor('#FF6B35')
+            .setTitle('🦁 Zoo Raids - Main Server Only!')
+            .setDescription(`Zoo raids are exclusive to our main server! Join us for hourly cooperative boss battles and exclusive rewards!\n\n[Join our main server!](https://discord.gg/yourinvitelink)`);
+          
+          await message.reply({ embeds: [raidInfoServerEmbed] });
+          return;
+        }
+        
         const raidNum = args[0];
         await showRaidInfo(message, raidNum);
         break;
         
       case 'startraid':
+        if (!isAdmin) {
+          await message.reply('❌ You need bot admin permission!');
+          return;
+        }
         await adminStartRaid(message);
         break;
         
       case 'endraid':
+        if (!isAdmin) {
+          await message.reply('❌ You need bot admin permission!');
+          return;
+        }
         await adminEndRaid(message);
         break;
         
