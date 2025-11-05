@@ -55,6 +55,7 @@ const { getCharacterAbility, getAbilityDescription } = require('./characterAbili
 const eventSystem = require('./eventSystem.js');
 const { createTutorialEmbed, handleTutorialProgress, handleMentionResponse, hasCompletedTutorial } = require('./tutorialSystem.js');
 const { initRaidSystem, stopRaidSystem, joinRaid, adminStartRaid, adminEndRaid, showRaidInfo } = require('./zooRaidSystem.js');
+const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 
 const PREFIX = '!';
 let data;
@@ -1617,6 +1618,7 @@ client.on('messageCreate', async (message) => {
             { name: '💱 Trading', value: '`!t @user` - Start a trade' },
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
             { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
+            { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
@@ -1640,6 +1642,19 @@ client.on('messageCreate', async (message) => {
         
       case 'endraid':
         await adminEndRaid(message);
+        break;
+        
+      case 'keys':
+        await viewKeys(message, data, userId);
+        break;
+        
+      case 'unlock':
+        const unlockCharName = args.join(' ');
+        await unlockCharacter(message, data, userId, unlockCharName);
+        break;
+        
+      case 'cage':
+        await openRandomCage(message, data, userId);
         break;
         
       case 'tutorial':

@@ -4,6 +4,7 @@ const { calculateBaseHP, assignMovesToCharacter, calculateEnergyCost, calculateD
 const { getCharacterAbility } = require('./characterAbilities.js');
 const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay } = require('./moveEffects.js');
 const { getCollection } = require('./mongoManager.js');
+const { addCharacterKey, hasCharacter, convertKeysToGems } = require('./keySystem.js');
 
 const RAID_CHANNEL_ID = '1435599092679049319';
 const SERVER_ID = '1430516117851340893';
@@ -626,6 +627,7 @@ async function distributeRewards(sortedDamage, outcome) {
     let gems = 0;
     let crates = '';
     let tokens = 0;
+    let characterKey = 0;
     
     if (outcome === 'victory') {
       coins = Math.floor(damage / 10) + 100;
@@ -646,6 +648,16 @@ async function distributeRewards(sortedDamage, outcome) {
         tokens = Math.floor(Math.random() * 3) + 2;
         data.users[userId].pendingTokens = (data.users[userId].pendingTokens || 0) + tokens;
       }
+      
+      addCharacterKey(data.users[userId], activeRaid.boss.name, 1);
+      characterKey = 1;
+      
+      if (hasCharacter(data.users[userId], activeRaid.boss.name)) {
+        const keysConverted = convertKeysToGems(data.users[userId], activeRaid.boss.name);
+        if (keysConverted > 0) {
+          gems += keysConverted;
+        }
+      }
     } else {
       coins = Math.floor(damage / 20) + 25;
       gems = Math.floor(damage / 100) + 5;
@@ -657,6 +669,14 @@ async function distributeRewards(sortedDamage, outcome) {
     let rewardText = `<@${userId}> - ${participant.character.emoji} ${participant.character.name}\n💰 **${coins}** coins | 💎 **${gems}** gems`;
     if (crates) rewardText += `\n${crates}`;
     if (tokens > 0) rewardText += `\n🎫 **${tokens}** ${activeRaid.boss.name} tokens`;
+    if (characterKey > 0) {
+      if (hasCharacter(data.users[userId], activeRaid.boss.name)) {
+        rewardText += `\n🔑 **1** ${activeRaid.boss.name} key → 💎 **1** gem (already owned)`;
+      } else {
+        const currentKeys = data.users[userId].characterKeys[activeRaid.boss.name] || 0;
+        rewardText += `\n🔑 **1** ${activeRaid.boss.name} key (${currentKeys}/1000)`;
+      }
+    }
     rewardText += `\n📊 Damage: **${damage.toLocaleString()}**`;
     
     rewardMessages.push(rewardText);

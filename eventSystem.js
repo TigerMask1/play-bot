@@ -3,6 +3,7 @@ const mongoManager = require('./mongoManager');
 const dataManager = require('./dataManager');
 const { ObjectId } = require('mongodb');
 const { sendMailToAll, addMailToUser } = require('./mailSystem');
+const { addCageKeys, initializeKeys } = require('./keySystem');
 
 const EVENT_TYPES = ['trophy_hunt', 'crate_master', 'drop_catcher'];
 const EVENT_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -137,9 +138,9 @@ async function distributeRewards(event, leaderboard) {
   }
 
   const rewards = [
-    { gems: 500, coins: 5000, place: '🥇 1st Place' },
-    { gems: 250, coins: 2500, place: '🥈 2nd Place' },
-    { gems: 150, coins: 1500, place: '🥉 3rd Place' }
+    { gems: 500, coins: 5000, cageKeys: 5, place: '🥇 1st Place' },
+    { gems: 250, coins: 2500, cageKeys: 3, place: '🥈 2nd Place' },
+    { gems: 150, coins: 1500, cageKeys: 1, place: '🥉 3rd Place' }
   ];
 
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
@@ -165,17 +166,22 @@ async function distributeRewards(event, leaderboard) {
       };
     }
 
+    initializeKeys(data.users[userId]);
+
     let rewardGems = 0;
     let rewardCoins = 0;
+    let rewardCageKeys = 0;
     let mailMessage = '';
 
     if (i < 3 && i < rewards.length) {
       rewardGems = rewards[i].gems;
       rewardCoins = rewards[i].coins;
-      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\nYou earned ${rewardGems} 💎 Gems and ${rewardCoins} 💰 Coins!`;
+      rewardCageKeys = rewards[i].cageKeys;
+      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\nYou earned:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys`;
       
       data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
       data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
+      addCageKeys(data.users[userId], rewardCageKeys);
     } else if (i < top5PercentCount) {
       rewardGems = 75;
       rewardCoins = 750;
@@ -186,14 +192,14 @@ async function distributeRewards(event, leaderboard) {
     }
 
     // Send mail notification to winner
-    if (rewardGems > 0 || rewardCoins > 0) {
+    if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0) {
       const mail = sendMailToAll(
         mailMessage,
         { gems: rewardGems, coins: rewardCoins },
         'Event System'
       );
       addMailToUser(data.users[userId], mail);
-      console.log(`📧 Sent event reward mail to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins`);
+      console.log(`📧 Sent event reward mail to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys`);
     }
   }
 
@@ -219,9 +225,9 @@ async function announceEventStart(event) {
         { name: '🏆 Rewards', value: 'Top 3 and Top 5% get prizes!', inline: true }
       )
       .addFields(
-        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰', inline: true },
-        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰', inline: true },
-        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰', inline: true },
+        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰 + 5 🎫', inline: true },
+        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰 + 3 🎫', inline: true },
+        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰 + 1 🎫', inline: true },
         { name: '🎖️ Top 5%', value: '75 💎 + 750 💰', inline: true }
       )
       .addFields({
