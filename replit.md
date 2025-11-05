@@ -53,8 +53,37 @@ The bot is built on Discord.js v14 and Node.js 20, featuring a dual-mode data st
 - ✅ Fixed `InteractionAlreadyReplied` error in shop system by reordering interaction updates
 - ✅ Fixed race condition in message handler where data was accessed before initialization
 - ✅ **Fixed event rewards bug:** Winners now receive mail notifications with their rewards when events end
-  - Previously rewards were saved but users weren't notified
-  - Now all winners get personalized mail messages via the mail system
-  - Winners can check `!mail` to see and claim their event rewards
+
+**New Features Added:**
+- ✅ **Implemented `!sendmail` command** - Admins can now send mail to all players with rewards
+  - Format: `!sendmail <message> | coins:<amount> gems:<amount> bronzeCrates:<amount> ...`
+  - Example: `!sendmail Happy Holidays! | coins:500 gems:50 bronzeCrates:3`
+- ✅ **Implemented `!postnews` command** - Admins can post news announcements
+  - Format: `!postnews <title> | <content>`
+  - Example: `!postnews New Features! | Bronze and Silver crates are now available!`
+- ✅ **Enhanced `!grantchar` command** - Now accepts optional ST parameter
+  - Format: `!grantchar @user <character name> [ST]`
+  - Example: `!grantchar @user Nix 75` (grants Nix with exactly 75% ST)
+  - Example: `!grantchar @user Bruce` (grants Bruce with random ST)
+- ✅ **Added Bronze and Silver Crates** - New free crate types earned from messaging
+  - 🟫 Bronze Crate: 0.5% character chance, 15 tokens, 100 coins (1 event point)
+  - ⚪ Silver Crate: 1% character chance, 30 tokens, 250 coins (2 event points)
+  - Players earn these from message rewards (every 25 messages)
+- ✅ **New `!opencrate` command** - Open owned crates without spending gems
+  - Format: `!opencrate <type>` (bronze, silver, gold, emerald, legendary, tyrant)
+  - Works for both free crates (bronze/silver) and purchased crates
+- ✅ **Revamped Message Reward System** - Now gives crates instead of coins/gems/tokens
+  - 60% chance: Bronze Crate
+  - 25% chance: Silver Crate
+  - 10% chance: Emerald Crate
+  - 5% chance: Gold Crate
+- ✅ **Enhanced Crate Master Event** - Balanced point system based on crate rarity
+  - Bronze: 1 point, Silver: 2 points, Gold: 3 points
+  - Emerald: 5 points, Legendary: 8 points, Tyrant: 12 points
+- ✅ **Enhanced Crate Inventory Display** - `!crate` command now shows owned crates
+
+**Technical Updates:**
+- ✅ Data backfilling system updated to initialize all 6 crate types for existing users
+- ✅ Mail system supports all crate types as rewards
 - ✅ All dependencies installed and workflow configured
 - ⚠️ **Next Step:** Add `DISCORD_BOT_TOKEN` to secrets to start the bot
