@@ -57,6 +57,45 @@ function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
+async function buyCrate(data, userId, crateType) {
+  const crate = CRATE_TYPES[crateType];
+  const user = data.users[userId];
+  
+  if (!crate) {
+    return {
+      success: false,
+      message: `Invalid crate type! Available: gold, emerald, legendary, tyrant`
+    };
+  }
+  
+  if (crate.cost === 0) {
+    return {
+      success: false,
+      message: `You can't buy ${crateType} crates! They are earned through message rewards.`
+    };
+  }
+  
+  if (user.gems < crate.cost) {
+    return {
+      success: false,
+      message: `Not enough gems! You need ${crate.cost} gems but have ${user.gems}.`
+    };
+  }
+  
+  user.gems -= crate.cost;
+  
+  const crateKey = `${crateType}Crates`;
+  if (!user[crateKey]) {
+    user[crateKey] = 0;
+  }
+  user[crateKey] += 1;
+  
+  return {
+    success: true,
+    message: `Successfully purchased 1 ${crate.emoji} ${crateType} crate for ${crate.cost} gems!\nUse \`!opencrate ${crateType}\` to open it.`
+  };
+}
+
 async function openCrate(data, userId, crateType) {
   const crate = CRATE_TYPES[crateType];
   const user = data.users[userId];
@@ -68,27 +107,17 @@ async function openCrate(data, userId, crateType) {
     };
   }
   
-  // Check if user has the crate (for free crates)
   const crateKey = `${crateType}Crates`;
-  if (crate.cost === 0) {
-    const userCrates = user[crateKey] || 0;
-    if (userCrates < 1) {
-      return {
-        success: false,
-        message: `You don't have any ${crateType} crates!`
-      };
-    }
-    user[crateKey] = userCrates - 1;
-  } else {
-    // Check if user has enough gems for paid crates
-    if (user.gems < crate.cost) {
-      return {
-        success: false,
-        message: `Not enough gems! You need ${crate.cost} gems but have ${user.gems}.`
-      };
-    }
-    user.gems -= crate.cost;
+  const userCrates = user[crateKey] || 0;
+  
+  if (userCrates < 1) {
+    return {
+      success: false,
+      message: `You don't have any ${crateType} crates! ${crate.cost > 0 ? `Use \`!crate ${crateType}\` to buy one for ${crate.cost} gems.` : 'Earn them through message rewards!'}`
+    };
   }
+  
+  user[crateKey] = userCrates - 1;
   
   user.coins += crate.coins;
   
@@ -173,4 +202,4 @@ async function openCrate(data, userId, crateType) {
   };
 }
 
-module.exports = { openCrate, CRATE_TYPES };
+module.exports = { openCrate, buyCrate, CRATE_TYPES };

@@ -38,7 +38,7 @@ const client = new Client({
 const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
-const { openCrate } = require('./crateSystem.js');
+const { openCrate, buyCrate } = require('./crateSystem.js');
 const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
@@ -342,7 +342,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const result = await openCrate(data, userId, crateType);
+        const result = await buyCrate(data, userId, crateType);
         
         if (!result.success) {
           await message.reply(`❌ ${result.message}`);
@@ -353,8 +353,8 @@ client.on('messageCreate', async (message) => {
         
         const resultEmbed = new EmbedBuilder()
           .setColor('#FFD700')
-          .setTitle(`🎁 ${crateType.toUpperCase()} CRATE OPENED!`)
-          .setDescription(`<@${userId}> opened a crate!\n\n${result.message}`)
+          .setTitle(`💎 ${crateType.toUpperCase()} CRATE PURCHASED!`)
+          .setDescription(`<@${userId}>\n\n${result.message}`)
           .setTimestamp();
         
         await message.reply({ embeds: [resultEmbed] });
