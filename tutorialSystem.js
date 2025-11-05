@@ -103,40 +103,12 @@ Use \`!level <character>\` to level up using tokens and coins!
 \`!b hard\` - Level 8-12, 75-95% ST (100 coins, 5 trophies)
 
 **Battle Mechanics:**
-⚡ **Energy System:**
-- Start with 50 energy, regen 10 per turn (max 100)
-- Each move costs energy based on damage
-- Manage energy wisely!
+⚡ **Energy:** Start with 50, regen 10/turn (max 100). Manage wisely!
+💥 **Moves:** Attack, heal, or special moves. 10% crit chance = 1.5x damage!
+🎭 **Abilities:** Each character has unique passive (e.g., Bali: +50% crit damage, Frank: stun immunity)
+🛡️ **Status:** Burn, Freeze, Poison, Paralyze, Stun effects
 
-💥 **Damage & Moves:**
-- Attack moves deal damage
-- Heal moves restore HP (cost less energy)
-- Special moves are powerful character-specific attacks
-- Critical hits (10% chance) deal 1.5x damage!
-
-🎭 **Character Abilities:**
-Every character has a unique passive ability!
-Examples:
-- Bali: Crits deal 50% MORE damage
-- Frank: Can't be stunned or frozen
-- Duke: Start with +20 energy
-- Nix: 20% chance to freeze opponent
-
-🛡️ **Status Effects:**
-- Burn: Take damage over time
-- Freeze: Skip your next turn
-- Poison: Gradual damage
-- Paralyze: Chance to skip turn
-- Stun: Forced to skip turn
-
-**Battle Items:**
-Use \`!shop\` to buy potions, energy drinks, and stat boosters!
-Use items mid-battle for strategic advantages!
-
-**Rewards:**
-- Winner: +5 trophies, coins
-- Loser: -7 trophies
-- Both: Battle quest progress!`,
+**Rewards:** Winner gets +5 trophies & coins. Loser gets -7 trophies. Both get quest progress!`,
     footer: "Say 'shop' to learn about items, 'crates' to learn how to get characters, or 'economy' to learn about currencies!",
     keywords: ['shop', 'items', 'crates', 'economy', 'trophies']
   },
