@@ -41,8 +41,8 @@ const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate } = require('./crateSystem.js');
 const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
-const { initiateBattle } = require('./battleSystem.js');
-const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay } = require('./battleUtils.js');
+const { initiateBattle } = require('./battleSystemNew.js');
+const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
 const { createLevelProgressBar } = require('./progressBar.js');
 const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
 const { craftBooster, useBooster, getBoosterInfo } = require('./stBoosterSystem.js');
@@ -50,6 +50,8 @@ const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMa
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
+const { openShop } = require('./shopSystem.js');
+const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 
 const PREFIX = '!';
@@ -90,7 +92,8 @@ client.on('messageCreate', async (message) => {
       started: false,
       trophies: 200,
       messageCount: 0,
-      lastDailyClaim: null
+      lastDailyClaim: null,
+      inventory: {}
     };
     saveData(data);
   }
@@ -897,6 +900,13 @@ client.on('messageCreate', async (message) => {
         await initiateBattle(message, data, userId, battleOpponent.id);
         break;
         
+      case 'shop':
+        if (!data.users[userId].inventory) {
+          data.users[userId].inventory = {};
+        }
+        await openShop(message, data);
+        break;
+        
       case 'i':
       case 'info':
         const infoCharName = args.join(' ').toLowerCase();
@@ -928,6 +938,7 @@ client.on('messageCreate', async (message) => {
         ].join('\n');
         
         const infoSkinUrl = getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
+        const abilityDesc = getAbilityDescription(userInfoChar.name);
         
         const infoEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
@@ -935,8 +946,9 @@ client.on('messageCreate', async (message) => {
           .setImage(infoSkinUrl)
           .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}\n**Skin:** ${userInfoChar.currentSkin || 'default'}`)
           .addFields(
+            { name: '✨ Ability', value: abilityDesc, inline: false },
             { name: '⚔️ Moves', value: movesList, inline: false },
-            { name: '📊 Battle Stats', value: `Base HP increases with ST\nMove damage scales with Level and ST\nSpecial move has enhanced ST scaling`, inline: false }
+            { name: '📊 Battle Info', value: `Energy system: Moves cost ⚡\nCritical hits: 15% base chance\nSpecial moves cost more energy but deal more damage`, inline: false }
           );
         
         await message.reply({ embeds: [infoEmbed] });
