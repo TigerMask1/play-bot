@@ -504,9 +504,49 @@ function createTutorialEmbed(stage) {
   const embed = new EmbedBuilder()
     .setColor('#00FF00')
     .setTitle(content.title)
-    .setDescription(content.description)
-    .addFields({ name: '\u200B', value: content.content })
-    .setFooter({ text: content.footer })
+    .setDescription(content.description);
+
+  // Split content into chunks if it exceeds Discord's 1024 character limit per field
+  const maxLength = 1024;
+  const contentText = content.content;
+  
+  if (contentText.length <= maxLength) {
+    embed.addFields({ name: '\u200B', value: contentText });
+  } else {
+    // Split content into multiple fields
+    const lines = contentText.split('\n');
+    let currentChunk = '';
+    let chunkNumber = 1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const testChunk = currentChunk + (currentChunk ? '\n' : '') + line;
+      
+      if (testChunk.length > maxLength) {
+        // Add current chunk and start new one
+        if (currentChunk) {
+          embed.addFields({ 
+            name: chunkNumber === 1 ? '\u200B' : '📖 Continued...', 
+            value: currentChunk 
+          });
+          chunkNumber++;
+        }
+        currentChunk = line;
+      } else {
+        currentChunk = testChunk;
+      }
+    }
+    
+    // Add remaining chunk
+    if (currentChunk) {
+      embed.addFields({ 
+        name: chunkNumber === 1 ? '\u200B' : '📖 Continued...', 
+        value: currentChunk 
+      });
+    }
+  }
+
+  embed.setFooter({ text: content.footer })
     .setTimestamp();
 
   return embed;

@@ -1,0 +1,31 @@
+
+Uncaught Exception: CombinedPropertyError (1)
+  Received one or more errors
+  input[0]
+  | CombinedPropertyError (1)
+  |   Received one or more errors
+  | 
+  |   input.value
+  |   | ExpectedConstraintError > s.string().lengthLessThanOrEqual()
+  |   |   Invalid string length
+  |   | 
+  |   |   Expected: expected.length <= 1024
+  |   | 
+  |   |   Received:
+  |   |   | '**Quest Commands:**\n`!quests` - View all available quests\n`!quest <id>` - Check a specific quest\n`!claim <id>` - Claim rewards when complete!\n\n**How It Works:**\nQuests track your progress automatically as you play! No extra work needed. Just do what you\'d normally do and watch the quests complete themselves!\n\n**Quest Categories:**\n\n📍 **Drop Quests** (6 quests)\nCatch 1, 10, 25, 50, 100 drops\nRewards: Coins, gems, shards\n\n⚔️ **Battle Quests** (9 quests)\nWin battles, participate in battles, win streaks\nRewards: Coins, gems, shards\n\n🦊 **Collection Quests** (6 quests)\nOwn 5, 10, 15, 20, 30, 51 characters\nRewards: Huge coin and gem bonuses!\n\n📈 **Leveling Quests** (9 quests)\nLevel characters to 5, 10, 15, 20, 30, 50\nHave multiple high-level characters\nRewards: Coins, gems, shards\n\n📦 **Crate Quests** (7 quests)\nOpen crates, open Tyrant crates, get characters from crates\nRewards: Coins, gems, shards\n\n🤝 **Trading Quests** (4 quests)\nComplete 1, 5, 10, 25 trades\nRewards: Coins, gems\n\n💰 **Currency Quests** (8 quests)\nAccumulate coins and gems\nRewards: Opposite currency!\n\n🔷 **Shard Quests** (4 quests)\nCollect 5, 10, 25, 50 shards\nRewards: Coins and gems\n\n🎯 **Special Quests** (12 quests)\n- Own 100% ST character\n- Win streaks\n- Release character\n- High-level wins\n- And more!\n\n**Total Rewards:**\nAll 65 quests combined give:\n💰 **100,000+ coins**\n💎 **2,000+ gems**  \n🔷 **150+ shards**\n\n**Pro Tip:** Check `!quests` regularly! Some quests you\'ll complete without even trying!'
+    at _ArrayValidator.handle (/opt/render/project/src/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:1254:70)
+    at _ArrayValidator.parse (/opt/render/project/src/node_modules/@sapphire/shapeshift/dist/cjs/index.cjs:972:90)
+    at EmbedBuilder.addFields (/opt/render/project/src/node_modules/@discordjs/builders/dist/index.js:239:31)
+    at createTutorialEmbed (/opt/render/project/src/tutorialSystem.js:508:6)
+    at handleTutorialProgress (/opt/render/project/src/tutorialSystem.js:537:12)
+    at Client.<anonymous> (/opt/render/project/src/index.js:183:33)
+    at Client.emit (node:events:518:28)
+    at MessageCreateAction.handle (/opt/render/project/src/node_modules/discord.js/src/client/actions/MessageCreate.js:32:14)
+    at module.exports [as MESSAGE_CREATE] (/opt/render/project/src/node_modules/discord.js/src/client/websocket/handlers/MESSAGE_CREATE.js:4:32)
+    at WebSocketManager.handlePacket (/opt/render/project/src/node_modules/discord.js/src/client/websocket/WebSocketManager.js:352:31)
+error Command failed.
+Exit code: 1
+Command: /opt/render/project/nodes/node-22.16.0/bin/node
+Arguments: index.js
+Directory: /opt/render/project/src
+Output:
