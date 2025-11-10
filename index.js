@@ -1078,8 +1078,8 @@ client.on('messageCreate', async (message) => {
         
         const discordCdnUrl = attachment.url;
         
-        const { addSkinToCharacter } = require('./skinSystem.js');
-        await addSkinToCharacter(foundUploadChar.name, uploadSkinName, discordCdnUrl);
+        const skinSystem = require('./skinSystem.js');
+        await skinSystem.addSkinToCharacter(foundUploadChar.name, uploadSkinName, discordCdnUrl);
         
         const uploadEmbed = new EmbedBuilder()
           .setColor('#9C27B0')
