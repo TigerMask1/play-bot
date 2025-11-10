@@ -1006,6 +1006,91 @@ client.on('messageCreate', async (message) => {
         await message.reply(`✅ Revoked **${revokeSkinName}** skin for **${revokeUserChar.name} ${revokeUserChar.emoji}** from <@${revokeSkinUser.id}>!`);
         break;
         
+      case 'deleteskin':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const deleteCharName = args[0];
+        const deleteSkinName = args[1];
+        
+        if (!deleteCharName || !deleteSkinName) {
+          await message.reply('Usage: `!deleteskin <character> <skin_name>`\nExample: `!deleteskin Nix galaxy`');
+          return;
+        }
+        
+        if (deleteSkinName === 'default') {
+          await message.reply('❌ You cannot delete the default skin!');
+          return;
+        }
+        
+        const foundDeleteChar = CHARACTERS.find(c => c.name.toLowerCase() === deleteCharName.toLowerCase());
+        if (!foundDeleteChar) {
+          await message.reply('❌ Character not found!');
+          return;
+        }
+        
+        const { removeSkinFromCharacter } = require('./skinSystem.js');
+        const deleted = await removeSkinFromCharacter(foundDeleteChar.name, deleteSkinName);
+        
+        if (deleted) {
+          await message.reply(`✅ Deleted skin **${deleteSkinName}** from **${foundDeleteChar.name} ${foundDeleteChar.emoji}**!\n\n⚠️ Note: Users who own this skin will still have it in their inventory until manually revoked.`);
+        } else {
+          await message.reply(`❌ Skin **${deleteSkinName}** not found for **${foundDeleteChar.name}**!`);
+        }
+        break;
+        
+      case 'uploadskin':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const uploadCharName = args[0];
+        const uploadSkinName = args[1];
+        
+        if (!uploadCharName || !uploadSkinName) {
+          await message.reply('Usage: `!uploadskin <character> <skin_name>` with an attached image\nExample: `!uploadskin Nix galaxy` (attach image to message)');
+          return;
+        }
+        
+        if (message.attachments.size === 0) {
+          await message.reply('❌ Please attach an image to your message!\n\nUsage: Upload an image, then type `!uploadskin <character> <skin_name>` in the message.');
+          return;
+        }
+        
+        const attachment = message.attachments.first();
+        
+        const isImage = attachment.contentType?.startsWith('image/') || 
+                       /\.(png|jpe?g|gif|webp)$/i.test(attachment.name);
+        
+        if (!isImage) {
+          await message.reply('❌ The attachment must be an image file (PNG, JPG, GIF, or WEBP)!');
+          return;
+        }
+        
+        const foundUploadChar = CHARACTERS.find(c => c.name.toLowerCase() === uploadCharName.toLowerCase());
+        if (!foundUploadChar) {
+          await message.reply('❌ Character not found!');
+          return;
+        }
+        
+        const discordCdnUrl = attachment.url;
+        
+        const { addSkinToCharacter } = require('./skinSystem.js');
+        await addSkinToCharacter(foundUploadChar.name, uploadSkinName, discordCdnUrl);
+        
+        const uploadEmbed = new EmbedBuilder()
+          .setColor('#9C27B0')
+          .setTitle(`✅ Skin Uploaded!`)
+          .setDescription(`Added skin **${uploadSkinName}** to **${foundUploadChar.name} ${foundUploadChar.emoji}**!\n\nNow you can grant this skin to players using:\n\`!grantskin @user ${foundUploadChar.name} ${uploadSkinName}\``)
+          .setImage(discordCdnUrl)
+          .setFooter({ text: 'Image hosted on Discord CDN' });
+        
+        await message.reply({ embeds: [uploadEmbed] });
+        break;
+        
       case 'equipskin':
         const equipCharName = args[0];
         const equipSkinName = args[1];
