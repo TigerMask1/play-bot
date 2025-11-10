@@ -177,7 +177,7 @@ async function distributeRewards(event, leaderboard) {
       rewardGems = rewards[i].gems;
       rewardCoins = rewards[i].coins;
       rewardCageKeys = rewards[i].cageKeys;
-      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\nYou earned:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys`;
+      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys\n\nNo claiming needed - check your balance with !profile!`;
       
       data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
       data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
@@ -185,21 +185,24 @@ async function distributeRewards(event, leaderboard) {
     } else if (i < top5PercentCount) {
       rewardGems = 75;
       rewardCoins = 750;
-      mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\nYou earned ${rewardGems} 💎 Gems and ${rewardCoins} 💰 Coins!`;
+      mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n\nNo claiming needed - check your balance with !profile!`;
       
       data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
       data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
     }
 
-    // Send mail notification to winner
     if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0) {
-      const mail = sendMailToAll(
-        mailMessage,
-        { gems: rewardGems, coins: rewardCoins },
-        'Event System'
-      );
-      addMailToUser(data.users[userId], mail);
-      console.log(`📧 Sent event reward mail to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys`);
+      const notificationMail = {
+        id: Date.now() + Math.random(),
+        from: 'Event System',
+        subject: `${eventName} - ${i < 3 ? rewards[i].place : 'Top 5%'}`,
+        message: mailMessage,
+        rewards: {},
+        claimed: true,
+        timestamp: new Date()
+      };
+      addMailToUser(data.users[userId], notificationMail);
+      console.log(`✅ Auto-distributed event rewards to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys`);
     }
   }
 

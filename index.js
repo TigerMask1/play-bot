@@ -53,8 +53,6 @@ const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js')
 const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
-const { createTutorialEmbed, handleTutorialProgress, handleMentionResponse, hasCompletedTutorial } = require('./tutorialSystem.js');
-const { initRaidSystem, stopRaidSystem, joinRaid, adminStartRaid, adminEndRaid, showRaidInfo } = require('./zooRaidSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
@@ -80,7 +78,6 @@ client.on('clientReady', async () => {
   await loadServerConfigs();
   await eventSystem.init(client, data);
   startDropSystem(client, data);
-  initRaidSystem(client, data);
   startPromotionSystem(client);
   console.log('✅ All systems initialized!');
 });
@@ -176,31 +173,6 @@ client.on('messageCreate', async (message) => {
     } else {
       saveData(data);
     }
-  }
-  
-  // Tutorial progress tracking - check for keywords in non-command messages
-  if (data.users[userId].started && !message.content.startsWith(PREFIX)) {
-    const tutorialEmbed = await handleTutorialProgress(message, data.users[userId], data, saveData);
-    if (tutorialEmbed) {
-      try {
-        await message.reply({ embeds: [tutorialEmbed] });
-      } catch (error) {
-        console.error('Error sending tutorial embed:', error);
-      }
-    }
-  }
-  
-  // Handle bot mentions for keyword responses
-  if (message.mentions.has(client.user) && !message.content.startsWith(PREFIX)) {
-    const mentionEmbed = await handleMentionResponse(message, data.users[userId]);
-    if (mentionEmbed) {
-      try {
-        await message.reply({ embeds: [mentionEmbed] });
-      } catch (error) {
-        console.error('Error sending mention response:', error);
-      }
-    }
-    return;
   }
   
   if (!message.content.startsWith(PREFIX)) return;
@@ -1752,53 +1724,6 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [helpEmbed] });
         break;
         
-      case 'joinraid':
-        if (serverId && !isMainServer(serverId)) {
-          const raidServerEmbed = new EmbedBuilder()
-            .setColor('#FF6B35')
-            .setTitle('🦁 Zoo Raids - Main Server Only!')
-            .setDescription(`Zoo raids are exclusive to our main server!\n\n**Join our main server for:**\n🦁 Hourly cooperative boss battles\n🏆 Damage leaderboards & rewards\n🔑 Character keys from raids\n⚡ Faster drops (20s vs 30s)\n🤖 AI battle system\n\n[Join our main server now!](https://discord.gg/yourinvitelink)`)
-            .setFooter({ text: 'More exclusive features await on the main server!' });
-          
-          await message.reply({ embeds: [raidServerEmbed] });
-          return;
-        }
-        
-        const raidCharName = args.join(' ');
-        await joinRaid(message, userId, raidCharName);
-        break;
-        
-      case 'raidinfo':
-        if (serverId && !isMainServer(serverId)) {
-          const raidInfoServerEmbed = new EmbedBuilder()
-            .setColor('#FF6B35')
-            .setTitle('🦁 Zoo Raids - Main Server Only!')
-            .setDescription(`Zoo raids are exclusive to our main server! Join us for hourly cooperative boss battles and exclusive rewards!\n\n[Join our main server!](https://discord.gg/yourinvitelink)`);
-          
-          await message.reply({ embeds: [raidInfoServerEmbed] });
-          return;
-        }
-        
-        const raidNum = args[0];
-        await showRaidInfo(message, raidNum);
-        break;
-        
-      case 'startraid':
-        if (!isAdmin) {
-          await message.reply('❌ You need bot admin permission!');
-          return;
-        }
-        await adminStartRaid(message);
-        break;
-        
-      case 'endraid':
-        if (!isAdmin) {
-          await message.reply('❌ You need bot admin permission!');
-          return;
-        }
-        await adminEndRaid(message);
-        break;
-        
       case 'keys':
         await viewKeys(message, data, userId);
         break;
@@ -1810,25 +1735,6 @@ client.on('messageCreate', async (message) => {
         
       case 'cage':
         await openRandomCage(message, data, userId);
-        break;
-        
-      case 'tutorial':
-        if (!data.users[userId].started) {
-          await message.reply('❌ You need to start first! Use `!start` to begin your journey!');
-          return;
-        }
-        
-        if (hasCompletedTutorial(data.users[userId])) {
-          await message.reply('✅ You\'ve already completed the tutorial! But you can still ask me questions by mentioning me with keywords like "battles", "crates", "quests", etc!');
-          return;
-        }
-        
-        const currentTutorialEmbed = createTutorialEmbed(data.users[userId].tutorialStage || 'intro');
-        if (currentTutorialEmbed) {
-          await message.reply({ embeds: [currentTutorialEmbed] });
-        } else {
-          await message.reply('❌ Tutorial not available right now!');
-        }
         break;
     }
   } catch (error) {
@@ -1843,9 +1749,6 @@ async function gracefulShutdown(signal) {
   try {
     stopDropSystem();
     console.log('✅ Stopped drop system');
-    
-    stopRaidSystem();
-    console.log('✅ Stopped raid system');
     
     await saveDataImmediate(data);
     console.log('✅ Flushed all pending data saves');

@@ -9,36 +9,60 @@ if (USE_MONGODB) {
   mongoManager = require('./mongoManager.js');
 }
 
+let skinsCache = null;
+let cacheTimestamp = null;
+const CACHE_TTL = 5 * 60 * 1000;
+
+function isCacheValid() {
+  return skinsCache !== null && cacheTimestamp !== null && (Date.now() - cacheTimestamp < CACHE_TTL);
+}
+
+function invalidateCache() {
+  skinsCache = null;
+  cacheTimestamp = null;
+}
+
 async function loadSkins() {
+  if (isCacheValid()) {
+    return skinsCache;
+  }
+
+  let skins = {};
+  
   if (USE_MONGODB && mongoManager) {
     try {
       const collection = await mongoManager.getCollection('skins');
       const skinDoc = await collection.findOne({ _id: 'character_skins' });
-      return skinDoc?.skins || {};
+      skins = skinDoc?.skins || {};
     } catch (error) {
       console.error('Error loading skins from MongoDB:', error);
-      return {};
+      skins = {};
     }
   } else {
     try {
       if (fs.existsSync(SKINS_FILE)) {
         const rawData = fs.readFileSync(SKINS_FILE, 'utf8');
-        return JSON.parse(rawData);
+        skins = JSON.parse(rawData);
       }
     } catch (error) {
       console.error('Error loading skins from JSON:', error);
     }
-    return {};
   }
+
+  skinsCache = skins;
+  cacheTimestamp = Date.now();
+  return skins;
 }
 
 async function saveSkins(skins) {
+  invalidateCache();
+  
   if (USE_MONGODB && mongoManager) {
     try {
       const collection = await mongoManager.getCollection('skins');
       await collection.updateOne(
         { _id: 'character_skins' },
-        { $set: { skins } },
+        { $set: { skins, updatedAt: new Date() } },
         { upsert: true }
       );
     } catch (error) {

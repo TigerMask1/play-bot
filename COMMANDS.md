@@ -547,8 +547,10 @@ Shows top 10 players in each category with their stats
   - Your current score/progress
   - Your rank in the event
   - Top participants
-- Events may have different objectives (battles, crate opening, etc.)
-- Event rewards distributed when event ends
+- Events may have different objectives (battles, crate opening, drop catching)
+- **✅ Rewards are automatically added to your account when events end - no claiming needed!**
+- Top 3 and Top 5% receive gems, coins, and cage keys
+- Check your mailbox for reward notifications
 
 ---
 
