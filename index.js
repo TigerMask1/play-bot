@@ -62,7 +62,8 @@ const {
   checkTaskProgress, 
   completePersonalizedTask, 
   checkExpiredTasks, 
-  getInactiveUsers, 
+  getEligibleUsers, 
+  trackInviteCompletion,
   togglePersonalizedTasks, 
   getTaskStats,
   initializePersonalizedTaskData 
@@ -83,18 +84,58 @@ function generateST() {
 function startPersonalizedTaskSystem(client, data) {
   console.log('📬 Starting Personalized Task System...');
   
+  // Check for expired tasks every 30 minutes
   setInterval(async () => {
     await checkExpiredTasks(client, data);
   }, 1800000);
   
+  // Send tasks to inactive players every 2 hours
   setInterval(async () => {
-    const inactiveUsers = getInactiveUsers(data, 6);
+    const now = Date.now();
+    const inactiveThreshold = 6 * 3600000; // 6 hours
+    const minTimeBetweenTasks = 2 * 3600000; // 2 hours
     
-    for (const userId of inactiveUsers) {
-      await sendPersonalizedTask(client, userId, data);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    for (const userId in data.users) {
+      const userData = data.users[userId];
+      const ptData = initializePersonalizedTaskData(userData);
+      
+      if (!ptData.isActive) continue;
+      
+      const lastActivity = userData.lastActivity || 0;
+      const timeSinceActivity = now - lastActivity;
+      const timeSinceLastTask = now - (ptData.lastTaskSent || 0);
+      
+      // Inactive user ready for task
+      if (timeSinceActivity > inactiveThreshold && timeSinceLastTask > minTimeBetweenTasks) {
+        await sendPersonalizedTask(client, userId, data);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
-  }, 7200000 + Math.random() * 3600000);
+  }, 7200000); // Every 2 hours
+  
+  // Send tasks to active players every 3 hours
+  setInterval(async () => {
+    const now = Date.now();
+    const activeThreshold = 2 * 3600000; // Active if within 2 hours
+    const minTimeBetweenTasks = 3 * 3600000; // 3 hours
+    
+    for (const userId in data.users) {
+      const userData = data.users[userId];
+      const ptData = initializePersonalizedTaskData(userData);
+      
+      if (!ptData.isActive) continue;
+      
+      const lastActivity = userData.lastActivity || 0;
+      const timeSinceActivity = now - lastActivity;
+      const timeSinceLastTask = now - (ptData.lastTaskSent || 0);
+      
+      // Active user ready for task
+      if (timeSinceActivity < activeThreshold && timeSinceLastTask > minTimeBetweenTasks) {
+        await sendPersonalizedTask(client, userId, data);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }, 10800000); // Every 3 hours
   
   console.log('✅ Personalized Task System started!');
 }
@@ -357,6 +398,22 @@ client.on('messageCreate', async (message) => {
         data.users[userId].coins = 100;
         data.users[userId].gems = 10;
         data.users[userId].pendingTokens = 0;
+        
+        // Track invite completion for personalized tasks
+        const ptData = initializePersonalizedTaskData(data.users[userId]);
+        if (ptData.invitedBy) {
+          const inviterCompleted = trackInviteCompletion(ptData.invitedBy, userId, data);
+          if (inviterCompleted) {
+            // Check if inviter has active invite task
+            const inviterPTData = initializePersonalizedTaskData(data.users[ptData.invitedBy]);
+            if (inviterPTData.taskProgress.invitesCompleted !== undefined) {
+              const completedTask = checkTaskProgress(data.users[ptData.invitedBy], 'invitesCompleted', 1);
+              if (completedTask) {
+                await completePersonalizedTask(client, ptData.invitedBy, data, completedTask);
+              }
+            }
+          }
+        }
         await saveDataImmediate(data);
         
         let embedDesc = `You chose **${starterChar.name} ${starterChar.emoji}**!\n\n**ST:** ${starterST}%\n\nStarting rewards:\n💰 100 Coins\n💎 10 Gems`;

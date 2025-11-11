@@ -2,69 +2,77 @@ const { saveData } = require('./dataManager.js');
 
 // Task pool with 50+ variations
 const PERSONALIZED_TASKS = [
-  // Easy Tasks (1 hour)
-  { id: 'pt1', name: 'Quick Drop', description: 'catch 1 drop', type: 'drops', requirement: 1, field: 'dropsCaught', reward: { coins: 150, gems: 8 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt2', name: 'First Win', description: 'win 1 battle against AI', type: 'battles', requirement: 1, field: 'battlesWon', reward: { coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt3', name: 'Open Up', description: 'open 1 crate', type: 'crates', requirement: 1, field: 'cratesOpened', reward: { coins: 100, gems: 5 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt4', name: 'Level Boost', description: 'level up your character by 1', type: 'leveling', requirement: 1, field: 'levelsGained', reward: { coins: 180, gems: 9 }, difficulty: 'easy', duration: 3600000 },
+  // Easy Tasks (1 hour) - Bronze/Silver crate rewards
+  { id: 'pt1', name: 'Quick Drop', description: 'catch 1 drop', type: 'drops', requirement: 1, field: 'dropsCaught', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 150, gems: 8 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt2', name: 'First Win', description: 'win 1 battle against AI', type: 'battles', requirement: 1, field: 'battlesWon', reward: { crates: [{ type: 'silver', count: 1 }], coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt3', name: 'Open Up', description: 'open 1 crate', type: 'crates', requirement: 1, field: 'cratesOpened', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 100, gems: 5 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt4', name: 'Level Boost', description: 'level up your character by 1', type: 'leveling', requirement: 1, field: 'levelsGained', reward: { crates: [{ type: 'silver', count: 1 }], coins: 180, gems: 9 }, difficulty: 'easy', duration: 3600000 },
   { id: 'pt5', name: 'Chat Time', description: 'send 5 messages', type: 'messages', requirement: 5, field: 'messagesSent', reward: { coins: 120, gems: 6 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt6', name: 'Trade Start', description: 'trade some coins with another player', type: 'trading', requirement: 1, field: 'coinTradesCompleted', reward: { coins: 150, gems: 8 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt7', name: 'Gem Trader', description: 'trade some gems with another player', type: 'trading', requirement: 1, field: 'gemTradesCompleted', reward: { coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt8', name: 'Quick Battle', description: 'battle against any user', type: 'battles', requirement: 1, field: 'userBattles', reward: { coins: 250, gems: 12 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt9', name: 'Double Up', description: 'catch 2 drops', type: 'drops', requirement: 2, field: 'dropsCaught', reward: { coins: 220, gems: 11 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt10', name: 'Crate Fever', description: 'open 2 crates', type: 'crates', requirement: 2, field: 'cratesOpened', reward: { coins: 180, gems: 9 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt6', name: 'Trade Start', description: 'trade some coins with another player', type: 'trading', requirement: 1, field: 'coinTradesCompleted', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 150, gems: 8 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt7', name: 'Gem Trader', description: 'trade some gems with another player', type: 'trading', requirement: 1, field: 'gemTradesCompleted', reward: { crates: [{ type: 'silver', count: 1 }], coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt8', name: 'Quick Battle', description: 'battle against any user', type: 'battles', requirement: 1, field: 'userBattles', reward: { crates: [{ type: 'silver', count: 1 }], coins: 250, gems: 12 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt9', name: 'Double Up', description: 'catch 2 drops', type: 'drops', requirement: 2, field: 'dropsCaught', reward: { crates: [{ type: 'bronze', count: 2 }], coins: 220, gems: 11 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt10', name: 'Crate Fever', description: 'open 2 crates', type: 'crates', requirement: 2, field: 'cratesOpened', reward: { crates: [{ type: 'silver', count: 1 }], coins: 180, gems: 9 }, difficulty: 'easy', duration: 3600000 },
   
-  // Medium Tasks (2-3 hours)
-  { id: 'pt11', name: 'Drop Hunter', description: 'catch 5 drops', type: 'drops', requirement: 5, field: 'dropsCaught', reward: { coins: 350, gems: 18, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt12', name: 'Battle Streak', description: 'win 3 battles', type: 'battles', requirement: 3, field: 'battlesWon', reward: { coins: 450, gems: 22, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt13', name: 'Crate Opener', description: 'open 3 crates', type: 'crates', requirement: 3, field: 'cratesOpened', reward: { coins: 300, gems: 15, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt14', name: 'Level Rush', description: 'gain 3 levels on any character', type: 'leveling', requirement: 3, field: 'levelsGained', reward: { coins: 380, gems: 19, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  // Medium Tasks (2-3 hours) - Gold/Emerald crate rewards
+  { id: 'pt11', name: 'Drop Hunter', description: 'catch 5 drops', type: 'drops', requirement: 5, field: 'dropsCaught', reward: { crates: [{ type: 'gold', count: 1 }], coins: 350, gems: 18, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt12', name: 'Battle Streak', description: 'win 3 battles', type: 'battles', requirement: 3, field: 'battlesWon', reward: { crates: [{ type: 'gold', count: 1 }], coins: 450, gems: 22, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt13', name: 'Crate Opener', description: 'open 3 crates', type: 'crates', requirement: 3, field: 'cratesOpened', reward: { crates: [{ type: 'gold', count: 1 }], coins: 300, gems: 15, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt14', name: 'Level Rush', description: 'gain 3 levels on any character', type: 'leveling', requirement: 3, field: 'levelsGained', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 380, gems: 19, shards: 1 }, difficulty: 'medium', duration: 7200000 },
   { id: 'pt15', name: 'Social Butterfly', description: 'send 15 messages', type: 'messages', requirement: 15, field: 'messagesSent', reward: { coins: 280, gems: 14 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt16', name: 'Trade Master', description: 'complete 2 trades', type: 'trading', requirement: 2, field: 'tradesCompleted', reward: { coins: 400, gems: 20, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt17', name: 'PvP Warrior', description: 'battle 2 different users', type: 'battles', requirement: 2, field: 'userBattles', reward: { coins: 500, gems: 25, shards: 2 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt18', name: 'Drop Collector', description: 'catch 8 drops', type: 'drops', requirement: 8, field: 'dropsCaught', reward: { coins: 420, gems: 21, shards: 1 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt19', name: 'Crate Spree', description: 'open 5 crates', type: 'crates', requirement: 5, field: 'cratesOpened', reward: { coins: 500, gems: 25, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt20', name: 'Win Machine', description: 'win 5 battles', type: 'battles', requirement: 5, field: 'battlesWon', reward: { coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt16', name: 'Trade Master', description: 'complete 2 trades', type: 'trading', requirement: 2, field: 'tradesCompleted', reward: { crates: [{ type: 'gold', count: 1 }], coins: 400, gems: 20, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt17', name: 'PvP Warrior', description: 'battle 2 different users', type: 'battles', requirement: 2, field: 'userBattles', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 500, gems: 25, shards: 2 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt18', name: 'Drop Collector', description: 'catch 8 drops', type: 'drops', requirement: 8, field: 'dropsCaught', reward: { crates: [{ type: 'gold', count: 2 }], coins: 420, gems: 21, shards: 1 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt19', name: 'Crate Spree', description: 'open 5 crates', type: 'crates', requirement: 5, field: 'cratesOpened', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 500, gems: 25, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt20', name: 'Win Machine', description: 'win 5 battles', type: 'battles', requirement: 5, field: 'battlesWon', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
   
-  // Hard Tasks (5 hours)
-  { id: 'pt21', name: 'Drop Master', description: 'catch 15 drops', type: 'drops', requirement: 15, field: 'dropsCaught', reward: { coins: 800, gems: 40, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt22', name: 'Battle Champion', description: 'win 10 battles', type: 'battles', requirement: 10, field: 'battlesWon', reward: { coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt23', name: 'Crate Maniac', description: 'open 10 crates', type: 'crates', requirement: 10, field: 'cratesOpened', reward: { coins: 900, gems: 45, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt24', name: 'Power Training', description: 'gain 5 levels', type: 'leveling', requirement: 5, field: 'levelsGained', reward: { coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt25', name: 'Chatterbox', description: 'send 30 messages', type: 'messages', requirement: 30, field: 'messagesSent', reward: { coins: 600, gems: 30, shards: 2 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt26', name: 'Trading Tycoon', description: 'complete 5 trades', type: 'trading', requirement: 5, field: 'tradesCompleted', reward: { coins: 850, gems: 43, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt27', name: 'PvP Expert', description: 'battle 5 different users', type: 'battles', requirement: 5, field: 'userBattles', reward: { coins: 1100, gems: 55, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt28', name: 'Drop Legend', description: 'catch 25 drops', type: 'drops', requirement: 25, field: 'dropsCaught', reward: { coins: 1200, gems: 60, shards: 5 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt29', name: 'Elite Trainer', description: 'gain 8 levels', type: 'leveling', requirement: 8, field: 'levelsGained', reward: { coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt30', name: 'Conversation King', description: 'send 50 messages', type: 'messages', requirement: 50, field: 'messagesSent', reward: { coins: 900, gems: 45, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  // Hard Tasks (5 hours) - Legendary crate rewards
+  { id: 'pt21', name: 'Drop Master', description: 'catch 15 drops', type: 'drops', requirement: 15, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 800, gems: 40, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt22', name: 'Battle Champion', description: 'win 10 battles', type: 'battles', requirement: 10, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt23', name: 'Crate Maniac', description: 'open 10 crates', type: 'crates', requirement: 10, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 900, gems: 45, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt24', name: 'Power Training', description: 'gain 5 levels', type: 'leveling', requirement: 5, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt25', name: 'Chatterbox', description: 'send 30 messages', type: 'messages', requirement: 30, field: 'messagesSent', reward: { crates: [{ type: 'gold', count: 2 }], coins: 600, gems: 30, shards: 2 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt26', name: 'Trading Tycoon', description: 'complete 5 trades', type: 'trading', requirement: 5, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 850, gems: 43, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt27', name: 'PvP Expert', description: 'battle 5 different users', type: 'battles', requirement: 5, field: 'userBattles', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1100, gems: 55, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt28', name: 'Drop Legend', description: 'catch 25 drops', type: 'drops', requirement: 25, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1200, gems: 60, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt29', name: 'Elite Trainer', description: 'gain 8 levels', type: 'leveling', requirement: 8, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt30', name: 'Conversation King', description: 'send 50 messages', type: 'messages', requirement: 50, field: 'messagesSent', reward: { crates: [{ type: 'emerald', count: 2 }], coins: 900, gems: 45, shards: 3 }, difficulty: 'hard', duration: 18000000 },
   
   // Variations with mixed objectives
-  { id: 'pt31', name: 'Warm Up', description: 'win 2 battles', type: 'battles', requirement: 2, field: 'battlesWon', reward: { coins: 300, gems: 15 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt32', name: 'Triple Drop', description: 'catch 3 drops', type: 'drops', requirement: 3, field: 'dropsCaught', reward: { coins: 250, gems: 13 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt33', name: 'Crate Collector', description: 'open 4 crates', type: 'crates', requirement: 4, field: 'cratesOpened', reward: { coins: 350, gems: 18 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt31', name: 'Warm Up', description: 'win 2 battles', type: 'battles', requirement: 2, field: 'battlesWon', reward: { crates: [{ type: 'silver', count: 1 }], coins: 300, gems: 15 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt32', name: 'Triple Drop', description: 'catch 3 drops', type: 'drops', requirement: 3, field: 'dropsCaught', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 250, gems: 13 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt33', name: 'Crate Collector', description: 'open 4 crates', type: 'crates', requirement: 4, field: 'cratesOpened', reward: { crates: [{ type: 'gold', count: 1 }], coins: 350, gems: 18 }, difficulty: 'medium', duration: 7200000 },
   { id: 'pt34', name: 'Message Sprint', description: 'send 10 messages', type: 'messages', requirement: 10, field: 'messagesSent', reward: { coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt35', name: 'Level Up', description: 'gain 2 levels', type: 'leveling', requirement: 2, field: 'levelsGained', reward: { coins: 280, gems: 14 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt36', name: 'Trade Deal', description: 'complete 3 trades', type: 'trading', requirement: 3, field: 'tradesCompleted', reward: { coins: 550, gems: 28, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt37', name: 'Battle Pro', description: 'win 7 battles', type: 'battles', requirement: 7, field: 'battlesWon', reward: { coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt38', name: 'Drop Enthusiast', description: 'catch 12 drops', type: 'drops', requirement: 12, field: 'dropsCaught', reward: { coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt39', name: 'Crate Hunter', description: 'open 7 crates', type: 'crates', requirement: 7, field: 'cratesOpened', reward: { coins: 700, gems: 35, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt40', name: 'Social Star', description: 'send 20 messages', type: 'messages', requirement: 20, field: 'messagesSent', reward: { coins: 400, gems: 20, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt41', name: 'Quick Trader', description: 'complete 1 coin or gem trade', type: 'trading', requirement: 1, field: 'anyTrade', reward: { coins: 175, gems: 9 }, difficulty: 'easy', duration: 3600000 },
-  { id: 'pt42', name: 'Battle Rush', description: 'win 4 battles', type: 'battles', requirement: 4, field: 'battlesWon', reward: { coins: 520, gems: 26, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt43', name: 'Drop Sprint', description: 'catch 6 drops', type: 'drops', requirement: 6, field: 'dropsCaught', reward: { coins: 380, gems: 19, shards: 1 }, difficulty: 'medium', duration: 7200000 },
-  { id: 'pt44', name: 'Level Power', description: 'gain 4 levels', type: 'leveling', requirement: 4, field: 'levelsGained', reward: { coins: 480, gems: 24, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt45', name: 'Crate Fever II', description: 'open 6 crates', type: 'crates', requirement: 6, field: 'cratesOpened', reward: { coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt46', name: 'Message Marathon', description: 'send 40 messages', type: 'messages', requirement: 40, field: 'messagesSent', reward: { coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt47', name: 'Ultimate Trader', description: 'complete 7 trades', type: 'trading', requirement: 7, field: 'tradesCompleted', reward: { coins: 1050, gems: 53, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt48', name: 'PvP Master', description: 'battle 3 users', type: 'battles', requirement: 3, field: 'userBattles', reward: { coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt49', name: 'Elite Battler', description: 'win 12 battles', type: 'battles', requirement: 12, field: 'battlesWon', reward: { coins: 1300, gems: 65, shards: 5 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt50', name: 'Drop Champion', description: 'catch 20 drops', type: 'drops', requirement: 20, field: 'dropsCaught', reward: { coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt51', name: 'Level Legend', description: 'gain 10 levels', type: 'leveling', requirement: 10, field: 'levelsGained', reward: { coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt52', name: 'Crate King', description: 'open 12 crates', type: 'crates', requirement: 12, field: 'cratesOpened', reward: { coins: 1100, gems: 55, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt35', name: 'Level Up', description: 'gain 2 levels', type: 'leveling', requirement: 2, field: 'levelsGained', reward: { crates: [{ type: 'silver', count: 1 }], coins: 280, gems: 14 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt36', name: 'Trade Deal', description: 'complete 3 trades', type: 'trading', requirement: 3, field: 'tradesCompleted', reward: { crates: [{ type: 'gold', count: 1 }], coins: 550, gems: 28, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt37', name: 'Battle Pro', description: 'win 7 battles', type: 'battles', requirement: 7, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt38', name: 'Drop Enthusiast', description: 'catch 12 drops', type: 'drops', requirement: 12, field: 'dropsCaught', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt39', name: 'Crate Hunter', description: 'open 7 crates', type: 'crates', requirement: 7, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 700, gems: 35, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt40', name: 'Social Star', description: 'send 20 messages', type: 'messages', requirement: 20, field: 'messagesSent', reward: { crates: [{ type: 'gold', count: 1 }], coins: 400, gems: 20, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt41', name: 'Quick Trader', description: 'complete 1 coin or gem trade', type: 'trading', requirement: 1, field: 'anyTrade', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 175, gems: 9 }, difficulty: 'easy', duration: 3600000 },
+  { id: 'pt42', name: 'Battle Rush', description: 'win 4 battles', type: 'battles', requirement: 4, field: 'battlesWon', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 520, gems: 26, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt43', name: 'Drop Sprint', description: 'catch 6 drops', type: 'drops', requirement: 6, field: 'dropsCaught', reward: { crates: [{ type: 'gold', count: 1 }], coins: 380, gems: 19, shards: 1 }, difficulty: 'medium', duration: 7200000 },
+  { id: 'pt44', name: 'Level Power', description: 'gain 4 levels', type: 'leveling', requirement: 4, field: 'levelsGained', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 480, gems: 24, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt45', name: 'Crate Fever II', description: 'open 6 crates', type: 'crates', requirement: 6, field: 'cratesOpened', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt46', name: 'Message Marathon', description: 'send 40 messages', type: 'messages', requirement: 40, field: 'messagesSent', reward: { crates: [{ type: 'gold', count: 2 }], coins: 750, gems: 38, shards: 3 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt47', name: 'Ultimate Trader', description: 'complete 7 trades', type: 'trading', requirement: 7, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1050, gems: 53, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt48', name: 'PvP Master', description: 'battle 3 users', type: 'battles', requirement: 3, field: 'userBattles', reward: { crates: [{ type: 'gold', count: 2 }], coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
+  { id: 'pt49', name: 'Elite Battler', description: 'win 12 battles', type: 'battles', requirement: 12, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1300, gems: 65, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt50', name: 'Drop Champion', description: 'catch 20 drops', type: 'drops', requirement: 20, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1000, gems: 50, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt51', name: 'Level Legend', description: 'gain 10 levels', type: 'leveling', requirement: 10, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 2 }, { type: 'tyrant', count: 1 }], coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt52', name: 'Crate King', description: 'open 12 crates', type: 'crates', requirement: 12, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1100, gems: 55, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  
+  // Invite Tasks (Legendary rewards!)
+  { id: 'pt53', name: 'New Friend', description: 'invite 1 new member who completes !start', type: 'invites', requirement: 1, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 500, gems: 25 }, difficulty: 'medium', duration: 18000000 },
+  { id: 'pt54', name: 'Recruiter', description: 'invite 2 new members who complete !start', type: 'invites', requirement: 2, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1000, gems: 50 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt55', name: 'Community Builder', description: 'invite 3 new members who complete !start', type: 'invites', requirement: 3, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 3 }, { type: 'tyrant', count: 1 }], coins: 2000, gems: 100 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt56', name: 'Ambassador', description: 'invite 4 new members who complete !start', type: 'invites', requirement: 4, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 4 }, { type: 'tyrant', count: 2 }], coins: 3000, gems: 150 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt57', name: 'Growth Master', description: 'invite 5 new members who complete !start', type: 'invites', requirement: 5, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 5 }, { type: 'tyrant', count: 3 }], coins: 5000, gems: 250 }, difficulty: 'hard', duration: 18000000 },
 ];
 
 // Human-like message templates
 const MESSAGE_TEMPLATES = {
+  // For inactive players
   taskAssignment: [
     "Hey! 👋 I noticed you haven't been around much lately. Wanna try something fun? {task} within the next {time}! I'll hook you up with {reward} when you're done 😊",
     "What's up! 🌟 Got a little challenge for you - {task} in the next {time}. Complete it and you'll get {reward}! Let's go! 💪",
@@ -76,6 +84,19 @@ const MESSAGE_TEMPLATES = {
     "Hello! 🌈 Ready for some action? {task} within {time} and you'll get {reward}. Let's make it happen!",
     "Hey friend! 💫 Got a special task just for you: {task} in {time}. Complete it for {reward}!",
     "What's good! 🎯 Here's your mission: {task} within {time}. Rewards: {reward}. Go get 'em!"
+  ],
+  // For active players - exclusive, special feeling
+  exclusiveActive: [
+    "Psst... 🤫 Don't tell anyone, but I've got something special just for you: {task} in {time}. Exclusive rewards: {reward}! This is between us 😉",
+    "Hey you! ✨ You're one of my favorite players, so here's an exclusive quest: {task} within {time}. Complete it for {reward}. Don't share this with others! 🎁",
+    "Secret mission alert! 🔐 Only sharing this with you - {task} in {time} and get {reward}. Keep it hush! 😊",
+    "VIP task incoming! 👑 Because you're awesome, you get this exclusive challenge: {task} within {time} for {reward}. Just for you!",
+    "Shhhh! 🤐 Special quest unlocked just for YOU: {task} in {time}. Rewards: {reward}. Don't let others know!",
+    "Private message! 💌 I picked you specifically for this: {task} within {time}, earn {reward}. Our little secret!",
+    "Top secret! 🎯 This is a premium quest only for select players like you: {task} in {time}. Get {reward}! Keep it quiet 😉",
+    "Exclusive access! ⭐ You've been chosen for this special task: {task} within {time}. Reward: {reward}. Don't spread the word!",
+    "Between us... 🤝 Got a unique challenge made just for you: {task} in {time} for {reward}. This stays between you and me!",
+    "Elite quest! 💎 Only sending this to special players - {task} within {time}, claim {reward}. Keep this exclusive!"
   ],
   taskComplete: [
     "Yesss! 🎉 You crushed it! Just sent you {reward}. That was awesome! 🔥",
@@ -122,9 +143,18 @@ function initializePersonalizedTaskData(userData) {
       lastTaskSent: null,
       isActive: true, // Admin can toggle this
       totalCompleted: 0,
-      totalMissed: 0
+      totalMissed: 0,
+      invitedBy: null, // Who invited this user
+      invitees: [], // Array of {userId, joinedAt, completedStartAt}
+      inviteCount: 0 // Total successful invites
     };
   }
+  
+  // Backfill new fields for existing users
+  if (userData.personalizedTasks.invitedBy === undefined) userData.personalizedTasks.invitedBy = null;
+  if (!userData.personalizedTasks.invitees) userData.personalizedTasks.invitees = [];
+  if (userData.personalizedTasks.inviteCount === undefined) userData.personalizedTasks.inviteCount = 0;
+  
   return userData.personalizedTasks;
 }
 
@@ -146,6 +176,15 @@ function getRandomTask(userData) {
 // Format reward text
 function formatReward(reward) {
   const parts = [];
+  
+  // Format crates
+  if (reward.crates && reward.crates.length > 0) {
+    for (const crate of reward.crates) {
+      const crateType = crate.type.charAt(0).toUpperCase() + crate.type.slice(1);
+      parts.push(`${crate.count}x ${crateType} Crate${crate.count > 1 ? 's' : ''}`);
+    }
+  }
+  
   if (reward.coins) parts.push(`${reward.coins} coins`);
   if (reward.gems) parts.push(`${reward.gems} gems`);
   if (reward.shards) parts.push(`${reward.shards} shards`);
@@ -188,15 +227,24 @@ async function sendPersonalizedTask(client, userId, data) {
     // Check if we should ping (only after 5 ignored tasks)
     const shouldPing = ptData.ignoredTaskCount >= 5;
     
+    // Check if user is active (last activity within 2 hours)
+    const lastActivity = userData.lastActivity || 0;
+    const timeSinceActivity = Date.now() - lastActivity;
+    const isActive = timeSinceActivity < (2 * 3600000); // 2 hours
+    
     // Get random task
     const task = getRandomTask(userData);
     
-    // Select message template
+    // Select message template based on activity status
     let messageTemplate;
     if (shouldPing) {
       messageTemplate = MESSAGE_TEMPLATES.reminderAfter5[Math.floor(Math.random() * MESSAGE_TEMPLATES.reminderAfter5.length)];
       ptData.ignoredTaskCount = 0; // Reset after pinging
+    } else if (isActive) {
+      // Use exclusive messaging for active players
+      messageTemplate = MESSAGE_TEMPLATES.exclusiveActive[Math.floor(Math.random() * MESSAGE_TEMPLATES.exclusiveActive.length)];
     } else {
+      // Use regular messaging for inactive players
       messageTemplate = MESSAGE_TEMPLATES.taskAssignment[Math.floor(Math.random() * MESSAGE_TEMPLATES.taskAssignment.length)];
     }
     
@@ -217,7 +265,8 @@ async function sendPersonalizedTask(client, userId, data) {
       coinTradesCompleted: 0,
       gemTradesCompleted: 0,
       userBattles: 0,
-      anyTrade: 0
+      anyTrade: 0,
+      invitesCompleted: 0
     };
     
     // Set current task
@@ -278,6 +327,16 @@ async function completePersonalizedTask(client, userId, data, task) {
   }
   if (task.reward.shards) {
     userData.shards = (userData.shards || 0) + task.reward.shards;
+  }
+  
+  // Give crate rewards
+  if (task.reward.crates && task.reward.crates.length > 0) {
+    if (!userData.crates) {
+      userData.crates = { bronze: 0, silver: 0, gold: 0, emerald: 0, legendary: 0, tyrant: 0 };
+    }
+    for (const crate of task.reward.crates) {
+      userData.crates[crate.type] = (userData.crates[crate.type] || 0) + crate.count;
+    }
   }
   
   // Record completion
@@ -348,11 +407,10 @@ async function checkExpiredTasks(client, data) {
   }
 }
 
-// Get inactive users (haven't been active in last 24 hours)
-function getInactiveUsers(data, minInactiveHours = 6) {
-  const inactiveUsers = [];
+// Get eligible users for tasks (both active and inactive)
+function getEligibleUsers(data) {
+  const eligibleUsers = [];
   const now = Date.now();
-  const inactiveThreshold = minInactiveHours * 3600000;
   
   for (const userId in data.users) {
     const userData = data.users[userId];
@@ -360,21 +418,84 @@ function getInactiveUsers(data, minInactiveHours = 6) {
     
     if (!ptData.isActive) continue; // Skip if disabled by admin
     
-    // Check last activity (message, battle, drop, etc)
+    // Check last activity
     const lastActivity = userData.lastActivity || 0;
     const timeSinceActivity = now - lastActivity;
+    const isActive = timeSinceActivity < (2 * 3600000); // Active if within 2 hours
     
     // Check if enough time passed since last task
     const timeSinceLastTask = now - (ptData.lastTaskSent || 0);
-    const minTimeBetweenTasks = 2 * 3600000; // 2 hours minimum
     
-    // User is inactive and ready for a task
-    if (timeSinceActivity > inactiveThreshold && timeSinceLastTask > minTimeBetweenTasks) {
-      inactiveUsers.push(userId);
+    let minTimeBetweenTasks;
+    if (isActive) {
+      // Active players: Send task every 3 hours minimum
+      minTimeBetweenTasks = 3 * 3600000;
+    } else {
+      // Inactive players (6+ hours idle): Send task every 2 hours minimum
+      const inactiveThreshold = 6 * 3600000;
+      if (timeSinceActivity < inactiveThreshold) continue; // Not inactive enough yet
+      minTimeBetweenTasks = 2 * 3600000;
+    }
+    
+    // User is ready for a task
+    if (timeSinceLastTask > minTimeBetweenTasks) {
+      eligibleUsers.push(userId);
     }
   }
   
-  return inactiveUsers;
+  return eligibleUsers;
+}
+
+// Track invite completion when invited user completes !start
+function trackInviteCompletion(inviterUserId, inviteeUserId, data) {
+  const inviter = data.users[inviterUserId];
+  const invitee = data.users[inviteeUserId];
+  
+  if (!inviter || !invitee) return false;
+  
+  const inviterPT = initializePersonalizedTaskData(inviter);
+  const inviteePT = initializePersonalizedTaskData(invitee);
+  
+  // Mark invitee's inviter
+  if (!inviteePT.invitedBy) {
+    inviteePT.invitedBy = inviterUserId;
+  }
+  
+  // Find the invitee in inviter's list and mark completion
+  const inviteeRecord = inviterPT.invitees.find(inv => inv.userId === inviteeUserId);
+  if (inviteeRecord && !inviteeRecord.completedStartAt) {
+    inviteeRecord.completedStartAt = Date.now();
+    inviterPT.inviteCount += 1;
+    return true;
+  }
+  
+  return false;
+}
+
+// Register a new invite (call when someone uses invite link/code)
+function registerInvite(inviterUserId, inviteeUserId, data) {
+  const inviter = data.users[inviterUserId];
+  const invitee = data.users[inviteeUserId];
+  
+  if (!inviter || !invitee) return false;
+  
+  const inviterPT = initializePersonalizedTaskData(inviter);
+  const inviteePT = initializePersonalizedTaskData(invitee);
+  
+  // Prevent self-invite
+  if (inviterUserId === inviteeUserId) return false;
+  
+  // Lock invitedBy after first assignment
+  if (inviteePT.invitedBy) return false;
+  
+  inviteePT.invitedBy = inviterUserId;
+  inviterPT.invitees.push({
+    userId: inviteeUserId,
+    joinedAt: Date.now(),
+    completedStartAt: null
+  });
+  
+  return true;
 }
 
 // Toggle personalized tasks for a user
@@ -408,7 +529,10 @@ module.exports = {
   checkTaskProgress,
   completePersonalizedTask,
   checkExpiredTasks,
-  getInactiveUsers,
+  getInactiveUsers, // Deprecated: use getEligibleUsers instead
+  getEligibleUsers,
+  trackInviteCompletion,
+  registerInvite,
   togglePersonalizedTasks,
   getTaskStats,
   formatReward,
