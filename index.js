@@ -71,6 +71,7 @@ const {
   formatReward,
   formatTime 
 } = require('./personalizedTaskSystem.js');
+const { getHistory, getHistorySummary, formatHistory } = require('./historySystem.js');
 
 const PREFIX = '!';
 let data;
@@ -2027,6 +2028,37 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [statsEmbed] });
         break;
         
+      case 'history':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const historyUser = message.mentions.users.first();
+        if (!historyUser) {
+          await message.reply('Usage: `!history @user [page]` - View transaction history for a user\nExample: `!history @user 1`');
+          return;
+        }
+        
+        if (!data.users[historyUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const historyPage = parseInt(args[1]) || 1;
+        const historyData = getHistory(data.users[historyUser.id], 500);
+        const historySummary = getHistorySummary(data.users[historyUser.id]);
+        const historyOutput = formatHistory(historyData, historySummary, historyPage);
+        
+        try {
+          const dmUser = await client.users.fetch(message.author.id);
+          await dmUser.send(`**Transaction History for ${data.users[historyUser.id].username}**\n\n${historyOutput}`);
+          await message.reply('📊 History sent to your DMs!');
+        } catch (error) {
+          await message.reply(historyOutput.substring(0, 2000));
+        }
+        break;
+        
       case 'pttasks':
         if (!isAdmin) {
           await message.reply('❌ You need Administrator permission!');
@@ -2182,7 +2214,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
             { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
             { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats' },
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats\n`!history @user [page]` - View user transaction history' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         
