@@ -35,8 +35,8 @@ async function logTransaction(data, userData, type, amount, source, details = {}
   
   history.transactions.push(transaction);
   
-  if (history.transactions.length > 500) {
-    history.transactions = history.transactions.slice(-500);
+  if (history.transactions.length > 100) {
+    history.transactions = history.transactions.slice(-100);
   }
   
   updateTotals(history, type, amount, details);
@@ -216,7 +216,7 @@ function formatHistory(transactions, summary, page = 1, pageSize = 20) {
   output += `**Recent Transactions** (${startIndex + 1}-${Math.min(endIndex, transactions.length)} of ${transactions.length}):\n`;
   output += paginatedTransactions.map(t => formatHistoryEntry(t)).join('\n');
   
-  if (totalPages > 1) {
+  if (page < totalPages) {
     output += `\n\nUse \`!history @user ${page + 1}\` to see the next page.`;
   }
   

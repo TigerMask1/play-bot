@@ -69,7 +69,9 @@ const {
   getTaskStats,
   initializePersonalizedTaskData,
   formatReward,
-  formatTime 
+  formatTime,
+  createCustomTask,
+  sendCustomTask
 } = require('./personalizedTaskSystem.js');
 const { getHistory, getHistorySummary, formatHistory } = require('./historySystem.js');
 
@@ -2028,6 +2030,46 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [statsEmbed] });
         break;
         
+      case 'ptcustom':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const customTaskUser = message.mentions.users.first();
+        if (!customTaskUser || args.length < 3) {
+          await message.reply('Usage: `!ptcustom @user <type> <amount> <difficulty>`\nExample: `!ptcustom @user drops 10 hard`\n\nTypes: drops, battles, crates, leveling, messages, trading\nDifficulties: easy, medium, hard');
+          return;
+        }
+        
+        if (!data.users[customTaskUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const taskType = args[1].toLowerCase();
+        const taskAmount = args[2];
+        const taskDifficulty = args[3]?.toLowerCase() || 'medium';
+        
+        // Create custom task
+        const taskResult = createCustomTask(taskType, taskAmount, taskDifficulty);
+        
+        if (taskResult.error) {
+          await message.reply(`❌ ${taskResult.error}`);
+          return;
+        }
+        
+        // Send custom task to user
+        const sendResult = await sendCustomTask(client, customTaskUser.id, data, taskResult.task);
+        
+        if (sendResult.error) {
+          await message.reply(`❌ ${sendResult.error}`);
+          return;
+        }
+        
+        await message.reply(`✅ Custom task sent to **${sendResult.username}**: ${taskResult.task.description}\n**Difficulty:** ${taskDifficulty}\n**Rewards:** ${formatReward(taskResult.task.reward)}`);
+        break;
+        
       case 'history':
         if (!isAdmin) {
           await message.reply('❌ You need Administrator permission!');
@@ -2046,7 +2088,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const historyPage = parseInt(args[1]) || 1;
-        const historyData = getHistory(data.users[historyUser.id], 500);
+        const historyData = getHistory(data.users[historyUser.id], 100);
         const historySummary = getHistorySummary(data.users[historyUser.id]);
         const historyOutput = formatHistory(historyData, historySummary, historyPage);
         
@@ -2214,7 +2256,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
             { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
             { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats\n`!history @user [page]` - View user transaction history' },
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!ptcustom @user <type> <amt> <diff>` - Send custom task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats\n`!history @user [page]` - View user transaction history' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         

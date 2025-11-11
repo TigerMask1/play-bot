@@ -26,17 +26,17 @@ const PERSONALIZED_TASKS = [
   { id: 'pt19', name: 'Crate Spree', description: 'open 5 crates', type: 'crates', requirement: 5, field: 'cratesOpened', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 500, gems: 25, shards: 2 }, difficulty: 'medium', duration: 10800000 },
   { id: 'pt20', name: 'Win Machine', description: 'win 5 battles', type: 'battles', requirement: 5, field: 'battlesWon', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
   
-  // Hard Tasks (5 hours) - Legendary crate rewards (CHALLENGING!)
-  { id: 'pt21', name: 'Drop Master', description: 'catch 30 drops', type: 'drops', requirement: 30, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt22', name: 'Battle Champion', description: 'win 18 battles', type: 'battles', requirement: 18, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1600, gems: 80, shards: 7 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt23', name: 'Crate Maniac', description: 'open 18 crates', type: 'crates', requirement: 18, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1500, gems: 75, shards: 6 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt24', name: 'Power Training', description: 'gain 12 levels', type: 'leveling', requirement: 12, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1300, gems: 65, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  // Hard Tasks (5 hours) - Max 1 Legendary + Emerald/Gold crates (CHALLENGING!)
+  { id: 'pt21', name: 'Drop Master', description: 'catch 30 drops', type: 'drops', requirement: 30, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt22', name: 'Battle Champion', description: 'win 18 battles', type: 'battles', requirement: 18, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1600, gems: 80, shards: 7 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt23', name: 'Crate Maniac', description: 'open 18 crates', type: 'crates', requirement: 18, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1500, gems: 75, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt24', name: 'Power Training', description: 'gain 12 levels', type: 'leveling', requirement: 12, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1300, gems: 65, shards: 6 }, difficulty: 'hard', duration: 18000000 },
   { id: 'pt25', name: 'Chatterbox', description: 'send 75 messages', type: 'messages', requirement: 75, field: 'messagesSent', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 1100, gems: 55, shards: 5 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt26', name: 'Trading Tycoon', description: 'complete 10 trades', type: 'trading', requirement: 10, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt27', name: 'PvP Expert', description: 'battle 8 different users', type: 'battles', requirement: 8, field: 'userBattles', reward: { crates: [{ type: 'legendary', count: 3 }], coins: 1800, gems: 90, shards: 8 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt28', name: 'Drop Legend', description: 'catch 40 drops', type: 'drops', requirement: 40, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 3 }], coins: 2000, gems: 100, shards: 9 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt29', name: 'Elite Trainer', description: 'gain 15 levels', type: 'leveling', requirement: 15, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 2 }, { type: 'tyrant', count: 1 }], coins: 1700, gems: 85, shards: 7 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt30', name: 'Conversation King', description: 'send 100 messages', type: 'messages', requirement: 100, field: 'messagesSent', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1500, gems: 75, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt26', name: 'Trading Tycoon', description: 'complete 10 trades', type: 'trading', requirement: 10, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1400, gems: 70, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt27', name: 'PvP Expert', description: 'battle 8 different users', type: 'battles', requirement: 8, field: 'userBattles', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 1800, gems: 90, shards: 8 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt28', name: 'Drop Legend', description: 'catch 40 drops', type: 'drops', requirement: 40, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 2000, gems: 100, shards: 9 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt29', name: 'Elite Trainer', description: 'gain 15 levels', type: 'leveling', requirement: 15, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1700, gems: 85, shards: 7 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt30', name: 'Conversation King', description: 'send 100 messages', type: 'messages', requirement: 100, field: 'messagesSent', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1500, gems: 75, shards: 6 }, difficulty: 'hard', duration: 18000000 },
   
   // Variations with mixed objectives
   { id: 'pt31', name: 'Warm Up', description: 'win 2 battles', type: 'battles', requirement: 2, field: 'battlesWon', reward: { crates: [{ type: 'silver', count: 1 }], coins: 300, gems: 15 }, difficulty: 'easy', duration: 3600000 },
@@ -45,29 +45,29 @@ const PERSONALIZED_TASKS = [
   { id: 'pt34', name: 'Message Sprint', description: 'send 10 messages', type: 'messages', requirement: 10, field: 'messagesSent', reward: { coins: 200, gems: 10 }, difficulty: 'easy', duration: 3600000 },
   { id: 'pt35', name: 'Level Up', description: 'gain 2 levels', type: 'leveling', requirement: 2, field: 'levelsGained', reward: { crates: [{ type: 'silver', count: 1 }], coins: 280, gems: 14 }, difficulty: 'easy', duration: 3600000 },
   { id: 'pt36', name: 'Trade Deal', description: 'complete 3 trades', type: 'trading', requirement: 3, field: 'tradesCompleted', reward: { crates: [{ type: 'gold', count: 1 }], coins: 550, gems: 28, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt37', name: 'Battle Pro', description: 'win 14 battles', type: 'battles', requirement: 14, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1250, gems: 63, shards: 6 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt37', name: 'Battle Pro', description: 'win 14 battles', type: 'battles', requirement: 14, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1250, gems: 63, shards: 6 }, difficulty: 'hard', duration: 18000000 },
   { id: 'pt38', name: 'Drop Enthusiast', description: 'catch 12 drops', type: 'drops', requirement: 12, field: 'dropsCaught', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt39', name: 'Crate Hunter', description: 'open 15 crates', type: 'crates', requirement: 15, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1200, gems: 60, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt39', name: 'Crate Hunter', description: 'open 15 crates', type: 'crates', requirement: 15, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1200, gems: 60, shards: 5 }, difficulty: 'hard', duration: 18000000 },
   { id: 'pt40', name: 'Social Star', description: 'send 20 messages', type: 'messages', requirement: 20, field: 'messagesSent', reward: { crates: [{ type: 'gold', count: 1 }], coins: 400, gems: 20, shards: 1 }, difficulty: 'medium', duration: 7200000 },
   { id: 'pt41', name: 'Quick Trader', description: 'complete 1 coin or gem trade', type: 'trading', requirement: 1, field: 'anyTrade', reward: { crates: [{ type: 'bronze', count: 1 }], coins: 175, gems: 9 }, difficulty: 'easy', duration: 3600000 },
   { id: 'pt42', name: 'Battle Rush', description: 'win 4 battles', type: 'battles', requirement: 4, field: 'battlesWon', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 520, gems: 26, shards: 2 }, difficulty: 'medium', duration: 10800000 },
   { id: 'pt43', name: 'Drop Sprint', description: 'catch 6 drops', type: 'drops', requirement: 6, field: 'dropsCaught', reward: { crates: [{ type: 'gold', count: 1 }], coins: 380, gems: 19, shards: 1 }, difficulty: 'medium', duration: 7200000 },
   { id: 'pt44', name: 'Level Power', description: 'gain 4 levels', type: 'leveling', requirement: 4, field: 'levelsGained', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 480, gems: 24, shards: 2 }, difficulty: 'medium', duration: 10800000 },
   { id: 'pt45', name: 'Crate Fever II', description: 'open 6 crates', type: 'crates', requirement: 6, field: 'cratesOpened', reward: { crates: [{ type: 'emerald', count: 1 }], coins: 600, gems: 30, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt46', name: 'Message Marathon', description: 'send 80 messages', type: 'messages', requirement: 80, field: 'messagesSent', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1250, gems: 63, shards: 5 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt47', name: 'Ultimate Trader', description: 'complete 12 trades', type: 'trading', requirement: 12, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1600, gems: 80, shards: 7 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt46', name: 'Message Marathon', description: 'send 80 messages', type: 'messages', requirement: 80, field: 'messagesSent', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1250, gems: 63, shards: 5 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt47', name: 'Ultimate Trader', description: 'complete 12 trades', type: 'trading', requirement: 12, field: 'tradesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }], coins: 1600, gems: 80, shards: 7 }, difficulty: 'hard', duration: 18000000 },
   { id: 'pt48', name: 'PvP Master', description: 'battle 3 users', type: 'battles', requirement: 3, field: 'userBattles', reward: { crates: [{ type: 'gold', count: 2 }], coins: 650, gems: 33, shards: 2 }, difficulty: 'medium', duration: 10800000 },
-  { id: 'pt49', name: 'Elite Battler', description: 'win 20 battles', type: 'battles', requirement: 20, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 3 }], coins: 2100, gems: 105, shards: 9 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt50', name: 'Drop Champion', description: 'catch 35 drops', type: 'drops', requirement: 35, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 3 }], coins: 1800, gems: 90, shards: 8 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt51', name: 'Level Legend', description: 'gain 18 levels', type: 'leveling', requirement: 18, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 3 }, { type: 'tyrant', count: 1 }], coins: 2300, gems: 115, shards: 10 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt52', name: 'Crate King', description: 'open 20 crates', type: 'crates', requirement: 20, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 3 }], coins: 1900, gems: 95, shards: 8 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt49', name: 'Elite Battler', description: 'win 20 battles', type: 'battles', requirement: 20, field: 'battlesWon', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 2100, gems: 105, shards: 9 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt50', name: 'Drop Champion', description: 'catch 35 drops', type: 'drops', requirement: 35, field: 'dropsCaught', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 1800, gems: 90, shards: 8 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt51', name: 'Level Legend', description: 'gain 18 levels', type: 'leveling', requirement: 18, field: 'levelsGained', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 2300, gems: 115, shards: 10 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt52', name: 'Crate King', description: 'open 20 crates', type: 'crates', requirement: 20, field: 'cratesOpened', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 1900, gems: 95, shards: 8 }, difficulty: 'hard', duration: 18000000 },
   
-  // Invite Tasks (Legendary rewards!)
+  // Invite Tasks (Max 1 Legendary!)
   { id: 'pt53', name: 'New Friend', description: 'invite 1 new member who completes !start', type: 'invites', requirement: 1, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }], coins: 500, gems: 25 }, difficulty: 'medium', duration: 18000000 },
-  { id: 'pt54', name: 'Recruiter', description: 'invite 2 new members who complete !start', type: 'invites', requirement: 2, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 2 }], coins: 1500, gems: 75, shards: 4 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt55', name: 'Community Builder', description: 'invite 3 new members who complete !start', type: 'invites', requirement: 3, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 3 }, { type: 'tyrant', count: 1 }], coins: 3000, gems: 150, shards: 7 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt56', name: 'Ambassador', description: 'invite 4 new members who complete !start', type: 'invites', requirement: 4, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 4 }, { type: 'tyrant', count: 2 }], coins: 4500, gems: 225, shards: 10 }, difficulty: 'hard', duration: 18000000 },
-  { id: 'pt57', name: 'Growth Master', description: 'invite 5 new members who complete !start', type: 'invites', requirement: 5, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 5 }, { type: 'tyrant', count: 3 }], coins: 6000, gems: 300, shards: 15 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt54', name: 'Recruiter', description: 'invite 2 new members who complete !start', type: 'invites', requirement: 2, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 2 }], coins: 1500, gems: 75, shards: 4 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt55', name: 'Community Builder', description: 'invite 3 new members who complete !start', type: 'invites', requirement: 3, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 3 }], coins: 3000, gems: 150, shards: 7 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt56', name: 'Ambassador', description: 'invite 4 new members who complete !start', type: 'invites', requirement: 4, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 4 }], coins: 4500, gems: 225, shards: 10 }, difficulty: 'hard', duration: 18000000 },
+  { id: 'pt57', name: 'Growth Master', description: 'invite 5 new members who complete !start', type: 'invites', requirement: 5, field: 'invitesCompleted', reward: { crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 5 }], coins: 6000, gems: 300, shards: 15 }, difficulty: 'hard', duration: 18000000 },
 ];
 
 // Human-like message templates
@@ -329,13 +329,11 @@ async function completePersonalizedTask(client, userId, data, task) {
     userData.shards = (userData.shards || 0) + task.reward.shards;
   }
   
-  // Give crate rewards
+  // Give crate rewards (using flat structure: legendaryCrates, goldCrates, etc.)
   if (task.reward.crates && task.reward.crates.length > 0) {
-    if (!userData.crates) {
-      userData.crates = { bronze: 0, silver: 0, gold: 0, emerald: 0, legendary: 0, tyrant: 0 };
-    }
     for (const crate of task.reward.crates) {
-      userData.crates[crate.type] = (userData.crates[crate.type] || 0) + crate.count;
+      const crateKey = `${crate.type}Crates`;
+      userData[crateKey] = (userData[crateKey] || 0) + crate.count;
     }
   }
   
@@ -524,6 +522,148 @@ function getTaskStats(userData) {
   };
 }
 
+// Task type metadata
+const TASK_TYPE_METADATA = {
+  drops: { field: 'dropsCaught', min: 1, max: 200, unit: 'drops' },
+  battles: { field: 'battlesWon', min: 1, max: 100, unit: 'battles' },
+  crates: { field: 'cratesOpened', min: 1, max: 100, unit: 'crates' },
+  leveling: { field: 'levelsGained', min: 1, max: 50, unit: 'levels' },
+  messages: { field: 'messagesSent', min: 1, max: 500, unit: 'messages' },
+  trading: { field: 'tradesCompleted', min: 1, max: 50, unit: 'trades' }
+};
+
+// Difficulty-based reward templates
+const REWARD_TEMPLATES = {
+  easy: {
+    duration: 3600000, // 1 hour
+    crates: [{ type: 'bronze', count: 1 }],
+    coinsPerUnit: 50,
+    gemsPerUnit: 3,
+    shardsPerUnit: 0
+  },
+  medium: {
+    duration: 7200000, // 2 hours
+    crates: [{ type: 'gold', count: 1 }],
+    coinsPerUnit: 70,
+    gemsPerUnit: 4,
+    shardsPerUnit: 0.3
+  },
+  hard: {
+    duration: 18000000, // 5 hours
+    crates: [{ type: 'legendary', count: 1 }, { type: 'emerald', count: 1 }],
+    coinsPerUnit: 100,
+    gemsPerUnit: 5,
+    shardsPerUnit: 0.5
+  }
+};
+
+// Create custom task
+function createCustomTask(type, amount, difficulty) {
+  // Validate type
+  if (!TASK_TYPE_METADATA[type]) {
+    return { error: `Invalid task type. Valid types: ${Object.keys(TASK_TYPE_METADATA).join(', ')}` };
+  }
+  
+  // Validate difficulty
+  if (!REWARD_TEMPLATES[difficulty]) {
+    return { error: 'Invalid difficulty. Valid difficulties: easy, medium, hard' };
+  }
+  
+  // Validate amount
+  const metadata = TASK_TYPE_METADATA[type];
+  const parsedAmount = parseInt(amount);
+  
+  if (isNaN(parsedAmount) || parsedAmount < metadata.min) {
+    return { error: `Amount must be at least ${metadata.min}` };
+  }
+  
+  if (parsedAmount > metadata.max) {
+    return { error: `Amount cannot exceed ${metadata.max} for ${type}` };
+  }
+  
+  // Get reward template
+  const template = REWARD_TEMPLATES[difficulty];
+  
+  // Calculate scaled rewards
+  const coins = Math.round(parsedAmount * template.coinsPerUnit);
+  const gems = Math.round(parsedAmount * template.gemsPerUnit);
+  const shards = Math.round(parsedAmount * template.shardsPerUnit);
+  
+  // Build task object
+  const task = {
+    id: `custom_${type}_${Date.now()}`,
+    name: `Custom ${type.charAt(0).toUpperCase() + type.slice(1)} Task`,
+    description: `${type === 'leveling' ? 'gain' : type === 'messages' ? 'send' : type === 'trading' ? 'complete' : type === 'battles' ? 'win' : type === 'drops' ? 'catch' : 'open'} ${parsedAmount} ${metadata.unit}`,
+    type: type,
+    requirement: parsedAmount,
+    field: metadata.field,
+    reward: {
+      crates: template.crates,
+      coins: coins,
+      gems: gems,
+      shards: shards > 0 ? shards : undefined
+    },
+    difficulty: difficulty,
+    duration: template.duration,
+    isCustom: true
+  };
+  
+  return { task };
+}
+
+// Send custom task to user
+async function sendCustomTask(client, userId, data, task) {
+  const userData = data.users[userId];
+  if (!userData) {
+    return { error: 'User not found in database' };
+  }
+  
+  const ptData = initializePersonalizedTaskData(userData);
+  
+  // Check if user has an active task
+  if (ptData.currentTask && Date.now() < ptData.taskStartTime + ptData.currentTask.duration) {
+    return { error: 'User already has an active task' };
+  }
+  
+  try {
+    const user = await client.users.fetch(userId);
+    if (!user) {
+      return { error: 'Could not fetch Discord user' };
+    }
+    
+    // Format custom task message
+    const message = `🎯 **Custom Challenge!**\n\nAn admin has assigned you a special task:\n**${task.description}** within the next **${formatTime(task.duration)}**!\n\n**Rewards:** ${formatReward(task.reward)}\n\nGood luck! 💪`;
+    
+    // Initialize task progress tracking
+    ptData.taskProgress = {
+      dropsCaught: 0,
+      battlesWon: 0,
+      cratesOpened: 0,
+      levelsGained: 0,
+      messagesSent: 0,
+      tradesCompleted: 0,
+      coinTradesCompleted: 0,
+      gemTradesCompleted: 0,
+      userBattles: 0,
+      anyTrade: 0,
+      invitesCompleted: 0
+    };
+    
+    // Set current task
+    ptData.currentTask = task;
+    ptData.taskStartTime = Date.now();
+    
+    await saveData(data);
+    await user.send(message);
+    
+    console.log(`📤 Custom task sent to ${userData.username}: ${task.description}`);
+    return { success: true, username: userData.username };
+  } catch (error) {
+    console.error(`Failed to send custom task to ${userId}:`, error.message);
+    return { error: `Failed to send DM: ${error.message}` };
+  }
+}
+
 module.exports = {
   PERSONALIZED_TASKS,
   initializePersonalizedTaskData,
@@ -537,5 +677,7 @@ module.exports = {
   togglePersonalizedTasks,
   getTaskStats,
   formatReward,
-  formatTime
+  formatTime,
+  createCustomTask,
+  sendCustomTask
 };
