@@ -1,4 +1,4 @@
-const { saveData } = require('./dataManager.js');
+const { saveData, saveDataImmediate } = require('./dataManager.js');
 
 // Task pool with 50+ variations
 const PERSONALIZED_TASKS = [
@@ -353,7 +353,9 @@ async function completePersonalizedTask(client, userId, data, task) {
   ptData.taskStartTime = null;
   ptData.taskProgress = {};
   
-  await saveData(data);
+  // CRITICAL: Use immediate save for reward distribution to ensure MongoDB persistence
+  await saveDataImmediate(data);
+  console.log(`💾 Saved personalized task rewards to database for ${userData.username}`);
   
   try {
     const user = await client.users.fetch(userId);

@@ -206,9 +206,11 @@ async function distributeRewards(event, leaderboard) {
     }
   }
 
-  await dataManager.saveData(data);
+  // CRITICAL: Use immediate save for reward distribution to ensure MongoDB persistence
+  await dataManager.saveDataImmediate(data);
   await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
   
+  console.log(`💾 Saved event rewards to database for ${leaderboard.length} participants`);
   console.log(`🎁 Distributed rewards to ${leaderboard.length} participants`);
 }
 

@@ -245,7 +245,8 @@ client.on('messageCreate', async (message) => {
         rewardMessage = `🎉 **Message Reward!** You got a 🟡 **Gold Crate**! Use \`!opencrate gold\` to open it!`;
       }
       
-      saveData(data);
+      // CRITICAL: Use immediate save for crate rewards to ensure MongoDB persistence
+      await saveDataImmediate(data);
       
       try {
         await message.reply(rewardMessage);
@@ -946,7 +947,7 @@ client.on('messageCreate', async (message) => {
           }
           
           targetChar.tokens += tokenAmount;
-          saveData(data);
+          await saveDataImmediate(data);
           
           await message.reply(`✅ Granted ${tokenAmount} ${targetChar.name} tokens to <@${grantUser.id}>!`);
         } else if (['coins', 'gems'].includes(grantType)) {
@@ -956,7 +957,7 @@ client.on('messageCreate', async (message) => {
           }
           
           data.users[grantUser.id][grantType] += grantAmount;
-          saveData(data);
+          await saveDataImmediate(data);
           
           await message.reply(`✅ Granted ${grantAmount} ${grantType} to <@${grantUser.id}>!`);
         } else {
@@ -1037,7 +1038,7 @@ client.on('messageCreate', async (message) => {
           data.users[charUser.id].pendingTokens = 0;
         }
         
-        saveData(data);
+        await saveDataImmediate(data);
         
         let grantMessage = `✅ Granted **${foundChar.name} ${foundChar.emoji}** (ST: ${grantedST}%) to <@${charUser.id}>!`;
         if (pendingToGrant > 0) {
