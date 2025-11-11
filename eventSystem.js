@@ -24,6 +24,7 @@ let currentEventTimer = null;
 let botClient = null;
 let eventChannelId = null;
 let scheduleCheckInterval = null;
+let sharedData = null;
 
 // ✅ Fixed permanent channel ID
 const FIXED_CHANNEL_ID = '1432171168168808620';
@@ -111,6 +112,7 @@ function stopScheduler() {
 
 async function init(client, data) {
   botClient = client;
+  sharedData = data;
 
   // ✅ Always force event channel to the fixed ID
   eventChannelId = FIXED_CHANNEL_ID;
@@ -225,6 +227,11 @@ async function distributeRewards(event, leaderboard) {
     return;
   }
 
+  if (!sharedData) {
+    console.error('❌ sharedData is null in distributeRewards - event system not initialized properly');
+    return;
+  }
+
   const rewards = [
     { gems: 500, coins: 5000, cageKeys: 5, crates: [{ type: 'legendary', count: 1 }], place: '🥇 1st Place' },
     { gems: 250, coins: 2500, cageKeys: 3, crates: [{ type: 'emerald', count: 1 }], place: '🥈 2nd Place' },
@@ -232,15 +239,14 @@ async function distributeRewards(event, leaderboard) {
   ];
 
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
-  const data = await dataManager.loadData();
   const eventName = EVENT_DISPLAY_NAMES[event.eventType];
 
   for (let i = 0; i < leaderboard.length; i++) {
     const participant = leaderboard[i];
     const userId = participant.userId;
 
-    if (!data.users[userId]) {
-      data.users[userId] = {
+    if (!sharedData.users[userId]) {
+      sharedData.users[userId] = {
         coins: 0,
         gems: 0,
         characters: [],
@@ -254,7 +260,8 @@ async function distributeRewards(event, leaderboard) {
       };
     }
 
-    initializeKeys(data.users[userId]);
+    const userData = sharedData.users[userId];
+    initializeKeys(userData);
 
     let rewardGems = 0;
     let rewardCoins = 0;
@@ -276,14 +283,20 @@ async function distributeRewards(event, leaderboard) {
       
       mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys${crateSummary}\n\nNo claiming needed - check your balance with !profile!`;
       
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
-      addCageKeys(data.users[userId], rewardCageKeys);
+      if (rewardCoins) {
+        userData.coins = (userData.coins || 0) + rewardCoins;
+      }
+      if (rewardGems) {
+        userData.gems = (userData.gems || 0) + rewardGems;
+      }
+      if (rewardCageKeys) {
+        addCageKeys(userData, rewardCageKeys);
+      }
       
       if (rewardCrates && rewardCrates.length > 0) {
         for (const crate of rewardCrates) {
           const crateKey = `${crate.type}Crates`;
-          data.users[userId][crateKey] = (data.users[userId][crateKey] || 0) + crate.count;
+          userData[crateKey] = (userData[crateKey] || 0) + crate.count;
         }
       }
     } else if (i < top5PercentCount) {
@@ -291,8 +304,12 @@ async function distributeRewards(event, leaderboard) {
       rewardCoins = 750;
       mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n\nNo claiming needed - check your balance with !profile!`;
       
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
+      if (rewardGems) {
+        userData.gems = (userData.gems || 0) + rewardGems;
+      }
+      if (rewardCoins) {
+        userData.coins = (userData.coins || 0) + rewardCoins;
+      }
     }
 
     if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0 || rewardCrates) {
@@ -305,15 +322,15 @@ async function distributeRewards(event, leaderboard) {
         claimed: true,
         timestamp: new Date()
       };
-      addMailToUser(data.users[userId], notificationMail);
+      addMailToUser(userData, notificationMail);
       console.log(`✅ Auto-distributed event rewards to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys${crateSummary}`);
     }
   }
 
-  await dataManager.saveDataImmediate(data);
-  await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
-  
+  await dataManager.saveDataImmediate(sharedData);
   console.log(`💾 Saved event rewards to database for ${leaderboard.length} participants`);
+  
+  await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
   console.log(`🎁 Distributed rewards to ${leaderboard.length} participants`);
 }
 
