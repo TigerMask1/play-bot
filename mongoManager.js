@@ -128,6 +128,24 @@ async function saveData(data) {
   }
 }
 
+async function deleteUser(userId) {
+  try {
+    const usersCollection = await getCollection('users');
+    const result = await usersCollection.deleteOne({ userId });
+    
+    if (result.deletedCount > 0) {
+      console.log(`🗑️ Deleted user ${userId} from MongoDB`);
+      return true;
+    } else {
+      console.log(`⚠️ User ${userId} not found in MongoDB`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error deleting user from MongoDB:', error);
+    return false;
+  }
+}
+
 async function clearAllData() {
   try {
     const usersCollection = await getCollection('users');
@@ -236,6 +254,7 @@ module.exports = {
   disconnect,
   loadData,
   saveData,
+  deleteUser,
   clearAllData,
   getCollection,
   getCurrentEvent,

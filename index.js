@@ -36,7 +36,7 @@ const client = new Client({
 });
 
 const CHARACTERS = require('./characters.js');
-const { loadData, saveData, saveDataImmediate } = require('./dataManager.js');
+const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate, buyCrate } = require('./crateSystem.js');
 const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
@@ -346,6 +346,44 @@ client.on('messageCreate', async (message) => {
         
         const removeResult = await removeBotAdmin(serverId, userToRemove.id, userId);
         await message.reply(removeResult.message);
+        break;
+        
+      case 'delete':
+      case 'deleteuser':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission to delete user accounts!');
+          return;
+        }
+        
+        const userToDelete = message.mentions.users.first();
+        if (!userToDelete) {
+          await message.reply('❌ Please mention a user to delete! Usage: `!delete @user`');
+          return;
+        }
+        
+        const userIdToDelete = userToDelete.id;
+        
+        if (!data.users[userIdToDelete]) {
+          await message.reply('❌ This user has no account in the bot!');
+          return;
+        }
+        
+        const deletedUsername = data.users[userIdToDelete].username || userToDelete.username;
+        
+        delete data.users[userIdToDelete];
+        
+        await deleteUser(userIdToDelete);
+        
+        await saveDataImmediate(data);
+        
+        const deleteEmbed = new EmbedBuilder()
+          .setColor('#FF0000')
+          .setTitle('🗑️ User Account Deleted')
+          .setDescription(`Successfully deleted **${deletedUsername}**'s account from the database.\n\nAll their data (characters, coins, gems, shards, crates, etc.) has been permanently removed.`)
+          .setFooter({ text: `Deleted by ${message.author.username}` });
+        
+        await message.reply({ embeds: [deleteEmbed] });
+        console.log(`🗑️ Admin ${message.author.username} deleted user account: ${deletedUsername} (${userIdToDelete})`);
         break;
         
       case 'start':

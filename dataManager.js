@@ -278,4 +278,11 @@ function saveDataImmediate(data) {
   }
 }
 
-module.exports = { loadData, saveData, saveDataImmediate };
+async function deleteUser(userId) {
+  if (USE_MONGODB) {
+    return await mongoManager.deleteUser(userId);
+  }
+  return true;
+}
+
+module.exports = { loadData, saveData, saveDataImmediate, deleteUser };
