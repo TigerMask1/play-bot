@@ -16,6 +16,7 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Emoji Integration:** Characters and items are often represented with emojis.
 
 **Technical Implementations:**
+- **Discord Activity Battle Arena:** Real-time multiplayer arena with Phaser.js, Socket.IO, HMAC authentication, joystick controls, visual effects, and reward persistence. Toggle via `activityConfig.js`.
 - **Character System:** 50+ unique characters with specific tokens, a randomly assigned ST (Special Trait) stat, three predetermined moves, HP scaling, levels, and owned skins.
 - **Economy & Currency:** Coins, Gems, Trophies, and Character-specific Tokens, supported by daily login and message-based rewards.
 - **Crate System:** Four tiers of crates (Gold, Emerald, Legendary, Tyrant, plus Bronze and Silver) offering varying probabilities of characters, tokens, and coins, including a "pending tokens" system.
@@ -37,6 +38,15 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Performance Optimization:** In-memory caching for skins (5-minute TTL) and MongoDB indexes for fast queries on users, events, and participants.
 
 ## Recent Changes (November 2025)
+- **Discord Activity Battle Arena (November 11, 2025):**
+  - **Real-time PvP:** Interactive battle arena with Phaser.js game engine
+  - **Skill-based Combat:** Joystick movement, 4 unique abilities with energy/cooldown systems
+  - **Authentication:** HMAC token security with rate limiting and CORS protection
+  - **Rewards Integration:** Automatic reward distribution based on kills, damage, and survival time
+  - **Single Toggle:** Enable/disable entire system via `ACTIVITY_CONFIG.ENABLED` in activityConfig.js
+  - **Commands:** `!battleactivity`, `!activity`, `!arena` to launch interactive arena
+  - **Architecture:** Reuses existing HTTP/Express server, Socket.IO for real-time multiplayer
+  - See activity/ folder for game files (game.js, index.html, server.js)
 - **Removed:** Tutorial and Zoo Raids systems for improved performance and reduced complexity
 - **Event System Complete Overhaul (November 11, 2025):**
   - **CRITICAL FIX:** Rewrote event reward distribution to use same proven pattern as personalized tasks
