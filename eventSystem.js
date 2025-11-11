@@ -23,9 +23,91 @@ const EVENT_DESCRIPTIONS = {
 let currentEventTimer = null;
 let botClient = null;
 let eventChannelId = null;
+let scheduleCheckInterval = null;
 
 // ✅ Fixed permanent channel ID
 const FIXED_CHANNEL_ID = '1432171168168808620';
+
+// IST is UTC+5:30
+const IST_OFFSET_HOURS = 5;
+const IST_OFFSET_MINUTES = 30;
+
+function convertISTToUTC(istHour, istMinute) {
+  let utcHour = istHour - IST_OFFSET_HOURS;
+  let utcMinute = istMinute - IST_OFFSET_MINUTES;
+  
+  if (utcMinute < 0) {
+    utcMinute += 60;
+    utcHour -= 1;
+  }
+  
+  if (utcHour < 0) {
+    utcHour += 24;
+  }
+  
+  return { hour: utcHour, minute: utcMinute };
+}
+
+function getISTTime(date = new Date()) {
+  const utcTime = date.getTime();
+  const istOffset = (IST_OFFSET_HOURS * 60 + IST_OFFSET_MINUTES) * 60 * 1000;
+  const istTime = new Date(utcTime + istOffset);
+  
+  return {
+    hour: istTime.getUTCHours(),
+    minute: istTime.getUTCMinutes(),
+    date: istTime
+  };
+}
+
+async function checkAndStartScheduledEvent() {
+  const schedule = await mongoManager.getEventSchedule();
+  
+  if (!schedule.enabled) {
+    return;
+  }
+  
+  const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+  const istNow = getISTTime();
+  
+  if (istNow.hour === startHour && istNow.minute === startMinute) {
+    const lastRun = schedule.lastRun ? new Date(schedule.lastRun) : null;
+    const now = new Date();
+    
+    if (!lastRun || (now - lastRun) > 60 * 1000) {
+      const activeEvent = await mongoManager.getCurrentEvent();
+      
+      if (activeEvent && activeEvent.status === 'active') {
+        console.log('🛑 Stopping current event before starting scheduled event');
+        await endEvent(activeEvent);
+      }
+      
+      await startNextEvent();
+      await mongoManager.upsertEventSchedule({ ...schedule, lastRun: now });
+      console.log(`⏰ Started scheduled event at ${schedule.startTime} IST`);
+    }
+  }
+}
+
+function startScheduler() {
+  if (scheduleCheckInterval) {
+    clearInterval(scheduleCheckInterval);
+  }
+  
+  scheduleCheckInterval = setInterval(async () => {
+    await checkAndStartScheduledEvent();
+  }, 60 * 1000);
+  
+  console.log('⏰ Event scheduler started - checking every minute for scheduled events');
+}
+
+function stopScheduler() {
+  if (scheduleCheckInterval) {
+    clearInterval(scheduleCheckInterval);
+    scheduleCheckInterval = null;
+    console.log('⏰ Event scheduler stopped');
+  }
+}
 
 async function init(client, data) {
   botClient = client;
@@ -36,6 +118,9 @@ async function init(client, data) {
 
   // ✅ Save it to your MongoDB/data file for consistency
   await dataManager.saveData(data);
+
+  // ✅ Initialize event schedule if not exists
+  await mongoManager.getEventSchedule();
 
   // ✅ Check if an active event exists
   const activeEvent = await mongoManager.getCurrentEvent();
@@ -65,6 +150,8 @@ async function init(client, data) {
   } else {
     await startNextEvent();
   }
+  
+  startScheduler();
 }
 
 function scheduleEventEnd(event, timeUntilEnd) {
@@ -134,64 +221,55 @@ async function endEvent(event) {
 
 async function distributeRewards(event, leaderboard) {
   if (leaderboard.length === 0) {
+    console.log('⚠️ No participants to distribute rewards to');
     return;
   }
 
   const rewards = [
-    { gems: 500, coins: 5000, cageKeys: 5, place: '🥇 1st Place' },
-    { gems: 250, coins: 2500, cageKeys: 3, place: '🥈 2nd Place' },
-    { gems: 150, coins: 1500, cageKeys: 1, place: '🥉 3rd Place' }
+    { gems: 500, coins: 5000, cageKeys: 5, crates: { legendary: 1 }, place: '🥇 1st Place' },
+    { gems: 250, coins: 2500, cageKeys: 3, crates: { emerald: 1 }, place: '🥈 2nd Place' },
+    { gems: 150, coins: 1500, cageKeys: 1, crates: { gold: 2 }, place: '🥉 3rd Place' }
   ];
 
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
-  const data = await dataManager.loadData();
   const eventName = EVENT_DISPLAY_NAMES[event.eventType];
+
+  const rewardOps = [];
 
   for (let i = 0; i < leaderboard.length; i++) {
     const participant = leaderboard[i];
     const userId = participant.userId;
-
-    if (!data.users[userId]) {
-      data.users[userId] = {
-        coins: 0,
-        gems: 0,
-        characters: [],
-        selectedCharacter: null,
-        pendingTokens: 0,
-        started: false,
-        trophies: 200,
-        messageCount: 0,
-        lastDailyClaim: null,
-        mailbox: []
-      };
-    }
-
-    initializeKeys(data.users[userId]);
+    const username = participant.username;
 
     let rewardGems = 0;
     let rewardCoins = 0;
     let rewardCageKeys = 0;
+    let rewardCrates = null;
     let mailMessage = '';
+    let crateSummary = '';
 
     if (i < 3 && i < rewards.length) {
       rewardGems = rewards[i].gems;
       rewardCoins = rewards[i].coins;
       rewardCageKeys = rewards[i].cageKeys;
-      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys\n\nNo claiming needed - check your balance with !profile!`;
+      rewardCrates = rewards[i].crates;
       
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
-      addCageKeys(data.users[userId], rewardCageKeys);
+      if (rewardCrates.legendary) {
+        crateSummary = `\n🟣 ${rewardCrates.legendary} Legendary Crate(s)`;
+      } else if (rewardCrates.emerald) {
+        crateSummary = `\n🟢 ${rewardCrates.emerald} Emerald Crate(s)`;
+      } else if (rewardCrates.gold) {
+        crateSummary = `\n🟡 ${rewardCrates.gold} Gold Crate(s)`;
+      }
+      
+      mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys${crateSummary}\n\nNo claiming needed - check your balance with !profile!`;
     } else if (i < top5PercentCount) {
       rewardGems = 75;
       rewardCoins = 750;
       mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n\nNo claiming needed - check your balance with !profile!`;
-      
-      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
-      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
     }
 
-    if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0) {
+    if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0 || rewardCrates) {
       const notificationMail = {
         id: Date.now() + Math.random(),
         from: 'Event System',
@@ -201,17 +279,32 @@ async function distributeRewards(event, leaderboard) {
         claimed: true,
         timestamp: new Date()
       };
-      addMailToUser(data.users[userId], notificationMail);
-      console.log(`✅ Auto-distributed event rewards to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys`);
+
+      const rewardOp = {
+        userId,
+        coins: rewardCoins,
+        gems: rewardGems,
+        cageKeys: rewardCageKeys,
+        mail: notificationMail
+      };
+
+      if (rewardCrates) {
+        rewardOp.crates = rewardCrates;
+      }
+
+      rewardOps.push(rewardOp);
+      
+      console.log(`✅ Prepared rewards for user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys${crateSummary}`);
     }
   }
 
-  // CRITICAL: Use immediate save for reward distribution to ensure MongoDB persistence
-  await dataManager.saveDataImmediate(data);
-  await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
+  const success = await mongoManager.applyEventRewards(event._id, rewardOps);
   
-  console.log(`💾 Saved event rewards to database for ${leaderboard.length} participants`);
-  console.log(`🎁 Distributed rewards to ${leaderboard.length} participants`);
+  if (success) {
+    console.log(`💾 Successfully distributed rewards to ${rewardOps.length} participants via MongoDB`);
+  } else {
+    console.error(`❌ Failed to distribute some or all rewards for event ${event._id}`);
+  }
 }
 
 async function announceEventStart(event) {
@@ -230,9 +323,9 @@ async function announceEventStart(event) {
         { name: '🏆 Rewards', value: 'Top 3 and Top 5% get prizes!', inline: true }
       )
       .addFields(
-        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰 + 5 🎫', inline: true },
-        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰 + 3 🎫', inline: true },
-        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰 + 1 🎫', inline: true },
+        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰 + 5 🎫 + 1 🟣 Legendary Crate', inline: true },
+        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰 + 3 🎫 + 1 🟢 Emerald Crate', inline: true },
+        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰 + 1 🎫 + 2 🟡 Gold Crates', inline: true },
         { name: '🎖️ Top 5%', value: '75 💎 + 750 💰', inline: true }
       )
       .addFields({
@@ -382,9 +475,94 @@ async function getEventInfo(userId) {
   }
 }
 
+async function startEventManually() {
+  const activeEvent = await mongoManager.getCurrentEvent();
+  
+  if (activeEvent && activeEvent.status === 'active') {
+    return {
+      success: false,
+      message: `❌ An event is already active: ${EVENT_DISPLAY_NAMES[activeEvent.eventType]}\nUse !stopevent first to stop it.`
+    };
+  }
+  
+  await startNextEvent();
+  
+  return {
+    success: true,
+    message: '✅ Event started manually! Check the events channel for details.'
+  };
+}
+
+async function stopEventManually() {
+  const activeEvent = await mongoManager.getCurrentEvent();
+  
+  if (!activeEvent || activeEvent.status !== 'active') {
+    return {
+      success: false,
+      message: '❌ No active event to stop.'
+    };
+  }
+  
+  await endEvent(activeEvent);
+  
+  return {
+    success: true,
+    message: `✅ ${EVENT_DISPLAY_NAMES[activeEvent.eventType]} has been stopped and rewards have been distributed.`
+  };
+}
+
+async function getScheduleInfo() {
+  const schedule = await mongoManager.getEventSchedule();
+  const istNow = getISTTime();
+  
+  return {
+    enabled: schedule.enabled,
+    startTime: schedule.startTime,
+    timezone: schedule.timezone,
+    currentISTTime: `${String(istNow.hour).padStart(2, '0')}:${String(istNow.minute).padStart(2, '0')}`,
+    lastRun: schedule.lastRun ? new Date(schedule.lastRun).toISOString() : 'Never'
+  };
+}
+
+async function toggleSchedule(enabled) {
+  const schedule = await mongoManager.getEventSchedule();
+  await mongoManager.upsertEventSchedule({ ...schedule, enabled });
+  
+  return {
+    success: true,
+    message: enabled 
+      ? `✅ Automatic event scheduling enabled! Events will start daily at ${schedule.startTime} IST.`
+      : '✅ Automatic event scheduling disabled. Use !startevent to start events manually.'
+  };
+}
+
+async function updateScheduleTime(newTime) {
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+  
+  if (!timeRegex.test(newTime)) {
+    return {
+      success: false,
+      message: '❌ Invalid time format. Use HH:MM format (e.g., 05:30)'
+    };
+  }
+  
+  const schedule = await mongoManager.getEventSchedule();
+  await mongoManager.upsertEventSchedule({ ...schedule, startTime: newTime });
+  
+  return {
+    success: true,
+    message: `✅ Event start time updated to ${newTime} IST!`
+  };
+}
+
 module.exports = {
   init,
   recordProgress,
   getEventInfo,
-  EVENT_TYPES
+  EVENT_TYPES,
+  startEventManually,
+  stopEventManually,
+  getScheduleInfo,
+  toggleSchedule,
+  updateScheduleTime
 };

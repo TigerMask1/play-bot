@@ -1904,6 +1904,85 @@ client.on('messageCreate', async (message) => {
         saveData(data);
         await message.reply(`✅ Event announcement channel set to ${message.channel}! All event start/end announcements will be posted here.`);
         break;
+
+      case 'startevent':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can start events manually!');
+          return;
+        }
+        
+        const startResult = await eventSystem.startEventManually();
+        await message.reply(startResult.message);
+        break;
+
+      case 'stopevent':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can stop events manually!');
+          return;
+        }
+        
+        const stopResult = await eventSystem.stopEventManually();
+        await message.reply(stopResult.message);
+        break;
+
+      case 'eventschedule':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          const publicSchedule = await eventSystem.getScheduleInfo();
+          const scheduleEmbed = new EmbedBuilder()
+            .setColor('#00BFFF')
+            .setTitle('⏰ Event Schedule')
+            .setDescription('Automatic event scheduling information')
+            .addFields(
+              { name: '📅 Status', value: publicSchedule.enabled ? '✅ Enabled' : '❌ Disabled', inline: true },
+              { name: '🕐 Start Time', value: `${publicSchedule.startTime} ${publicSchedule.timezone}`, inline: true },
+              { name: '🌏 Current Time (IST)', value: publicSchedule.currentISTTime, inline: true }
+            )
+            .setTimestamp();
+          
+          await message.reply({ embeds: [scheduleEmbed] });
+          return;
+        }
+        
+        const subCommand = args[0]?.toLowerCase();
+        
+        if (!subCommand) {
+          const scheduleInfo = await eventSystem.getScheduleInfo();
+          const scheduleEmbed = new EmbedBuilder()
+            .setColor('#00BFFF')
+            .setTitle('⏰ Event Schedule Configuration')
+            .setDescription('Manage automatic event scheduling')
+            .addFields(
+              { name: '📅 Status', value: scheduleInfo.enabled ? '✅ Enabled' : '❌ Disabled', inline: true },
+              { name: '🕐 Start Time', value: `${scheduleInfo.startTime} ${scheduleInfo.timezone}`, inline: true },
+              { name: '🌏 Current Time (IST)', value: scheduleInfo.currentISTTime, inline: true },
+              { name: '📊 Last Run', value: scheduleInfo.lastRun, inline: false }
+            )
+            .addFields({
+              name: '🔧 Available Commands',
+              value: '`!eventschedule enable` - Enable automatic scheduling\n`!eventschedule disable` - Disable automatic scheduling\n`!eventschedule settime HH:MM` - Set event start time (IST)',
+              inline: false
+            })
+            .setTimestamp();
+          
+          await message.reply({ embeds: [scheduleEmbed] });
+        } else if (subCommand === 'enable') {
+          const result = await eventSystem.toggleSchedule(true);
+          await message.reply(result.message);
+        } else if (subCommand === 'disable') {
+          const result = await eventSystem.toggleSchedule(false);
+          await message.reply(result.message);
+        } else if (subCommand === 'settime') {
+          const newTime = args[1];
+          if (!newTime) {
+            await message.reply('❌ Please provide a time in HH:MM format (e.g., `!eventschedule settime 05:30`)');
+            return;
+          }
+          const result = await eventSystem.updateScheduleTime(newTime);
+          await message.reply(result.message);
+        } else {
+          await message.reply('❌ Invalid subcommand. Use `!eventschedule` to see available options.');
+        }
+        break;
         
       case 'reset':
         if (!isAdmin) {

@@ -249,6 +249,212 @@ async function getEventParticipant(eventId, userId) {
   }
 }
 
+async function incrementUserResources(userId, resources = {}, mailDoc = null) {
+  try {
+    const usersCollection = await getCollection('users');
+    
+    const incrementOps = {};
+    const setOnInsertOps = {
+      userId,
+      coins: 0,
+      gems: 0,
+      characters: [],
+      selectedCharacter: null,
+      pendingTokens: 0,
+      started: false,
+      trophies: 200,
+      messageCount: 0,
+      lastDailyClaim: null,
+      mailbox: [],
+      cageKeys: {},
+      bronzeCrates: 0,
+      silverCrates: 0,
+      goldCrates: 0,
+      emeraldCrates: 0,
+      legendaryCrates: 0,
+      tyrantCrates: 0
+    };
+    
+    if (resources.coins) incrementOps.coins = resources.coins;
+    if (resources.gems) incrementOps.gems = resources.gems;
+    if (resources.cageKeys) incrementOps['cageKeys.general'] = resources.cageKeys;
+    
+    if (resources.crates) {
+      if (resources.crates.legendary) incrementOps.legendaryCrates = resources.crates.legendary;
+      if (resources.crates.emerald) incrementOps.emeraldCrates = resources.crates.emerald;
+      if (resources.crates.gold) incrementOps.goldCrates = resources.crates.gold;
+      if (resources.crates.bronze) incrementOps.bronzeCrates = resources.crates.bronze;
+      if (resources.crates.silver) incrementOps.silverCrates = resources.crates.silver;
+      if (resources.crates.tyrant) incrementOps.tyrantCrates = resources.crates.tyrant;
+    }
+    
+    const updateOps = { $setOnInsert: setOnInsertOps };
+    if (Object.keys(incrementOps).length > 0) {
+      updateOps.$inc = incrementOps;
+    }
+    if (mailDoc) {
+      updateOps.$push = { mailbox: mailDoc };
+    }
+    
+    await usersCollection.updateOne(
+      { userId },
+      updateOps,
+      { upsert: true }
+    );
+    
+    return true;
+  } catch (error) {
+    console.error(`Error incrementing resources for user ${userId}:`, error);
+    return false;
+  }
+}
+
+async function applyEventRewards(eventId, rewardOps = []) {
+  try {
+    const usersCollection = await getCollection('users');
+    
+    const bulkOps = rewardOps.map(reward => {
+      const incrementOps = {};
+      const setOnInsertOps = {
+        userId: reward.userId,
+        coins: 0,
+        gems: 0,
+        characters: [],
+        selectedCharacter: null,
+        pendingTokens: 0,
+        started: false,
+        trophies: 200,
+        messageCount: 0,
+        lastDailyClaim: null,
+        mailbox: [],
+        cageKeys: {},
+        bronzeCrates: 0,
+        silverCrates: 0,
+        goldCrates: 0,
+        emeraldCrates: 0,
+        legendaryCrates: 0,
+        tyrantCrates: 0
+      };
+      
+      if (reward.coins) incrementOps.coins = reward.coins;
+      if (reward.gems) incrementOps.gems = reward.gems;
+      if (reward.cageKeys) incrementOps['cageKeys.general'] = reward.cageKeys;
+      
+      if (reward.crates) {
+        if (reward.crates.legendary) incrementOps.legendaryCrates = reward.crates.legendary;
+        if (reward.crates.emerald) incrementOps.emeraldCrates = reward.crates.emerald;
+        if (reward.crates.gold) incrementOps.goldCrates = reward.crates.gold;
+      }
+      
+      const updateDoc = { $setOnInsert: setOnInsertOps };
+      if (Object.keys(incrementOps).length > 0) {
+        updateDoc.$inc = incrementOps;
+      }
+      if (reward.mail) {
+        updateDoc.$push = { mailbox: reward.mail };
+      }
+      
+      return {
+        updateOne: {
+          filter: { userId: reward.userId },
+          update: updateDoc,
+          upsert: true
+        }
+      };
+    });
+    
+    if (bulkOps.length > 0) {
+      await usersCollection.bulkWrite(bulkOps);
+    }
+    
+    await updateEvent(eventId, { rewardsDistributed: true });
+    
+    console.log(`✅ Applied ${rewardOps.length} event rewards via MongoDB bulk operation`);
+    return true;
+  } catch (error) {
+    console.error('Error applying event rewards:', error);
+    await updateEvent(eventId, { status: 'error', errorMessage: error.message });
+    return false;
+  }
+}
+
+async function upsertEventSchedule(config) {
+  try {
+    const configCollection = await getCollection('config');
+    await configCollection.updateOne(
+      { _id: 'event_schedule' },
+      { 
+        $set: {
+          timezone: config.timezone || 'Asia/Kolkata',
+          startTime: config.startTime || '05:30',
+          enabled: config.enabled !== undefined ? config.enabled : true,
+          lastRun: config.lastRun || null,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error upserting event schedule:', error);
+    return false;
+  }
+}
+
+async function getEventSchedule() {
+  try {
+    const configCollection = await getCollection('config');
+    const schedule = await configCollection.findOne({ _id: 'event_schedule' });
+    
+    if (!schedule) {
+      const defaultSchedule = {
+        timezone: 'Asia/Kolkata',
+        startTime: '05:30',
+        enabled: true,
+        lastRun: null
+      };
+      await upsertEventSchedule(defaultSchedule);
+      return defaultSchedule;
+    }
+    
+    return schedule;
+  } catch (error) {
+    console.error('Error getting event schedule:', error);
+    return {
+      timezone: 'Asia/Kolkata',
+      startTime: '05:30',
+      enabled: true,
+      lastRun: null
+    };
+  }
+}
+
+async function setEventStatus(eventId, status, extra = {}) {
+  try {
+    const eventsCollection = await getCollection('events');
+    await eventsCollection.updateOne(
+      { _id: eventId },
+      { $set: { status, ...extra, updatedAt: new Date() } }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error setting event status:', error);
+    return false;
+  }
+}
+
+async function clearEventParticipants(eventId) {
+  try {
+    const participantsCollection = await getCollection('event_participants');
+    const result = await participantsCollection.deleteMany({ eventId });
+    console.log(`🗑️ Cleared ${result.deletedCount} participants for event ${eventId}`);
+    return true;
+  } catch (error) {
+    console.error('Error clearing event participants:', error);
+    return false;
+  }
+}
+
 module.exports = {
   connect,
   disconnect,
@@ -262,5 +468,11 @@ module.exports = {
   updateEvent,
   recordEventProgress,
   getEventParticipants,
-  getEventParticipant
+  getEventParticipant,
+  incrementUserResources,
+  applyEventRewards,
+  upsertEventSchedule,
+  getEventSchedule,
+  setEventStatus,
+  clearEventParticipants
 };
