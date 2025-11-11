@@ -45,7 +45,7 @@ const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
 const { createLevelProgressBar } = require('./progressBar.js');
 const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
-const { craftBooster, useBooster, getBoosterInfo } = require('./stBoosterSystem.js');
+const { craftBooster, useBooster, getBoosterInfo, getCharacterBoostCount, MAX_BOOSTS_PER_CHARACTER } = require('./stBoosterSystem.js');
 const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay } = require('./mailSystem.js');
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
@@ -686,6 +686,8 @@ client.on('messageCreate', async (message) => {
         const charProgress = createLevelProgressBar(userChar.tokens, charReq.tokens);
         const charSkinUrl = await getSkinUrl(userChar.name, userChar.currentSkin || 'default');
         const availableSkins = userChar.ownedSkins || ['default'];
+        const boostCount = getCharacterBoostCount(userChar);
+        const remainingBoosts = MAX_BOOSTS_PER_CHARACTER - boostCount;
         
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -695,6 +697,7 @@ client.on('messageCreate', async (message) => {
             { name: 'Level', value: `${userChar.level}`, inline: true },
             { name: 'ST', value: `${userChar.st}%`, inline: true },
             { name: 'Tokens', value: `${userChar.tokens}/${charReq.tokens}`, inline: true },
+            { name: 'ST Boosts', value: `${boostCount}/${MAX_BOOSTS_PER_CHARACTER} used\n${remainingBoosts > 0 ? `⚡ ${remainingBoosts} left` : '❌ Max reached'}`, inline: true },
             { name: 'Next Level Cost', value: `🎫 ${charReq.tokens} tokens\n💰 ${charReq.coins} coins`, inline: true },
             { name: 'Progress to Next Level', value: charProgress, inline: false },
             { name: '🎨 Current Skin', value: userChar.currentSkin || 'default', inline: true },
@@ -1540,11 +1543,11 @@ client.on('messageCreate', async (message) => {
         const shardEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle('🔷 ST Booster System')
-          .setDescription(`**Shards:** ${shardInfo.shards}\n**ST Boosters:** ${shardInfo.boosters}\n**Boosters Used:** ${shardInfo.boostsUsed}`)
+          .setDescription(`**Shards:** ${shardInfo.shards}\n**ST Boosters:** ${shardInfo.boosters}\n**Total Boosts Used:** ${shardInfo.boostsUsed}`)
           .addFields(
-            { name: '📦 Crafting', value: `${shardInfo.shards}/${8} shards to craft a booster\n${shardInfo.canCraft ? '✅ Ready to craft!' : `❌ Need ${shardInfo.shardsNeeded} more shards`}`, inline: false },
-            { name: '⚡ Boost Rates', value: '75% - Common (+5-10% ST)\n20% - Rare (+10-18% ST)\n5% - Legendary (+18-25% ST)', inline: false },
-            { name: '💡 Commands', value: '`!craft` - Craft a booster (8 shards)\n`!boost <character>` - Use a booster', inline: false }
+            { name: '📦 Crafting', value: `Cost: 100 shards per booster\n${shardInfo.canCraft ? '✅ Ready to craft!' : `❌ Need ${shardInfo.shardsNeeded} more shards`}`, inline: false },
+            { name: '⚠️ How It Works', value: '**ST Boosters completely re-roll your character\'s ST!**\n• Limit: 3 boosts per character\n• **Risk:** Higher chance to DECREASE ST\n• Low ST (0-50): 60% improve, 40% decrease\n• Medium ST (50-75): 45% improve, 55% decrease\n• High ST (75-90): 25% improve, 75% decrease\n• **Very High ST (90+): 10% improve, 90% decrease!**', inline: false },
+            { name: '💡 Commands', value: '`!craft` - Craft a booster (100 shards)\n`!boost <character>` - Use a booster (risky!)', inline: false }
           );
         
         await message.reply({ embeds: [shardEmbed] });
@@ -1565,28 +1568,22 @@ client.on('messageCreate', async (message) => {
         const boostCharName = args.join(' ').toLowerCase();
         
         if (!boostCharName) {
-          await message.reply('Usage: `!boost <character name>`');
+          await message.reply('Usage: `!boost <character name>`\n\n⚠️ **Warning:** ST Boosters RE-ROLL your ST completely! Higher ST = higher chance to DECREASE!');
           return;
         }
         
-        const charToBoost = data.users[userId].characters.find(c => 
-          c.name.toLowerCase() === boostCharName
-        );
-        
-        if (!charToBoost) {
-          await message.reply('❌ You don\'t own this character!');
-          return;
-        }
-        
-        const boostResult = useBooster(data.users[userId], charToBoost.name);
+        const boostResult = useBooster(data.users[userId], boostCharName);
         
         if (boostResult.success) {
-          saveData(data);
+          await saveDataImmediate(data);
+          
+          const changeSymbol = boostResult.increased ? '+' : '';
+          const changeDisplay = `${changeSymbol}${boostResult.change}%`;
           
           const boostEmbed = new EmbedBuilder()
-            .setColor('#F1C40F')
-            .setTitle('⚡ ST BOOST!')
-            .setDescription(`${boostResult.tierEmoji} **${boostResult.tier} Boost Applied!**\n\n${charToBoost.emoji} **${boostResult.character}**\n${boostResult.oldST}% → **${boostResult.newST}%** (+${boostResult.boost}%)\n\n💪 Damage and HP recalculated!`);
+            .setColor(boostResult.resultColor)
+            .setTitle(`${boostResult.resultEmoji} ST RE-ROLLED!`)
+            .setDescription(`**${boostResult.resultText}**\n\n${boostResult.emoji} **${boostResult.character}**\n${boostResult.oldST}% → **${boostResult.newST}%** (${changeDisplay})\n\n💪 HP recalculated!\n🔢 Boosts used: ${boostResult.boostCount}/3\n⚡ Remaining boosts: ${boostResult.remainingBoosts}`);
           
           await message.reply({ embeds: [boostEmbed] });
         } else {

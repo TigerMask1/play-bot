@@ -87,6 +87,7 @@
 - Character image (current skin)
 - Level and ST%
 - Tokens (current/required for next level)
+- **ST Boosts used** (X/3) and remaining boosts
 - Next level cost (tokens + coins)
 - Progress bar
 - Current skin
@@ -309,13 +310,15 @@
 !craft
 ```
 
-**Cost:** 10 shards → 1 ST Booster
+**Cost:** 💎 100 shards → 1 ST Booster
+
+**Warning:** ST Boosters are high-risk, high-reward! They completely re-roll your character's ST.
 
 ---
 
 ### !boost <character name>
 **Permission:** Everyone  
-**Description:** Use an ST Booster to increase a character's ST%.
+**Description:** Use an ST Booster to completely re-roll a character's ST%.
 
 **Usage:**
 ```
@@ -323,10 +326,26 @@
 !boost Bruce
 ```
 
+**⚠️ IMPORTANT - READ BEFORE USING:**
+- **Completely re-rolls ST** (generates brand new ST%)
+- **Limit:** 3 boosts per character (lifetime)
+- **Risk increases with ST:**
+  - **Low ST (0-50%):** 60% improve, 40% decrease
+  - **Medium ST (50-75%):** 45% improve, 55% decrease  
+  - **High ST (75-90%):** 25% improve, 75% decrease
+  - **Very High ST (90%+):** 10% improve, 90% decrease! 💀
+
 **Effect:**
-- Uses 1 ST Booster
-- Increases character ST% by 1-5%
+- Uses 1 ST Booster (costs 100 shards to craft)
+- Re-calculates character HP based on new ST
+- Saves boost count to character (check with `!char`)
 - Quest progress tracking
+
+**Example Results:**
+- 45% ST → 72% ST ✅ (BOOST)
+- 85% ST → 62% ST ❌ (DECREASE)
+- 92% ST → 38% ST 💔 (MAJOR DECREASE)
+- 30% ST → 48% ST ⭐ (BOOST)
 
 ---
 
