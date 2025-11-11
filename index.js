@@ -1,17 +1,20 @@
-// Simple keep-alive server using Node's built-in HTTP module
-const http = require("http");
+// Express server for Discord Activity and keep-alive
+const express = require('express');
+const http = require('http');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Bot is alive!");
+const app = express();
+const server = http.createServer(app);
+
+app.get('/', (req, res) => {
+  res.send('Bot is alive!');
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.log(`⚠️ Port ${PORT} in use, trying alternative port...`);
-    server.listen(0, () => {
+    server.listen(0, '0.0.0.0', () => {
       console.log(`🌐 Server running on port ${server.address().port}`);
     });
   } else {
@@ -19,7 +22,7 @@ server.on('error', (err) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Server running on port ${PORT}`);
 });
 
@@ -74,6 +77,7 @@ const {
   sendCustomTask
 } = require('./personalizedTaskSystem.js');
 const { getHistory, getHistorySummary, formatHistory } = require('./historySystem.js');
+const { initializeActivitySystem, handleBattleActivityCommand, isEnabled: isActivityEnabled } = require('./activityBattleSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -151,6 +155,7 @@ client.on('clientReady', async () => {
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
   await loadServerConfigs();
+  initializeActivitySystem(server, app, data);
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   startPromotionSystem(client);
@@ -1300,6 +1305,16 @@ client.on('messageCreate', async (message) => {
           .setImage(equipSkinUrl);
         
         await message.reply({ embeds: [equipEmbed] });
+        break;
+        
+      case 'battleactivity':
+      case 'activity':
+      case 'arena':
+        if (isActivityEnabled()) {
+          await handleBattleActivityCommand(message, data);
+        } else {
+          await message.reply('⚠️ The interactive battle arena is currently disabled.');
+        }
         break;
         
       case 'b':

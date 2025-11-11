@@ -37,8 +37,17 @@ async function handleBattleActivityCommand(message, data) {
   const { generateToken } = require('./activityAuth');
   const token = generateToken(message.author.id);
   
-  const domain = process.env.REPLIT_DEV_DOMAIN || process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co';
-  const activityURL = `https://${domain}/activity/index.html?userId=${message.author.id}&token=${token}`;
+  let domain;
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    domain = process.env.REPLIT_DEV_DOMAIN;
+  } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  } else {
+    domain = `localhost:${process.env.PORT || 5000}`;
+  }
+  
+  const protocol = domain.includes('localhost') ? 'http' : 'https';
+  const activityURL = `${protocol}://${domain}/activity/index.html#userId=${message.author.id}&token=${token}`;
 
   const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 

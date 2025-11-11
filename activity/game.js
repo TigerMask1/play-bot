@@ -60,14 +60,36 @@ class BattleArena extends Phaser.Scene {
     }
 
     initializeSocket() {
-        this.socket = io();
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const userId = hashParams.get('userId');
+        const token = hashParams.get('token');
+
+        if (!userId || !token) {
+            console.error('Missing authentication credentials');
+            alert('Invalid access link. Please use the button from Discord.');
+            return;
+        }
+
+        this.socket = io({
+            path: '/activity/socket.io',
+            transports: ['websocket', 'polling']
+        });
         
         this.socket.on('connect', () => {
-            console.log('Connected to server');
-            this.socket.emit('joinBattle', {
-                username: 'Player' + Math.floor(Math.random() * 1000),
-                character: 'warrior'
-            });
+            console.log('Connected to server, authenticating...');
+            this.socket.emit('authenticate', { userId, token });
+        });
+
+        this.socket.on('authenticated', (data) => {
+            if (data.success) {
+                console.log('Authenticated successfully!');
+                this.socket.emit('joinBattle', {});
+            }
+        });
+
+        this.socket.on('authError', (data) => {
+            console.error('Authentication failed:', data.message);
+            alert(`Authentication failed: ${data.message}`);
         });
         
         this.socket.on('playerJoined', (data) => {

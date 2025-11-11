@@ -1,5 +1,5 @@
 const ACTIVITY_CONFIG = {
-  ENABLED: false
+  ENABLED: true
 };
 
 module.exports = ACTIVITY_CONFIG;

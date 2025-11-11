@@ -9,6 +9,7 @@ let activityData = null;
 
 const players = new Map();
 const authenticatedUsers = new Map();
+const authAttempts = new Map();
 const battleState = {
   arena: {
     width: 1920,
@@ -16,11 +17,32 @@ const battleState = {
   }
 };
 
+const RATE_LIMIT = {
+  AUTH_WINDOW: 10000,
+  AUTH_MAX_ATTEMPTS: 3
+};
+
 function setupSocketHandlers() {
   io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
 
     socket.on('authenticate', (data) => {
+      const now = Date.now();
+      const attempts = authAttempts.get(socket.id) || { count: 0, firstAttempt: now };
+      
+      if (now - attempts.firstAttempt < RATE_LIMIT.AUTH_WINDOW) {
+        if (attempts.count >= RATE_LIMIT.AUTH_MAX_ATTEMPTS) {
+          socket.emit('authError', { message: 'Too many authentication attempts. Please wait.' });
+          return;
+        }
+        attempts.count++;
+      } else {
+        attempts.count = 1;
+        attempts.firstAttempt = now;
+      }
+      
+      authAttempts.set(socket.id, attempts);
+      
       if (!data.token || !data.userId) {
         socket.emit('authError', { message: 'Missing authentication data' });
         return;
@@ -45,6 +67,7 @@ function setupSocketHandlers() {
         joinedAt: Date.now()
       });
 
+      authAttempts.delete(socket.id);
       socket.emit('authenticated', { success: true });
     });
 
@@ -207,11 +230,17 @@ function attachToServer(httpServer, app, data) {
 
   app.use('/activity', require('express').static(path.join(__dirname)));
 
+  const allowedOrigins = [
+    process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
+    process.env.REPL_SLUG && process.env.REPL_OWNER ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : null
+  ].filter(Boolean);
+
   io = socketIO(httpServer, {
     path: '/activity/socket.io',
     cors: {
-      origin: '*',
-      methods: ['GET', 'POST']
+      origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+      methods: ['GET', 'POST'],
+      credentials: true
     }
   });
 
