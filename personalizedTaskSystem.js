@@ -529,7 +529,6 @@ module.exports = {
   checkTaskProgress,
   completePersonalizedTask,
   checkExpiredTasks,
-  getInactiveUsers, // Deprecated: use getEligibleUsers instead
   getEligibleUsers,
   trackInviteCompletion,
   registerInvite,
