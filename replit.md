@@ -38,13 +38,19 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 
 ## Recent Changes (November 2025)
 - **Removed:** Tutorial and Zoo Raids systems for improved performance and reduced complexity
-- **Event Rewards:** Now automatically distributed when events end - no manual claiming required
+- **Event System Complete Overhaul (November 11, 2025):**
+  - **CRITICAL FIX:** Rewrote event reward distribution to use same proven pattern as personalized tasks
+  - **Crate Rewards:** Winners now receive crates (1 legendary for 1st, 1 emerald for 2nd, 2 gold for 3rd)
+  - **Admin Commands:** Added `!startevent`, `!stopevent`, `!eventschedule` for manual control
+  - **Automatic Scheduling:** Events auto-start at 5:30 AM IST daily (configurable)
+  - **MongoDB-First:** Rewards saved directly to database using working personalized tasks pattern
+  - See EVENT_SYSTEM_UPGRADE.md for complete details
 - **Skin System:** Added in-memory caching and MongoDB migration script (migrateSkins.js)
 - **Performance:** Created setupIndexes.js for MongoDB index optimization
 - **Documentation:** Updated COMMANDS.md to reflect automatic reward distribution
 - **Reward Persistence Fix:** All critical reward distributions now use `saveDataImmediate()` for guaranteed MongoDB persistence:
   - Personalized task completion rewards (personalizedTaskSystem.js)
-  - Event rewards (eventSystem.js)
+  - Event rewards (eventSystem.js) - FIXED to use working pattern
   - Admin grant commands (!grant, !grantchar)
   - Message-based crate rewards (every 25 messages)
   - Quest rewards and daily rewards already used immediate saves

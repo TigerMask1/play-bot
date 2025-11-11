@@ -226,20 +226,35 @@ async function distributeRewards(event, leaderboard) {
   }
 
   const rewards = [
-    { gems: 500, coins: 5000, cageKeys: 5, crates: { legendary: 1 }, place: '🥇 1st Place' },
-    { gems: 250, coins: 2500, cageKeys: 3, crates: { emerald: 1 }, place: '🥈 2nd Place' },
-    { gems: 150, coins: 1500, cageKeys: 1, crates: { gold: 2 }, place: '🥉 3rd Place' }
+    { gems: 500, coins: 5000, cageKeys: 5, crates: [{ type: 'legendary', count: 1 }], place: '🥇 1st Place' },
+    { gems: 250, coins: 2500, cageKeys: 3, crates: [{ type: 'emerald', count: 1 }], place: '🥈 2nd Place' },
+    { gems: 150, coins: 1500, cageKeys: 1, crates: [{ type: 'gold', count: 2 }], place: '🥉 3rd Place' }
   ];
 
   const top5PercentCount = Math.max(1, Math.ceil(leaderboard.length * 0.05));
+  const data = await dataManager.loadData();
   const eventName = EVENT_DISPLAY_NAMES[event.eventType];
-
-  const rewardOps = [];
 
   for (let i = 0; i < leaderboard.length; i++) {
     const participant = leaderboard[i];
     const userId = participant.userId;
-    const username = participant.username;
+
+    if (!data.users[userId]) {
+      data.users[userId] = {
+        coins: 0,
+        gems: 0,
+        characters: [],
+        selectedCharacter: null,
+        pendingTokens: 0,
+        started: false,
+        trophies: 200,
+        messageCount: 0,
+        lastDailyClaim: null,
+        mailbox: []
+      };
+    }
+
+    initializeKeys(data.users[userId]);
 
     let rewardGems = 0;
     let rewardCoins = 0;
@@ -254,19 +269,30 @@ async function distributeRewards(event, leaderboard) {
       rewardCageKeys = rewards[i].cageKeys;
       rewardCrates = rewards[i].crates;
       
-      if (rewardCrates.legendary) {
-        crateSummary = `\n🟣 ${rewardCrates.legendary} Legendary Crate(s)`;
-      } else if (rewardCrates.emerald) {
-        crateSummary = `\n🟢 ${rewardCrates.emerald} Emerald Crate(s)`;
-      } else if (rewardCrates.gold) {
-        crateSummary = `\n🟡 ${rewardCrates.gold} Gold Crate(s)`;
+      if (rewardCrates && rewardCrates.length > 0) {
+        const crateDesc = rewardCrates.map(c => `${c.count}x ${c.type.charAt(0).toUpperCase() + c.type.slice(1)}`).join(', ');
+        crateSummary = `\n📦 ${crateDesc} Crate${rewardCrates.length > 1 || rewardCrates[0].count > 1 ? 's' : ''}`;
       }
       
       mailMessage = `🎉 Congratulations! You placed ${rewards[i].place} in ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n🎫 ${rewardCageKeys} Cage Keys${crateSummary}\n\nNo claiming needed - check your balance with !profile!`;
+      
+      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
+      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
+      addCageKeys(data.users[userId], rewardCageKeys);
+      
+      if (rewardCrates && rewardCrates.length > 0) {
+        for (const crate of rewardCrates) {
+          const crateKey = `${crate.type}Crates`;
+          data.users[userId][crateKey] = (data.users[userId][crateKey] || 0) + crate.count;
+        }
+      }
     } else if (i < top5PercentCount) {
       rewardGems = 75;
       rewardCoins = 750;
       mailMessage = `🎖️ Congratulations! You placed in the Top 5% of ${eventName}!\n\n✅ Rewards automatically added to your account:\n💎 ${rewardGems} Gems\n💰 ${rewardCoins} Coins\n\nNo claiming needed - check your balance with !profile!`;
+      
+      data.users[userId].gems = (data.users[userId].gems || 0) + rewardGems;
+      data.users[userId].coins = (data.users[userId].coins || 0) + rewardCoins;
     }
 
     if (rewardGems > 0 || rewardCoins > 0 || rewardCageKeys > 0 || rewardCrates) {
@@ -279,32 +305,16 @@ async function distributeRewards(event, leaderboard) {
         claimed: true,
         timestamp: new Date()
       };
-
-      const rewardOp = {
-        userId,
-        coins: rewardCoins,
-        gems: rewardGems,
-        cageKeys: rewardCageKeys,
-        mail: notificationMail
-      };
-
-      if (rewardCrates) {
-        rewardOp.crates = rewardCrates;
-      }
-
-      rewardOps.push(rewardOp);
-      
-      console.log(`✅ Prepared rewards for user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys${crateSummary}`);
+      addMailToUser(data.users[userId], notificationMail);
+      console.log(`✅ Auto-distributed event rewards to user ${userId}: ${rewardGems} gems, ${rewardCoins} coins, ${rewardCageKeys} cage keys${crateSummary}`);
     }
   }
 
-  const success = await mongoManager.applyEventRewards(event._id, rewardOps);
+  await dataManager.saveDataImmediate(data);
+  await mongoManager.updateEvent(event._id, { rewardsDistributed: true });
   
-  if (success) {
-    console.log(`💾 Successfully distributed rewards to ${rewardOps.length} participants via MongoDB`);
-  } else {
-    console.error(`❌ Failed to distribute some or all rewards for event ${event._id}`);
-  }
+  console.log(`💾 Saved event rewards to database for ${leaderboard.length} participants`);
+  console.log(`🎁 Distributed rewards to ${leaderboard.length} participants`);
 }
 
 async function announceEventStart(event) {

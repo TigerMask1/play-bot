@@ -174,6 +174,11 @@ New document for event scheduling:
 
 ## 🐛 Bug Fixes
 - Fixed permission check bug in admin commands (was calling `isBotAdmin(serverId, userId)`, now correctly calls `isBotAdmin(userId, serverId)`)
+- **CRITICAL FIX**: Rewrote reward distribution to use the same proven pattern as personalized tasks system:
+  - Load data into memory with `dataManager.loadData()`
+  - Directly modify user objects (coins, gems, crates)
+  - Save immediately with `dataManager.saveDataImmediate(data)`
+  - This ensures rewards are actually saved to the database
 - Eliminated potential race conditions in reward distribution
 - Prevented duplicate event starts within the same minute
 
