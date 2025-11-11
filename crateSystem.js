@@ -1,6 +1,7 @@
 const CHARACTERS = require('./characters.js');
 const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 const eventSystem = require('./eventSystem.js');
+const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 
 const CRATE_TYPES = {
   bronze: {
@@ -96,7 +97,7 @@ async function buyCrate(data, userId, crateType) {
   };
 }
 
-async function openCrate(data, userId, crateType) {
+async function openCrate(data, userId, crateType, client = null) {
   const crate = CRATE_TYPES[crateType];
   const user = data.users[userId];
   
@@ -123,6 +124,17 @@ async function openCrate(data, userId, crateType) {
   
   if (!user.questProgress) user.questProgress = {};
   user.questProgress.cratesOpened = (user.questProgress.cratesOpened || 0) + 1;
+  user.lastActivity = Date.now();
+  
+  if (client) {
+    const ptData = initializePersonalizedTaskData(user);
+    if (ptData.taskProgress.cratesOpened !== undefined) {
+      const completedTask = checkTaskProgress(user, 'cratesOpened', 1);
+      if (completedTask) {
+        await completePersonalizedTask(client, userId, data, completedTask);
+      }
+    }
+  }
   
   if (crateType === 'tyrant') {
     user.questProgress.tyrantCratesOpened = (user.questProgress.tyrantCratesOpened || 0) + 1;

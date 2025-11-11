@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { saveData } = require('./dataManager.js');
+const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 
 const activeTrades = new Map();
 
@@ -181,9 +182,79 @@ async function completeTrade(trade, data, channel) {
   
   if (!initiatorData.questProgress) initiatorData.questProgress = {};
   initiatorData.questProgress.tradesCompleted = (initiatorData.questProgress.tradesCompleted || 0) + 1;
+  initiatorData.lastActivity = Date.now();
+  
+  const ptDataInitiator = initializePersonalizedTaskData(initiatorData);
+  if (ptDataInitiator.taskProgress.tradesCompleted !== undefined || ptDataInitiator.taskProgress.anyTrade !== undefined) {
+    if (ptDataInitiator.taskProgress.tradesCompleted !== undefined) {
+      const completedTask = checkTaskProgress(initiatorData, 'tradesCompleted', 1);
+      if (completedTask) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.initiator, data, completedTask);
+      }
+    }
+    if (ptDataInitiator.taskProgress.anyTrade !== undefined) {
+      const completedTaskAny = checkTaskProgress(initiatorData, 'anyTrade', 1);
+      if (completedTaskAny) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.initiator, data, completedTaskAny);
+      }
+    }
+    const hadCoins = trade.initiatorOffer.coins > 0 || trade.receiverOffer.coins > 0;
+    const hadGems = trade.initiatorOffer.gems > 0 || trade.receiverOffer.gems > 0;
+    if (hadCoins && ptDataInitiator.taskProgress.coinTradesCompleted !== undefined) {
+      const completedTaskCoin = checkTaskProgress(initiatorData, 'coinTradesCompleted', 1);
+      if (completedTaskCoin) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.initiator, data, completedTaskCoin);
+      }
+    }
+    if (hadGems && ptDataInitiator.taskProgress.gemTradesCompleted !== undefined) {
+      const completedTaskGem = checkTaskProgress(initiatorData, 'gemTradesCompleted', 1);
+      if (completedTaskGem) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.initiator, data, completedTaskGem);
+      }
+    }
+  }
   
   if (!receiverData.questProgress) receiverData.questProgress = {};
   receiverData.questProgress.tradesCompleted = (receiverData.questProgress.tradesCompleted || 0) + 1;
+  receiverData.lastActivity = Date.now();
+  
+  const ptDataReceiver = initializePersonalizedTaskData(receiverData);
+  if (ptDataReceiver.taskProgress.tradesCompleted !== undefined || ptDataReceiver.taskProgress.anyTrade !== undefined) {
+    if (ptDataReceiver.taskProgress.tradesCompleted !== undefined) {
+      const completedTask = checkTaskProgress(receiverData, 'tradesCompleted', 1);
+      if (completedTask) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.receiver, data, completedTask);
+      }
+    }
+    if (ptDataReceiver.taskProgress.anyTrade !== undefined) {
+      const completedTaskAny = checkTaskProgress(receiverData, 'anyTrade', 1);
+      if (completedTaskAny) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.receiver, data, completedTaskAny);
+      }
+    }
+    const hadCoins = trade.initiatorOffer.coins > 0 || trade.receiverOffer.coins > 0;
+    const hadGems = trade.initiatorOffer.gems > 0 || trade.receiverOffer.gems > 0;
+    if (hadCoins && ptDataReceiver.taskProgress.coinTradesCompleted !== undefined) {
+      const completedTaskCoin = checkTaskProgress(receiverData, 'coinTradesCompleted', 1);
+      if (completedTaskCoin) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.receiver, data, completedTaskCoin);
+      }
+    }
+    if (hadGems && ptDataReceiver.taskProgress.gemTradesCompleted !== undefined) {
+      const completedTaskGem = checkTaskProgress(receiverData, 'gemTradesCompleted', 1);
+      if (completedTaskGem) {
+        const client = channel.client;
+        await completePersonalizedTask(client, trade.receiver, data, completedTaskGem);
+      }
+    }
+  }
   
   saveData(data);
   

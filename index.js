@@ -57,6 +57,16 @@ const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
+const { 
+  sendPersonalizedTask, 
+  checkTaskProgress, 
+  completePersonalizedTask, 
+  checkExpiredTasks, 
+  getInactiveUsers, 
+  togglePersonalizedTasks, 
+  getTaskStats,
+  initializePersonalizedTaskData 
+} = require('./personalizedTaskSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -70,6 +80,24 @@ function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
 }
 
+function startPersonalizedTaskSystem(client, data) {
+  console.log('📬 Starting Personalized Task System...');
+  
+  setInterval(async () => {
+    await checkExpiredTasks(client, data);
+  }, 1800000);
+  
+  setInterval(async () => {
+    const inactiveUsers = getInactiveUsers(data, 6);
+    
+    for (const userId of inactiveUsers) {
+      await sendPersonalizedTask(client, userId, data);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }, 7200000 + Math.random() * 3600000);
+  
+  console.log('✅ Personalized Task System started!');
+}
 
 client.on('clientReady', async () => {
   console.log(`✅ Logged in as ${client.user.tag}!`);
@@ -79,6 +107,7 @@ client.on('clientReady', async () => {
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   startPromotionSystem(client);
+  startPersonalizedTaskSystem(client, data);
   console.log('✅ All systems initialized!');
 });
 
@@ -137,6 +166,15 @@ client.on('messageCreate', async (message) => {
   
   if (data.users[userId].started && !message.content.startsWith(PREFIX)) {
     data.users[userId].messageCount = (data.users[userId].messageCount || 0) + 1;
+    data.users[userId].lastActivity = Date.now();
+    
+    const ptData = initializePersonalizedTaskData(data.users[userId]);
+    if (ptData.taskProgress.messagesSent !== undefined) {
+      const completedTask = checkTaskProgress(data.users[userId], 'messagesSent', 1);
+      if (completedTask) {
+        await completePersonalizedTask(client, userId, data, completedTask);
+      }
+    }
     
     if (data.users[userId].messageCount % 25 === 0) {
       const roll = Math.random() * 100;
@@ -455,7 +493,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const openResult = await openCrate(data, userId, openCrateType);
+        const openResult = await openCrate(data, userId, openCrateType, client);
         
         if (!openResult.success) {
           await message.reply(`❌ ${openResult.message}`);
@@ -497,6 +535,16 @@ client.on('messageCreate', async (message) => {
           charToLevel.tokens -= requirements.tokens;
           data.users[userId].coins -= requirements.coins;
           charToLevel.level += 1;
+          data.users[userId].lastActivity = Date.now();
+          
+          const ptData = initializePersonalizedTaskData(data.users[userId]);
+          if (ptData.taskProgress.levelsGained !== undefined) {
+            const completedTask = checkTaskProgress(data.users[userId], 'levelsGained', 1);
+            if (completedTask) {
+              await completePersonalizedTask(client, userId, data, completedTask);
+            }
+          }
+          
           await saveDataImmediate(data);
           
           const lvlEmbed = new EmbedBuilder()
@@ -666,6 +714,15 @@ client.on('messageCreate', async (message) => {
               
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
               data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
+              data.users[userId].lastActivity = Date.now();
+              
+              const ptData = initializePersonalizedTaskData(data.users[userId]);
+              if (ptData.taskProgress.dropsCaught !== undefined) {
+                const completedTask = checkTaskProgress(data.users[userId], 'dropsCaught', 1);
+                if (completedTask) {
+                  await completePersonalizedTask(client, userId, data, completedTask);
+                }
+              }
               
               await eventSystem.recordProgress(userId, data.users[userId].username, 1, 'drop_catcher');
               
@@ -693,6 +750,15 @@ client.on('messageCreate', async (message) => {
             
             if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
             data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
+            data.users[userId].lastActivity = Date.now();
+            
+            const ptData2 = initializePersonalizedTaskData(data.users[userId]);
+            if (ptData2.taskProgress.dropsCaught !== undefined) {
+              const completedTask2 = checkTaskProgress(data.users[userId], 'dropsCaught', 1);
+              if (completedTask2) {
+                await completePersonalizedTask(client, userId, data, completedTask2);
+              }
+            }
             
             await eventSystem.recordProgress(userId, data.users[userId].username, 1, 'drop_catcher');
             
@@ -1784,6 +1850,87 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [botInfoEmbed] });
         break;
         
+      case 'ptsend':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const ptUser = message.mentions.users.first();
+        if (!ptUser) {
+          await message.reply('Usage: `!ptsend @user` - Send a personalized task to a user');
+          return;
+        }
+        
+        if (!data.users[ptUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        await sendPersonalizedTask(client, ptUser.id, data);
+        await message.reply(`✅ Sent personalized task to <@${ptUser.id}>!`);
+        break;
+        
+      case 'pttoggle':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const ptToggleUser = message.mentions.users.first();
+        const toggleState = args[1]?.toLowerCase();
+        
+        if (!ptToggleUser || !['on', 'off'].includes(toggleState)) {
+          await message.reply('Usage: `!pttoggle @user <on/off>` - Enable/disable personalized tasks for a user');
+          return;
+        }
+        
+        if (!data.users[ptToggleUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const enabled = toggleState === 'on';
+        togglePersonalizedTasks(ptToggleUser.id, data, enabled);
+        await saveData(data);
+        
+        await message.reply(`✅ Personalized tasks ${enabled ? 'enabled' : 'disabled'} for <@${ptToggleUser.id}>!`);
+        break;
+        
+      case 'ptstats':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const ptStatsUser = message.mentions.users.first();
+        if (!ptStatsUser) {
+          await message.reply('Usage: `!ptstats @user` - View personalized task stats for a user');
+          return;
+        }
+        
+        if (!data.users[ptStatsUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const stats = getTaskStats(data.users[ptStatsUser.id]);
+        const timeRemaining = stats.timeRemaining > 0 ? formatTime(stats.timeRemaining) : 'None';
+        
+        const statsEmbed = new EmbedBuilder()
+          .setColor('#3498DB')
+          .setTitle(`📊 Personalized Task Stats - ${data.users[ptStatsUser.id].username}`)
+          .addFields(
+            { name: '✅ Completed', value: `${stats.totalCompleted}`, inline: true },
+            { name: '❌ Missed', value: `${stats.totalMissed}`, inline: true },
+            { name: '⚙️ Status', value: stats.isActive ? 'Active' : 'Disabled', inline: true },
+            { name: '📝 Current Task', value: stats.currentTask, inline: true },
+            { name: '⏰ Time Remaining', value: timeRemaining, inline: true }
+          );
+        
+        await message.reply({ embeds: [statsEmbed] });
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -1802,7 +1949,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
             { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
             { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid' },
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         

@@ -5,6 +5,7 @@ const { getCharacterAbility } = require('./characterAbilities.js');
 const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay, clearAllEffects } = require('./moveEffects.js');
 const { getUserBattleItems, useItem } = require('./itemsSystem.js');
 const eventSystem = require('./eventSystem.js');
+const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 
 const activeBattles = new Map();
 const battleInvites = new Map();
@@ -1054,6 +1055,23 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     if (!data.users[winner].questProgress) data.users[winner].questProgress = {};
     data.users[winner].questProgress.battlesWon = (data.users[winner].questProgress.battlesWon || 0) + 1;
     data.users[winner].questProgress.totalBattles = (data.users[winner].questProgress.totalBattles || 0) + 1;
+    data.users[winner].lastActivity = Date.now();
+    
+    const ptDataWinner = initializePersonalizedTaskData(data.users[winner]);
+    if (ptDataWinner.taskProgress.battlesWon !== undefined) {
+      const completedTask = checkTaskProgress(data.users[winner], 'battlesWon', 1);
+      if (completedTask) {
+        const client = channel.client;
+        await completePersonalizedTask(client, winner, data, completedTask);
+      }
+    }
+    if (ptDataWinner.taskProgress.userBattles !== undefined) {
+      const completedTaskUser = checkTaskProgress(data.users[winner], 'userBattles', 1);
+      if (completedTaskUser) {
+        const client = channel.client;
+        await completePersonalizedTask(client, winner, data, completedTaskUser);
+      }
+    }
     
     data.users[winner].questProgress.currentWinStreak = (data.users[winner].questProgress.currentWinStreak || 0) + 1;
     data.users[winner].questProgress.maxWinStreak = Math.max(
@@ -1069,6 +1087,16 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     if (!data.users[loser].questProgress) data.users[loser].questProgress = {};
     data.users[loser].questProgress.totalBattles = (data.users[loser].questProgress.totalBattles || 0) + 1;
     data.users[loser].questProgress.currentWinStreak = 0;
+    data.users[loser].lastActivity = Date.now();
+    
+    const ptDataLoser = initializePersonalizedTaskData(data.users[loser]);
+    if (ptDataLoser.taskProgress.userBattles !== undefined) {
+      const completedTaskLoser = checkTaskProgress(data.users[loser], 'userBattles', 1);
+      if (completedTaskLoser) {
+        const client = channel.client;
+        await completePersonalizedTask(client, loser, data, completedTaskLoser);
+      }
+    }
     
     await eventSystem.recordProgress(winner, data.users[winner].username, 5, 'trophy_hunt');
     
