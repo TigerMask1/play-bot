@@ -491,7 +491,7 @@ async function promptTurn(battle, channel, data) {
   const player1Skin = battle.player1Character.skin || 'default';
   const player2Skin = battle.player2Character.skin || 'default';
   const currentCharSkin = isPlayer1 ? player1Skin : player2Skin;
-  const currentCharSkinUrl = getSkinUrl(currentChar.name, currentCharSkin);
+  const currentCharSkinUrl = await getSkinUrl(currentChar.name, currentCharSkin);
   
   const turnEmbed = new EmbedBuilder()
     .setColor('#FFA500')
