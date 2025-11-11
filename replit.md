@@ -42,6 +42,13 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Skin System:** Added in-memory caching and MongoDB migration script (migrateSkins.js)
 - **Performance:** Created setupIndexes.js for MongoDB index optimization
 - **Documentation:** Updated COMMANDS.md to reflect automatic reward distribution
+- **Reward Persistence Fix:** All critical reward distributions now use `saveDataImmediate()` for guaranteed MongoDB persistence:
+  - Personalized task completion rewards (personalizedTaskSystem.js)
+  - Event rewards (eventSystem.js)
+  - Admin grant commands (!grant, !grantchar)
+  - Message-based crate rewards (every 25 messages)
+  - Quest rewards and daily rewards already used immediate saves
+- **Admin Commands:** Added `!pttasks` (list all 57 personalized tasks) and `!ptsendtask` (manually assign tasks by ID) for testing
 
 ## External Dependencies
 - **Discord.js v14**: For Discord API interaction.
