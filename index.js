@@ -58,6 +58,7 @@ const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, 
 const { startPromotionSystem } = require('./promotionSystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
+  PERSONALIZED_TASKS,
   sendPersonalizedTask, 
   checkTaskProgress, 
   completePersonalizedTask, 
@@ -66,7 +67,9 @@ const {
   trackInviteCompletion,
   togglePersonalizedTasks, 
   getTaskStats,
-  initializePersonalizedTaskData 
+  initializePersonalizedTaskData,
+  formatReward,
+  formatTime 
 } = require('./personalizedTaskSystem.js');
 
 const PREFIX = '!';
@@ -2023,6 +2026,143 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [statsEmbed] });
         break;
         
+      case 'pttasks':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const difficultyFilter = args[0]?.toLowerCase();
+        let tasksToShow = PERSONALIZED_TASKS;
+        
+        if (difficultyFilter && ['easy', 'medium', 'hard'].includes(difficultyFilter)) {
+          tasksToShow = PERSONALIZED_TASKS.filter(t => t.difficulty === difficultyFilter);
+        }
+        
+        if (tasksToShow.length === 0) {
+          await message.reply('❌ No tasks found!');
+          return;
+        }
+        
+        // Send task list as DM to avoid channel spam
+        try {
+          const dmUser = await client.users.fetch(message.author.id);
+          
+          const taskPages = [];
+          const tasksPerPage = 15;
+          
+          for (let i = 0; i < tasksToShow.length; i += tasksPerPage) {
+            const pageTasks = tasksToShow.slice(i, i + tasksPerPage);
+            const taskList = pageTasks.map(task => {
+              const diffEmoji = task.difficulty === 'easy' ? '🟢' : task.difficulty === 'medium' ? '🟡' : '🔴';
+              return `${diffEmoji} **${task.id}** - ${task.name}\n└ ${task.description}\n└ Reward: ${formatReward(task.reward)}\n└ Duration: ${formatTime(task.duration)}`;
+            }).join('\n\n');
+            
+            const embed = new EmbedBuilder()
+              .setColor('#3498DB')
+              .setTitle(`📋 Available Tasks${difficultyFilter ? ` (${difficultyFilter})` : ''} - Page ${Math.floor(i / tasksPerPage) + 1}/${Math.ceil(tasksToShow.length / tasksPerPage)}`)
+              .setDescription(taskList)
+              .setFooter({ text: `Total: ${tasksToShow.length} tasks | Use !ptsendtask @user <id> to assign` });
+            
+            taskPages.push(embed);
+          }
+          
+          // Send all pages to DM
+          await dmUser.send(`📋 **Task List** ${difficultyFilter ? `(${difficultyFilter} difficulty)` : ''}\nShowing all ${tasksToShow.length} tasks:`);
+          
+          for (const embed of taskPages) {
+            await dmUser.send({ embeds: [embed] });
+            // Small delay to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          await message.reply(`✅ Sent the complete task list (${tasksToShow.length} tasks) to your DM!`);
+          
+        } catch (error) {
+          console.error('Error sending task list:', error);
+          await message.reply('❌ Failed to send task list. Make sure your DMs are open!');
+        }
+        break;
+        
+      case 'ptsendtask':
+        if (!isAdmin) {
+          await message.reply('❌ You need Administrator permission!');
+          return;
+        }
+        
+        const ptTargetUser = message.mentions.users.first();
+        const taskId = args[1];
+        
+        if (!ptTargetUser || !taskId) {
+          await message.reply('Usage: `!ptsendtask @user <taskId>` - Send a specific task by ID\nExample: `!ptsendtask @user pt1`\nUse `!pttasks` to see all available task IDs');
+          return;
+        }
+        
+        if (!data.users[ptTargetUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet! They need to use `!start` first.');
+          return;
+        }
+        
+        const taskToSend = PERSONALIZED_TASKS.find(t => t.id === taskId);
+        if (!taskToSend) {
+          await message.reply(`❌ Task ID "${taskId}" not found! Use \`!pttasks\` to see all available task IDs.`);
+          return;
+        }
+        
+        try {
+          const targetUserData = data.users[ptTargetUser.id];
+          const ptData = initializePersonalizedTaskData(targetUserData);
+          
+          // Check if user already has an active task
+          if (ptData.currentTask && Date.now() < ptData.taskStartTime + ptData.currentTask.duration) {
+            const confirmMsg = await message.reply(`⚠️ <@${ptTargetUser.id}> already has an active task: **${ptData.currentTask.name}**\n\nReply with **yes** to override and send the new task, or **no** to cancel.`);
+            
+            const filter = m => m.author.id === message.author.id && ['yes', 'no'].includes(m.content.toLowerCase());
+            const collected = await message.channel.awaitMessages({ filter, max: 1, time: 30000, errors: ['time'] });
+            
+            if (collected.first().content.toLowerCase() !== 'yes') {
+              await message.channel.send('❌ Cancelled. Task not sent.');
+              return;
+            }
+          }
+          
+          // Initialize task progress
+          ptData.taskProgress = {
+            dropsCaught: 0,
+            battlesWon: 0,
+            cratesOpened: 0,
+            levelsGained: 0,
+            messagesSent: 0,
+            tradesCompleted: 0,
+            coinTradesCompleted: 0,
+            gemTradesCompleted: 0,
+            userBattles: 0,
+            anyTrade: 0,
+            invitesCompleted: 0
+          };
+          
+          // Set the task
+          ptData.currentTask = taskToSend;
+          ptData.taskStartTime = Date.now();
+          ptData.lastTaskSent = Date.now();
+          ptData.isActive = true;
+          
+          await saveData(data);
+          
+          // Send DM to user
+          const user = await client.users.fetch(ptTargetUser.id);
+          const taskMessage = `🎯 **Admin Task Assignment**\n\nYou've been assigned a special task:\n\n**${taskToSend.name}**\n${taskToSend.description}\n\n⏰ Duration: ${formatTime(taskToSend.duration)}\n🎁 Reward: ${formatReward(taskToSend.reward)}\n\nGet started! Good luck! 💪`;
+          
+          await user.send(taskMessage);
+          
+          await message.reply(`✅ Successfully sent task **${taskToSend.name}** (${taskId}) to <@${ptTargetUser.id}>!\n\n📋 Task: ${taskToSend.description}\n⏰ Duration: ${formatTime(taskToSend.duration)}\n🎁 Reward: ${formatReward(taskToSend.reward)}`);
+          
+        } catch (error) {
+          console.error('Error sending task:', error);
+          await message.reply(`❌ Failed to send task: ${error.message}`);
+        }
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -2041,7 +2181,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
             { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
             { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats' },
+            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats' },
             { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
           );
         
