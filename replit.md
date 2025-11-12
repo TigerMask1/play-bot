@@ -38,15 +38,30 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Performance Optimization:** In-memory caching for skins (5-minute TTL) and MongoDB indexes for fast queries on users, events, and participants.
 
 ## Recent Changes (November 2025)
+- **NEW Discord Activity Real-Time Arena (November 12, 2025):**
+  - **Complete Rebuild:** Brand new real-time 2D battle arena system using Discord Activities
+  - **HTML5 Canvas Game:** Full-featured game with character selection, joystick controls, attack buttons, HP bars, and visual effects
+  - **Real-Time Combat:** Socket.IO-powered multiplayer with projectile physics, collision detection, and smooth animations
+  - **Move System Enhancement:** All 50+ character moves extended with arena properties (shapes, speeds, ranges, cooldowns, colors)
+  - **Match Lifecycle:** Proper lobby system, countdown, battle phase, victory conditions, and automatic cleanup
+  - **Commands:** `!arena @user` to challenge players to real-time battles
+  - **Architecture:** Express routes, Socket.IO namespace, config API endpoint, enhanced move data system
+  - **Files:** 
+    - `activity/arena/` - Frontend game (index.html, styles.css, game.js)
+    - `arenaSocketHandler.js` - Server-side match management and combat resolver
+    - `arenaRoutes.js` - API endpoints for config, characters, and OAuth
+    - `arenaMovesData.js` - Real-time move properties for all characters
+    - `ARENA_SETUP.md` - Complete setup and customization guide
+  - **Environment Variables Required:** `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `RENDER_EXTERNAL_URL`
 - **Discord Activity Battle Arena (November 11, 2025):**
+  - **Note:** Legacy Phaser.js arena system exists in `activity/` folder
   - **Real-time PvP:** Interactive battle arena with Phaser.js game engine
   - **Skill-based Combat:** Joystick movement, 4 unique abilities with energy/cooldown systems
   - **Authentication:** HMAC token security with rate limiting and CORS protection
   - **Rewards Integration:** Automatic reward distribution based on kills, damage, and survival time
   - **Single Toggle:** Enable/disable entire system via `ACTIVITY_CONFIG.ENABLED` in activityConfig.js
-  - **Commands:** `!battleactivity`, `!activity`, `!arena` to launch interactive arena
+  - **Commands:** `!battleactivity`, `!activity` to launch
   - **Architecture:** Reuses existing HTTP/Express server, Socket.IO for real-time multiplayer
-  - See activity/ folder for game files (game.js, index.html, server.js)
 - **Removed:** Tutorial and Zoo Raids systems for improved performance and reduced complexity
 - **Event System Complete Overhaul (November 11, 2025):**
   - **CRITICAL FIX:** Rewrote event reward distribution to use same proven pattern as personalized tasks
