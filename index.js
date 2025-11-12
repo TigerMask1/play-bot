@@ -1330,60 +1330,6 @@ client.on('messageCreate', async (message) => {
         }
         break;
         
-      case 'arena':
-        const opponentUser = message.mentions.users.first();
-        if (!opponentUser) {
-          await message.reply('❌ Please mention a user to challenge! Usage: `!arena @user`');
-          return;
-        }
-        
-        if (opponentUser.id === userId) {
-          await message.reply('❌ You cannot challenge yourself!');
-          return;
-        }
-        
-        if (opponentUser.bot) {
-          await message.reply('❌ You cannot challenge a bot!');
-          return;
-        }
-        
-        if (!data.users[userId] || !data.users[userId].started) {
-          await message.reply('❌ You need to start the game first! Use `!start`');
-          return;
-        }
-        
-        if (!data.users[opponentUser.id] || !data.users[opponentUser.id].started) {
-          await message.reply('❌ Your opponent needs to start the game first!');
-          return;
-        }
-        
-        try {
-          const { createMatch: createArenaMatch } = require('./arenaSocketHandler.js');
-          const matchId = generateMatchId();
-          
-          // Create match on server
-          createArenaMatch(matchId, userId, opponentUser.id);
-          
-          const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://zoobot-zoki.onrender.com';
-          const activityUrl = `${baseUrl}/activity/arena/index.html#matchId=${matchId}`;
-          
-          const arenaEmbed = new EmbedBuilder()
-            .setColor('#FF6B00')
-            .setTitle('⚔️ Arena Battle Challenge!')
-            .setDescription(`${message.author.username} challenges ${opponentUser.username} to an Arena Battle!\n\n**How to Join:**\n1. Click the link below to open the Arena Activity\n2. Select your character\n3. Battle in real-time 2D combat!\n\n**Link:** [Open Arena Battle](${activityUrl})\n\n*Note: Both players must click the link to join the arena*`)
-            .addFields(
-              { name: '🎮 Controls', value: 'Joystick for movement\nCircular buttons for attacks', inline: true },
-              { name: '⚡ Features', value: 'Real-time combat\nSkill-based gameplay\nUnique character abilities', inline: true }
-            )
-            .setFooter({ text: 'Click the link above to join the battle!' });
-          
-          await message.reply({ embeds: [arenaEmbed] });
-        } catch (error) {
-          console.error('Arena match creation error:', error);
-          await message.reply('❌ Failed to create arena match. Please try again.');
-        }
-        break;
-        
       case 'b':
       case 'battle':
         const battleArg = args[0]?.toLowerCase();
