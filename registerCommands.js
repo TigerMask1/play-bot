@@ -18,13 +18,15 @@ async function registerCommands() {
   const clientId = process.env.DISCORD_APPLICATION_ID;
 
   if (!token) {
-    console.error('❌ DISCORD_BOT_TOKEN is required to register commands');
-    process.exit(1);
+    const error = new Error('DISCORD_BOT_TOKEN is required to register commands');
+    console.error('❌', error.message);
+    throw error;
   }
 
   if (!clientId) {
-    console.error('❌ DISCORD_APPLICATION_ID is required to register commands');
-    process.exit(1);
+    const error = new Error('DISCORD_APPLICATION_ID is required to register commands');
+    console.error('❌', error.message);
+    throw error;
   }
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -43,12 +45,14 @@ async function registerCommands() {
     console.log('💡 To test immediately, use guild-specific registration instead.');
   } catch (error) {
     console.error('❌ Error registering commands:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
 if (require.main === module) {
-  registerCommands();
+  registerCommands()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
 }
 
 module.exports = { registerCommands, commands };
