@@ -4,6 +4,64 @@
 
 Your character collection bot with character-specific tokens and ST system is running!
 
+---
+
+## 🚀 NEW: Discord Activity Arena Setup
+
+To enable the interactive battle arena (like the screenshot you showed), follow these steps:
+
+### Step 1: Get Your Discord Secrets (5 minutes)
+
+Visit: https://discord.com/developers/applications
+
+1. **General Information tab** → Copy `Application ID`
+   - Use for both `DISCORD_APPLICATION_ID` and `DISCORD_CLIENT_ID`
+
+2. **Bot tab** → Reset Token → Copy
+   - Use for `DISCORD_BOT_TOKEN`
+
+3. **OAuth2 tab** → Reset Secret → Copy
+   - Use for `DISCORD_CLIENT_SECRET`
+
+### Step 2: Add to Render (2 minutes)
+
+In your Render dashboard → Environment tab, add:
+```
+DISCORD_BOT_TOKEN=your_token
+DISCORD_APPLICATION_ID=your_app_id
+DISCORD_CLIENT_ID=your_app_id
+DISCORD_CLIENT_SECRET=your_secret
+```
+
+Save → Render will auto-redeploy
+
+### Step 3: Configure Discord (3 minutes)
+
+Back in Discord Developer Portal:
+
+**A) OAuth2 tab** → Add Redirects:
+```
+https://zoobot-zoki.onrender.com/api/token
+https://zoobot-zoki.onrender.com/activity
+```
+
+**B) Activities tab** → Add URL Mapping:
+- Prefix: `/activity`
+- Target: `https://zoobot-zoki.onrender.com/activity`
+
+**C) Bot tab** → Enable:
+- ✅ Presence Intent
+- ✅ Server Members Intent
+- ✅ Message Content Intent
+
+### Step 4: Test It!
+
+In Discord, type: `/arena` → Click "🚀 Launch Arena" button!
+
+**See DISCORD_ACTIVITY_SETUP.md for detailed troubleshooting**
+
+---
+
 ## First Time Setup (Admin Only)
 
 1. **Set the drop channel** (in the channel where you want drops to appear):

@@ -173,7 +173,42 @@ client.on('clientReady', async () => {
   startDropSystem(client, data);
   startPromotionSystem(client);
   startPersonalizedTaskSystem(client, data);
+  
+  if (process.env.DISCORD_APPLICATION_ID) {
+    const { registerCommands } = require('./registerCommands.js');
+    try {
+      await registerCommands();
+    } catch (error) {
+      console.error('❌ Failed to register slash commands:', error);
+    }
+  } else {
+    console.log('⚠️ DISCORD_APPLICATION_ID not set - slash commands disabled');
+  }
+  
   console.log('✅ All systems initialized!');
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  
+  const { handleArenaCommand } = require('./slashCommands.js');
+  
+  try {
+    switch (interaction.commandName) {
+      case 'arena':
+      case 'launch':
+        await handleArenaCommand(interaction, data);
+        break;
+    }
+  } catch (error) {
+    console.error('Error handling interaction:', error);
+    const errorMessage = { content: '❌ An error occurred while processing your command.', ephemeral: true };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(errorMessage);
+    } else {
+      await interaction.reply(errorMessage);
+    }
+  }
 });
 
 client.on('guildCreate', async (guild) => {
