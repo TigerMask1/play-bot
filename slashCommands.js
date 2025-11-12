@@ -22,7 +22,7 @@ async function handleArenaCommand(interaction, data) {
   
   if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
     return interaction.reply({
-      content: '❌ You need to be in a voice channel to launch the arena!\n\nJoin a voice channel and try again.',
+      content: '❌ You need to be in a voice channel to launch the arena!\n\n**Note:** You can mute yourself - you don\'t need to talk! Just join any voice channel and try again.',
       ephemeral: true
     });
   }
@@ -46,7 +46,7 @@ async function handleArenaCommand(interaction, data) {
     const embed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle('🎮 Interactive Battle Arena')
-      .setDescription(`**Get ready for real-time PvP action!**\n\n🕹️ **Controls:**\n• Joystick (bottom-left) - Move your character\n• Q, W, E, R - Use skills\n\n⚔️ **How to Play:**\n• Dodge enemy attacks with skill-based movement\n• Use your abilities strategically\n• Earn rewards based on your performance\n• Climb the leaderboard!\n\n💎 **Character:** ${userData.selectedCharacter}\n🏆 **Trophies:** ${userData.trophies || 200}\n\n*Click the button below to join the arena!*`)
+      .setDescription(`**Get ready for real-time PvP action!**\n\n🕹️ **Controls:**\n• Joystick (bottom-left) - Move your character\n• Q, W, E, R - Use skills\n\n⚔️ **How to Play:**\n• Dodge enemy attacks with skill-based movement\n• Use your abilities strategically\n• Earn rewards based on your performance\n• Climb the leaderboard!\n\n💎 **Character:** ${userData.selectedCharacter}\n🏆 **Trophies:** ${userData.trophies || 200}\n\n💡 **Tip:** Mute yourself in voice - no talking required!\n\n*Click the button below to join the arena!*`)
       .setFooter({ text: 'Real-time battles • Skill-based combat' })
       .setTimestamp();
 
