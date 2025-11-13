@@ -59,12 +59,17 @@ async function initDiscordSDK() {
             return;
         }
         
-        if (!window.DiscordSDK) {
-            throw new Error('Discord SDK not loaded. Make sure you are running this inside Discord.');
-        }
-        
         loadingText.textContent = 'Initializing Discord SDK...';
         const DiscordSDK = window.DiscordSDK;
+        if (!DiscordSDK) {
+            console.warn('Discord SDK not available, using test mode');
+            loadingText.textContent = 'Discord SDK not available - using test mode...';
+            playerId = 'test_' + Math.random().toString(36).substr(2, 9);
+            playerData.username = 'TestPlayer';
+            setTimeout(() => initSocketIO(), 500);
+            return;
+        }
+        
         discordSdk = new DiscordSDK(config.clientId);
         
         loadingText.textContent = 'Connecting to Discord...';
@@ -127,8 +132,8 @@ function initSocketIO() {
     matchId = params.get('matchId');
     
     if (!matchId) {
-        console.error('No match ID found');
-        return;
+        console.warn('No match ID found, generating test match ID');
+        matchId = 'test_match_' + Date.now();
     }
     
     socket = io('/arena', {
@@ -314,28 +319,6 @@ function startGame() {
 }
 
 function resizeCanvas() {
-    const container = canvas.parentElement;
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    
-    const aspectRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
-    const containerAspect = containerWidth / containerHeight;
-    
-    let displayWidth, displayHeight;
-    
-    if (containerAspect > aspectRatio) {
-        displayHeight = containerHeight;
-        displayWidth = containerHeight * aspectRatio;
-    } else {
-        displayWidth = containerWidth;
-        displayHeight = containerWidth / aspectRatio;
-    }
-    
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    
-    canvasScale = displayWidth / CANVAS_WIDTH;
-    
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 }

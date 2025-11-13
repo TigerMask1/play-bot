@@ -22,12 +22,12 @@ name = "Discord Bot"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node index.js"
-waitForPort = 3000
+waitForPort = 5000
 
 [[ports]]
 localPort = 3000
@@ -35,11 +35,7 @@ externalPort = 3000
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 33185
-externalPort = 4200
+externalPort = 80
 
 [[ports]]
 localPort = 34409
@@ -48,6 +44,10 @@ externalPort = 80
 [[ports]]
 localPort = 34945
 externalPort = 3002
+
+[[ports]]
+localPort = 38885
+externalPort = 6000
 
 [[ports]]
 localPort = 40235
