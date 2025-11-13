@@ -15,6 +15,7 @@ let gameState = {
 // Canvas and rendering
 let canvas, ctx;
 let lastFrameTime = 0;
+let canvasScale = 1;
 
 // Joystick
 let joystick = {
@@ -36,27 +37,41 @@ const MAX_JOYSTICK_DISTANCE = 45;
 
 // Initialize Discord SDK
 async function initDiscordSDK() {
+    const loadingText = document.querySelector('#loading-screen p');
+    
     try {
-        // Fetch config from server
+        loadingText.textContent = 'Fetching configuration...';
+        console.log('Fetching arena config...');
+        
         const configResponse = await fetch('/api/arena/config');
+        if (!configResponse.ok) {
+            throw new Error('Failed to fetch config: ' + configResponse.status);
+        }
         config = await configResponse.json();
+        console.log('Config loaded:', config);
         
         if (!config.clientId) {
-            console.error('Discord Client ID not configured');
-            // Fall back to test mode
+            console.warn('Discord Client ID not configured, using test mode');
+            loadingText.textContent = 'Running in test mode...';
             playerId = 'test_' + Math.random().toString(36).substr(2, 9);
             playerData.username = 'TestPlayer';
-            initSocketIO();
+            setTimeout(() => initSocketIO(), 500);
             return;
         }
         
+        if (!window.DiscordSDK) {
+            throw new Error('Discord SDK not loaded. Make sure you are running this inside Discord.');
+        }
+        
+        loadingText.textContent = 'Initializing Discord SDK...';
         const DiscordSDK = window.DiscordSDK;
         discordSdk = new DiscordSDK(config.clientId);
         
+        loadingText.textContent = 'Connecting to Discord...';
         await discordSdk.ready();
         console.log('Discord SDK ready');
         
-        // Authenticate
+        loadingText.textContent = 'Authenticating...';
         const { code } = await discordSdk.commands.authorize({
             client_id: config.clientId,
             response_type: 'code',
@@ -65,7 +80,9 @@ async function initDiscordSDK() {
             scope: ['identify', 'guilds']
         });
         
-        // Get user info
+        console.log('Got authorization code');
+        
+        loadingText.textContent = 'Getting access token...';
         const response = await fetch('/api/token', {
             method: 'POST',
             headers: {
@@ -74,21 +91,31 @@ async function initDiscordSDK() {
             body: JSON.stringify({ code })
         });
         
+        if (!response.ok) {
+            throw new Error('Failed to get access token: ' + response.status);
+        }
+        
         const { access_token } = await response.json();
         
+        loadingText.textContent = 'Completing authentication...';
         const auth = await discordSdk.commands.authenticate({ access_token });
         playerId = auth.user.id;
         playerData.username = auth.user.username;
         
         console.log('Authenticated as:', playerData.username);
         
+        loadingText.textContent = 'Connecting to game server...';
         initSocketIO();
     } catch (error) {
         console.error('Discord SDK initialization failed:', error);
-        // Fallback for testing without Discord
-        playerId = 'test_' + Math.random().toString(36).substr(2, 9);
-        playerData.username = 'TestPlayer';
-        initSocketIO();
+        loadingText.textContent = 'Error: ' + error.message;
+        
+        setTimeout(() => {
+            loadingText.textContent = 'Falling back to test mode...';
+            playerId = 'test_' + Math.random().toString(36).substr(2, 9);
+            playerData.username = 'TestPlayer';
+            initSocketIO();
+        }, 2000);
     }
 }
 
@@ -269,8 +296,11 @@ function startGame() {
     canvas = document.getElementById('game-canvas');
     ctx = canvas.getContext('2d');
     
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(resizeCanvas, 100);
+    });
     
     // Set up HUD
     updateHUD();
@@ -281,6 +311,33 @@ function startGame() {
     
     // Start game loop
     requestAnimationFrame(gameLoop);
+}
+
+function resizeCanvas() {
+    const container = canvas.parentElement;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    const aspectRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
+    const containerAspect = containerWidth / containerHeight;
+    
+    let displayWidth, displayHeight;
+    
+    if (containerAspect > aspectRatio) {
+        displayHeight = containerHeight;
+        displayWidth = containerHeight * aspectRatio;
+    } else {
+        displayWidth = containerWidth;
+        displayHeight = containerWidth / aspectRatio;
+    }
+    
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    
+    canvasScale = displayWidth / CANVAS_WIDTH;
+    
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
 }
 
 function updateHUD() {
@@ -323,13 +380,23 @@ function initJoystick() {
     const base = document.getElementById('joystick-base');
     const stick = document.getElementById('joystick-stick');
     
-    const rect = base.getBoundingClientRect();
-    joystick.baseX = rect.left + rect.width / 2;
-    joystick.baseY = rect.top + rect.height / 2;
+    function updateBasePosition() {
+        const rect = base.getBoundingClientRect();
+        joystick.baseX = rect.left + rect.width / 2;
+        joystick.baseY = rect.top + rect.height / 2;
+    }
+    
+    updateBasePosition();
+    window.addEventListener('resize', updateBasePosition);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(updateBasePosition, 100);
+    });
     
     let isDragging = false;
     
     const onStart = (e) => {
+        e.preventDefault();
+        updateBasePosition();
         isDragging = true;
         joystick.active = true;
         updateJoystick(e);
@@ -337,11 +404,13 @@ function initJoystick() {
     
     const onMove = (e) => {
         if (isDragging) {
+            e.preventDefault();
             updateJoystick(e);
         }
     };
     
-    const onEnd = () => {
+    const onEnd = (e) => {
+        if (e) e.preventDefault();
         isDragging = false;
         joystick.active = false;
         stick.style.transform = 'translate(-50%, -50%)';
@@ -349,19 +418,24 @@ function initJoystick() {
         joystick.y = 0;
     };
     
-    stick.addEventListener('mousedown', onStart);
-    stick.addEventListener('touchstart', onStart);
+    base.addEventListener('mousedown', onStart, { passive: false });
+    base.addEventListener('touchstart', onStart, { passive: false });
     
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove);
+    stick.addEventListener('mousedown', onStart, { passive: false });
+    stick.addEventListener('touchstart', onStart, { passive: false });
+    
+    window.addEventListener('mousemove', onMove, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
     
     window.addEventListener('mouseup', onEnd);
     window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
 }
 
 function updateJoystick(e) {
-    const clientX = e.clientX || e.touches[0].clientX;
-    const clientY = e.clientY || e.touches[0].clientY;
+    const touch = e.touches ? e.touches[0] : e;
+    const clientX = touch.clientX;
+    const clientY = touch.clientY;
     
     let deltaX = clientX - joystick.baseX;
     let deltaY = clientY - joystick.baseY;

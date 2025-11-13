@@ -52,12 +52,12 @@ async function handleArenaCommand(interaction, data) {
     });
   }
 
-  // Check voice channel requirement
-  const voiceChannel = interaction.member?.voice?.channel;
+  // Check if user is in a voice channel, if not, offer to create one
+  let voiceChannel = interaction.member?.voice?.channel;
   
   if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
     return interaction.reply({
-      content: '❌ You need to be in a voice channel to launch the arena!\n\n**Note:** You can mute yourself - you don\'t need to talk! Just join any voice channel and try again.',
+      content: '❌ You need to be in a voice channel to launch the arena!\n\n**Quick Steps:**\n1. Join any voice channel in this server\n2. Run this command again\n\n**Note:** You can mute yourself - you don\'t need voice chat, just need to be in a voice channel for Discord Activities to work!',
       ephemeral: true
     });
   }
@@ -84,20 +84,20 @@ async function handleArenaCommand(interaction, data) {
     const embed = new EmbedBuilder()
       .setColor('#FF4500')
       .setTitle('⚔️ Arena Battle Challenge!')
-      .setDescription(`**${interaction.user.username}** has challenged **${opponent.username}** to a 1v1 battle!\n\n🎮 **Game Mode:** Real-time Arena Combat\n🏆 **Stakes:** Honor and Glory!\n\n**${interaction.user.username}'s Character:** ${userData.selectedCharacter}\n**${opponent.username}'s Character:** ${opponentData.selectedCharacter}\n\n💡 **Both players must:**\n1. Join the voice channel: ${voiceChannel.name}\n2. Click the "Play" button below\n3. Battle it out in the arena!\n\n🕹️ **Controls:**\n• Joystick - Move your character\n• Attack buttons - Use your character's moves\n\n*First to defeat their opponent wins!*`)
-      .setFooter({ text: '1v1 Arena Battle • Real-time Combat' })
+      .setDescription(`**${interaction.user.username}** has challenged **${opponent.username}** to a 1v1 battle!\n\n🎮 **Game Mode:** Real-time Arena Combat\n🏆 **Stakes:** Honor and Glory!\n\n**${interaction.user.username}'s Character:** ${userData.selectedCharacter}\n**${opponent.username}'s Character:** ${opponentData.selectedCharacter}\n\n💡 **How to Join:**\n1. Join voice channel: **${voiceChannel.name}**\n2. Click "🚀 Join Arena" button below\n3. The game will launch automatically inside Discord!\n\n🕹️ **Controls:**\n• Joystick (bottom-left) - Move your character\n• 4 Attack Buttons (bottom-right) - Use abilities\n\n**Note:** You can mute yourself! Voice chat is optional, you just need to be in the voice channel for the activity to work.\n\n*First to defeat their opponent wins!*`)
+      .setFooter({ text: '1v1 Arena Battle • Real-time Combat • Mobile & Desktop Supported' })
       .setTimestamp();
 
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
-          .setLabel('Play')
+          .setLabel('🚀 Join Arena')
           .setStyle(ButtonStyle.Link)
           .setURL(invite.url)
       );
 
     await interaction.reply({
-      content: `${opponent}, you've been challenged to an arena battle by ${interaction.user}! Join ${voiceChannel.name} and click Play!`,
+      content: `🎮 ${opponent}, you've been challenged to an arena battle by ${interaction.user}!\n\n**👉 Join ${voiceChannel} and click "🚀 Join Arena" to play!**`,
       embeds: [embed],
       components: [row],
       ephemeral: false
