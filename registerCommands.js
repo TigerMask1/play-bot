@@ -44,45 +44,62 @@ async function registerCommands() {
     );
 
     console.log(`📋 Found ${existingCommands.length} existing command(s)`);
-
-    // Find any Entry Point commands (these have integration_types set)
-    const entryPointCommands = existingCommands.filter(cmd => 
-      cmd.integration_types && cmd.integration_types.length > 0
-    );
-
-    console.log(`🔍 Found ${entryPointCommands.length} Entry Point command(s)`);
-
-    // Build a map of our new commands by name
-    const newCommandsMap = new Map(commands.map(c => [c.name, c]));
     
-    // Combine our commands with existing Entry Point commands
-    const commandsToRegister = [...commands];
+    // Log existing command details for debugging
+    existingCommands.forEach(cmd => {
+      console.log(`   - /${cmd.name} (ID: ${cmd.id}, Entry Point: ${!!(cmd.integration_types?.length)})`);
+    });
+
+    // Build a map of existing commands by name (including their IDs)
+    const existingCommandsMap = new Map(existingCommands.map(c => [c.name, c]));
+
+    // Build the final command list
+    const commandsToRegister = [];
     
-    for (const entryCmd of entryPointCommands) {
-      // Only add if we don't already have a command with this name
-      if (!newCommandsMap.has(entryCmd.name)) {
-        console.log(`📌 Preserving Entry Point command: /${entryCmd.name}`);
-        // Preserve the complete command structure
-        const preservedCmd = {
-          name: entryCmd.name,
-          description: entryCmd.description,
-          integration_types: entryCmd.integration_types,
-          contexts: entryCmd.contexts
+    for (const newCmd of commands) {
+      const existingCmd = existingCommandsMap.get(newCmd.name);
+      
+      if (existingCmd) {
+        // Command exists - merge new definition with existing ID
+        console.log(`🔄 Updating existing command: /${newCmd.name} (ID: ${existingCmd.id})`);
+        
+        const updatedCmd = {
+          ...newCmd,
+          id: existingCmd.id
         };
         
-        // Include options if they exist
-        if (entryCmd.options && entryCmd.options.length > 0) {
-          preservedCmd.options = entryCmd.options;
+        commandsToRegister.push(updatedCmd);
+        existingCommandsMap.delete(newCmd.name);
+      } else {
+        // New command - add as-is
+        console.log(`➕ Adding new command: /${newCmd.name}`);
+        commandsToRegister.push(newCmd);
+      }
+    }
+    
+    // Preserve any remaining Entry Point commands that aren't in our new list
+    for (const [name, existingCmd] of existingCommandsMap) {
+      if (existingCmd.integration_types && existingCmd.integration_types.length > 0) {
+        console.log(`📌 Preserving Entry Point command: /${name} (ID: ${existingCmd.id})`);
+        
+        // Strip read-only fields but keep essential data including ID
+        const preservedCmd = {
+          id: existingCmd.id,
+          name: existingCmd.name,
+          description: existingCmd.description,
+          integration_types: existingCmd.integration_types,
+          contexts: existingCmd.contexts
+        };
+        
+        if (existingCmd.options && existingCmd.options.length > 0) {
+          preservedCmd.options = existingCmd.options;
         }
         
-        // Include type if it exists
-        if (entryCmd.type) {
-          preservedCmd.type = entryCmd.type;
+        if (existingCmd.type !== undefined) {
+          preservedCmd.type = existingCmd.type;
         }
         
         commandsToRegister.push(preservedCmd);
-      } else {
-        console.log(`⚠️ Command /${entryCmd.name} exists in both lists - using new definition`);
       }
     }
 
