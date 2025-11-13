@@ -4,12 +4,16 @@ const commands = [
   {
     name: 'arena',
     description: 'Launch the interactive battle arena!',
-    options: []
+    options: [],
+    integration_types: [0, 1],
+    contexts: [0, 1, 2]
   },
   {
     name: 'launch',
     description: 'Start a battle activity in voice channel',
-    options: []
+    options: [],
+    integration_types: [0, 1],
+    contexts: [0, 1, 2]
   }
 ];
 
@@ -39,26 +43,50 @@ async function registerCommands() {
       Routes.applicationCommands(clientId)
     );
 
+    console.log(`📋 Found ${existingCommands.length} existing command(s)`);
+
     // Find any Entry Point commands (these have integration_types set)
     const entryPointCommands = existingCommands.filter(cmd => 
       cmd.integration_types && cmd.integration_types.length > 0
     );
 
+    console.log(`🔍 Found ${entryPointCommands.length} Entry Point command(s)`);
+
+    // Build a map of our new commands by name
+    const newCommandsMap = new Map(commands.map(c => [c.name, c]));
+    
     // Combine our commands with existing Entry Point commands
     const commandsToRegister = [...commands];
     
     for (const entryCmd of entryPointCommands) {
       // Only add if we don't already have a command with this name
-      if (!commandsToRegister.find(c => c.name === entryCmd.name)) {
+      if (!newCommandsMap.has(entryCmd.name)) {
         console.log(`📌 Preserving Entry Point command: /${entryCmd.name}`);
-        commandsToRegister.push({
+        // Preserve the complete command structure
+        const preservedCmd = {
           name: entryCmd.name,
           description: entryCmd.description,
           integration_types: entryCmd.integration_types,
           contexts: entryCmd.contexts
-        });
+        };
+        
+        // Include options if they exist
+        if (entryCmd.options && entryCmd.options.length > 0) {
+          preservedCmd.options = entryCmd.options;
+        }
+        
+        // Include type if it exists
+        if (entryCmd.type) {
+          preservedCmd.type = entryCmd.type;
+        }
+        
+        commandsToRegister.push(preservedCmd);
+      } else {
+        console.log(`⚠️ Command /${entryCmd.name} exists in both lists - using new definition`);
       }
     }
+
+    console.log(`📤 Registering ${commandsToRegister.length} total command(s)...`);
 
     await rest.put(
       Routes.applicationCommands(clientId),
