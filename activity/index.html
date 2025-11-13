@@ -199,8 +199,17 @@
     
     <div id="kill-feed"></div>
     
+    <!-- Loading Screen -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Arial, sans-serif;">
+      <div style="font-size: 24px; margin-bottom: 20px;">⚔️ Battle Arena</div>
+      <div id="loading-text" style="font-size: 16px; color: #FFD700;">Connecting to Discord...</div>
+      <div style="margin-top: 20px; width: 300px; height: 4px; background: rgba(255,215,0,0.2); border-radius: 2px; overflow: hidden;">
+        <div id="loading-bar" style="width: 0%; height: 100%; background: #FFD700; transition: width 0.3s;"></div>
+      </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="./game.js"></script>
+    <script type="module" src="./game.js"></script>
 </body>
 </html>

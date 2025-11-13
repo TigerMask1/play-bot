@@ -23,7 +23,8 @@ class BattleArena extends Phaser.Scene {
         
         this.createArena(width, height);
         
-        this.initializeSocket();
+        // Socket is initialized externally after Discord auth
+        // this.initializeSocket() - REMOVED, called from init code
         
         this.initializeControls();
         
@@ -59,16 +60,10 @@ class BattleArena extends Phaser.Scene {
         border.strokeRect(10, 10, width - 20, height - 20);
     }
 
-    initializeSocket() {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const userId = hashParams.get('userId');
-        const token = hashParams.get('token');
-
-        if (!userId || !token) {
-            console.error('Missing authentication credentials');
-            alert('Invalid access link. Please use the button from Discord.');
-            return;
-        }
+    initializeSocket(userInfo) {
+        const userId = userInfo.userId;
+        const username = userInfo.username;
+        const sessionToken = userInfo.sessionToken;
 
         this.socket = io({
             path: '/activity/socket.io',
@@ -76,20 +71,30 @@ class BattleArena extends Phaser.Scene {
         });
         
         this.socket.on('connect', () => {
-            console.log('Connected to server, authenticating...');
-            this.socket.emit('authenticate', { userId, token });
+            console.log('Connected to server, authenticating with Discord user...');
+            // Use server-issued session token for secure authentication
+            this.socket.emit('authenticate', { 
+                userId: userId,
+                token: sessionToken  // Server-validated token from Discord auth
+            });
         });
 
         this.socket.on('authenticated', (data) => {
             if (data.success) {
                 console.log('Authenticated successfully!');
                 this.socket.emit('joinBattle', {});
+                
+                // Hide loading screen
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
             }
         });
 
         this.socket.on('authError', (data) => {
             console.error('Authentication failed:', data.message);
-            alert(`Authentication failed: ${data.message}`);
+            updateLoadingText(`❌ Authentication failed: ${data.message}`);
         });
         
         this.socket.on('playerJoined', (data) => {
@@ -524,19 +529,75 @@ class BattleArena extends Phaser.Scene {
     }
 }
 
-const config = {
-    type: Phaser.AUTO,
-    parent: 'game-container',
-    width: window.innerWidth,
-    height: window.innerHeight,
-    backgroundColor: '#1a1a2e',
-    scene: BattleArena,
-    physics: {
-        default: 'arcade',
-        arcade: {
-            debug: false
-        }
-    }
-};
+// Helper functions for loading screen
+function updateLoadingText(text) {
+    const loadingText = document.getElementById('loading-text');
+    if (loadingText) loadingText.textContent = text;
+}
 
-const game = new Phaser.Game(config);
+function updateLoadingProgress(percent) {
+    const loadingBar = document.getElementById('loading-bar');
+    if (loadingBar) loadingBar.style.width = percent + '%';
+}
+
+// Initialize with Discord SDK
+import { initializeDiscordAuth } from './auth.js';
+
+let game = null;
+let battleArenaScene = null;
+
+async function initializeGame() {
+    try {
+        updateLoadingText('Connecting to Discord...');
+        updateLoadingProgress(20);
+        
+        // Authenticate with Discord
+        const userInfo = await initializeDiscordAuth();
+        
+        updateLoadingText('Authenticated! Loading game...');
+        updateLoadingProgress(60);
+        
+        // Create Phaser game
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: window.innerWidth,
+            height: window.innerHeight,
+            backgroundColor: '#1a1a2e',
+            scene: BattleArena,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    debug: false
+                }
+            }
+        };
+        
+        game = new Phaser.Game(config);
+        
+        // Wait for scene to be ready and pass user info
+        game.events.once('ready', () => {
+            battleArenaScene = game.scene.getScene('BattleArena');
+            if (battleArenaScene) {
+                updateLoadingText('Connecting to arena...');
+                updateLoadingProgress(80);
+                
+                // Initialize socket with Discord user info
+                battleArenaScene.initializeSocket(userInfo);
+            }
+        });
+        
+        updateLoadingProgress(100);
+        
+    } catch (error) {
+        console.error('Failed to initialize game:', error);
+        updateLoadingText(`❌ Error: ${error.message}`);
+        updateLoadingProgress(0);
+        
+        // Show error with helpful message
+        alert(`Failed to start the arena:\n\n${error.message}\n\nMake sure you:\n1. Launched from Discord\n2. Have a voice channel selected\n3. Granted permissions when prompted`);
+    }
+}
+
+// Start initialization when page loads
+document.addEventListener('DOMContentLoaded', initializeGame);

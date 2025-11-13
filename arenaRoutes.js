@@ -1,8 +1,12 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { getSkinUrl } = require('./skinSystem.js');
 const { enhanceMovesForArena } = require('./arenaMovesData.js');
 const { createMatch } = require('./arenaSocketHandler.js');
+
+// Session storage for Discord-authenticated users
+const activeSessions = new Map(); // sessionToken -> { userId, username, created }
 
 function setupArenaRoutes(app, data) {
   // Serve arena activity files
@@ -83,11 +87,58 @@ function setupArenaRoutes(app, data) {
         }),
       });
       
-      const data = await response.json();
-      res.json(data);
+      const tokenData = await response.json();
+      res.json(tokenData);
     } catch (error) {
       console.error('Token exchange error:', error);
       res.status(500).json({ error: 'Failed to exchange token' });
+    }
+  });
+
+  // API: Create session token for Discord-authenticated user
+  app.post('/api/arena/session', async (req, res) => {
+    try {
+      const { userId, username, access_token } = req.body;
+
+      if (!userId || !access_token) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Validate the Discord access token by fetching user info
+      const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`
+        }
+      });
+
+      if (!userResponse.ok) {
+        return res.status(401).json({ error: 'Invalid Discord access token' });
+      }
+
+      const discordUser = await userResponse.json();
+
+      // Verify the user ID matches
+      if (discordUser.id !== userId) {
+        return res.status(403).json({ error: 'User ID mismatch' });
+      }
+
+      // Generate secure session token
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+
+      // Store session (expires in 1 hour)
+      activeSessions.set(sessionToken, {
+        userId: userId,
+        username: username || discordUser.username,
+        created: Date.now(),
+        expiresAt: Date.now() + (60 * 60 * 1000) // 1 hour
+      });
+
+      console.log(`✅ Created session for Discord user: ${username} (${userId})`);
+
+      res.json({ sessionToken });
+    } catch (error) {
+      console.error('Session creation error:', error);
+      res.status(500).json({ error: 'Failed to create session' });
     }
   });
   
@@ -114,7 +165,35 @@ function generateMatchId() {
   return 'match_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
+// Validate session token
+function validateSessionToken(token) {
+  const session = activeSessions.get(token);
+  
+  if (!session) {
+    return null;
+  }
+
+  // Check if expired
+  if (Date.now() > session.expiresAt) {
+    activeSessions.delete(token);
+    return null;
+  }
+
+  return session;
+}
+
+// Clean up expired sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of activeSessions.entries()) {
+    if (now > session.expiresAt) {
+      activeSessions.delete(token);
+    }
+  }
+}, 5 * 60 * 1000); // Every 5 minutes
+
 module.exports = {
   setupArenaRoutes,
-  generateMatchId
+  generateMatchId,
+  validateSessionToken
 };

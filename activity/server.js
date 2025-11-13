@@ -2,7 +2,7 @@ const socketIO = require('socket.io');
 const path = require('path');
 const ACTIVITY_CONFIG = require('../activityConfig');
 const { saveDataImmediate } = require('../dataManager');
-const { verifyToken } = require('../activityAuth');
+const { validateSessionToken } = require('../arenaRoutes');
 
 let io = null;
 let activityData = null;
@@ -48,9 +48,10 @@ function setupSocketHandlers() {
         return;
       }
 
-      const tokenCheck = verifyToken(data.userId, data.token);
-      if (!tokenCheck.valid) {
-        socket.emit('authError', { message: tokenCheck.error });
+      // Validate session token from Discord authentication
+      const session = validateSessionToken(data.token);
+      if (!session || session.userId !== data.userId) {
+        socket.emit('authError', { message: 'Invalid or expired session token' });
         return;
       }
 
@@ -62,7 +63,7 @@ function setupSocketHandlers() {
 
       authenticatedUsers.set(socket.id, {
         userId: data.userId,
-        username: userData.username || `Player${data.userId.slice(0, 4)}`,
+        username: session.username || userData.username || `Player${data.userId.slice(0, 4)}`,
         character: userData.selectedCharacter || 'warrior',
         joinedAt: Date.now()
       });

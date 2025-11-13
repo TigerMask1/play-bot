@@ -2,8 +2,26 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ChannelType 
 
 async function handleArenaCommand(interaction, data) {
   const userId = interaction.user.id;
+  const opponent = interaction.options.getUser('opponent');
   const userData = data.users[userId];
 
+  // Check if user is challenging themselves
+  if (opponent.id === userId) {
+    return interaction.reply({
+      content: '❌ You cannot challenge yourself! Pick a real opponent.',
+      ephemeral: true
+    });
+  }
+
+  // Check if opponent is a bot
+  if (opponent.bot) {
+    return interaction.reply({
+      content: '❌ You cannot challenge bots! Challenge a real player instead.',
+      ephemeral: true
+    });
+  }
+
+  // Check challenger's data
   if (!userData || !userData.started) {
     return interaction.reply({
       content: '❌ You need to use `!start` first before accessing the battle arena!',
@@ -18,6 +36,32 @@ async function handleArenaCommand(interaction, data) {
     });
   }
 
+  // Check opponent's data
+  const opponentData = data.users[opponent.id];
+  if (!opponentData || !opponentData.started) {
+    return interaction.reply({
+      content: `❌ ${opponent.username} hasn't started playing yet! They need to use \`!start\` first.`,
+      ephemeral: true
+    });
+  }
+
+  if (!opponentData.selectedCharacter) {
+    return interaction.reply({
+      content: `❌ ${opponent.username} hasn't selected a character yet!`,
+      ephemeral: true
+    });
+  }
+
+  // Check voice channel requirement
+  const voiceChannel = interaction.member?.voice?.channel;
+  
+  if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
+    return interaction.reply({
+      content: '❌ You need to be in a voice channel to launch the arena!\n\n**Note:** You can mute yourself - you don\'t need to talk! Just join any voice channel and try again.',
+      ephemeral: true
+    });
+  }
+
   const applicationId = process.env.DISCORD_APPLICATION_ID;
   if (!applicationId) {
     return interaction.reply({
@@ -27,47 +71,21 @@ async function handleArenaCommand(interaction, data) {
   }
 
   try {
-    const voiceChannel = interaction.member?.voice?.channel;
-    let activityUrl;
+    // Create voice channel activity invite
+    const invite = await voiceChannel.createInvite({
+      targetType: 2,
+      targetApplication: applicationId,
+      maxAge: 3600,
+      maxUses: 0
+    });
 
-    if (voiceChannel && voiceChannel.type === ChannelType.GuildVoice) {
-      // User is in voice - create voice channel activity invite
-      const invite = await voiceChannel.createInvite({
-        targetType: 2,
-        targetApplication: applicationId,
-        maxAge: 3600,
-        maxUses: 0
-      });
-      activityUrl = invite.url;
-      console.log(`✅ Created voice activity invite for ${interaction.user.tag}`);
-    } else {
-      // User not in voice - create direct web activity link
-      const { generateToken } = require('./activityAuth');
-      const token = generateToken(userId);
-      
-      // Get the correct domain based on environment
-      let domain;
-      if (process.env.RENDER_EXTERNAL_URL) {
-        // Render deployment
-        domain = process.env.RENDER_EXTERNAL_URL.replace('https://', '');
-      } else if (process.env.REPLIT_DEV_DOMAIN) {
-        domain = process.env.REPLIT_DEV_DOMAIN;
-      } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-      } else {
-        domain = `localhost:${process.env.PORT || 10000}`;
-      }
-      
-      const protocol = domain.includes('localhost') ? 'http' : 'https';
-      activityUrl = `${protocol}://${domain}/#userId=${userId}&token=${token}`;
-      console.log(`✅ Created web activity link for ${interaction.user.tag} (not in voice)`);
-    }
+    console.log(`✅ ${interaction.user.tag} challenged ${opponent.tag} to arena battle`);
 
     const embed = new EmbedBuilder()
-      .setColor('#FFD700')
-      .setTitle('🎮 Interactive Battle Arena')
-      .setDescription(`**Get ready for real-time PvP action!**\n\n🕹️ **Controls:**\n• Joystick (bottom-left) - Move your character\n• Q, W, E, R - Use skills\n\n⚔️ **How to Play:**\n• Dodge enemy attacks with skill-based movement\n• Use your abilities strategically\n• Earn rewards based on your performance\n• Climb the leaderboard!\n\n💎 **Character:** ${userData.selectedCharacter}\n🏆 **Trophies:** ${userData.trophies || 200}\n\n${voiceChannel ? '🔊 **Launching in voice channel**' : '🌐 **Play in your browser**'}\n\n*Click the button below to join the arena!*`)
-      .setFooter({ text: 'Real-time battles • Skill-based combat' })
+      .setColor('#FF4500')
+      .setTitle('⚔️ Arena Battle Challenge!')
+      .setDescription(`**${interaction.user.username}** has challenged **${opponent.username}** to a 1v1 battle!\n\n🎮 **Game Mode:** Real-time Arena Combat\n🏆 **Stakes:** Honor and Glory!\n\n**${interaction.user.username}'s Character:** ${userData.selectedCharacter}\n**${opponent.username}'s Character:** ${opponentData.selectedCharacter}\n\n💡 **Both players must:**\n1. Join the voice channel: ${voiceChannel.name}\n2. Click the "Play" button below\n3. Battle it out in the arena!\n\n🕹️ **Controls:**\n• Joystick - Move your character\n• Attack buttons - Use your character's moves\n\n*First to defeat their opponent wins!*`)
+      .setFooter({ text: '1v1 Arena Battle • Real-time Combat' })
       .setTimestamp();
 
     const row = new ActionRowBuilder()
@@ -75,10 +93,11 @@ async function handleArenaCommand(interaction, data) {
         new ButtonBuilder()
           .setLabel('Play')
           .setStyle(ButtonStyle.Link)
-          .setURL(activityUrl)
+          .setURL(invite.url)
       );
 
     await interaction.reply({
+      content: `${opponent}, you've been challenged to an arena battle by ${interaction.user}! Join ${voiceChannel.name} and click Play!`,
       embeds: [embed],
       components: [row],
       ephemeral: false

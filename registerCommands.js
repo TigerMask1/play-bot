@@ -3,8 +3,15 @@ const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 const commands = [
   {
     name: 'arena',
-    description: 'Launch the interactive battle arena!',
-    options: [],
+    description: 'Challenge someone to a 1v1 battle in the arena!',
+    options: [
+      {
+        name: 'opponent',
+        description: 'The player you want to challenge',
+        type: 6,
+        required: true
+      }
+    ],
     integration_types: [0, 1],
     contexts: [0, 1, 2]
   },
