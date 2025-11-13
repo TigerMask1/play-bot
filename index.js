@@ -4,9 +4,13 @@ const http = require('http');
 const socketIO = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
+const path = require('path');
 
 const app = express();
 app.use(express.json());
+
+// Serve activity static files (JS, CSS, assets) from root for Discord Activity
+app.use(express.static(path.join(__dirname, 'activity')));
 
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -16,7 +20,13 @@ const io = socketIO(server, {
   }
 });
 
+// Serve activity HTML at root for Discord Activity integration
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'activity', 'index.html'));
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
   res.send('Bot is alive!');
 });
 
