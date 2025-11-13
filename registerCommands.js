@@ -34,13 +34,39 @@ async function registerCommands() {
   try {
     console.log('🔄 Started refreshing application (/) commands...');
 
+    // Fetch existing commands to preserve Entry Point commands
+    const existingCommands = await rest.get(
+      Routes.applicationCommands(clientId)
+    );
+
+    // Find any Entry Point commands (these have integration_types set)
+    const entryPointCommands = existingCommands.filter(cmd => 
+      cmd.integration_types && cmd.integration_types.length > 0
+    );
+
+    // Combine our commands with existing Entry Point commands
+    const commandsToRegister = [...commands];
+    
+    for (const entryCmd of entryPointCommands) {
+      // Only add if we don't already have a command with this name
+      if (!commandsToRegister.find(c => c.name === entryCmd.name)) {
+        console.log(`📌 Preserving Entry Point command: /${entryCmd.name}`);
+        commandsToRegister.push({
+          name: entryCmd.name,
+          description: entryCmd.description,
+          integration_types: entryCmd.integration_types,
+          contexts: entryCmd.contexts
+        });
+      }
+    }
+
     await rest.put(
       Routes.applicationCommands(clientId),
-      { body: commands },
+      { body: commandsToRegister },
     );
 
     console.log('✅ Successfully registered application commands globally!');
-    console.log('📝 Registered commands:', commands.map(c => `/${c.name}`).join(', '));
+    console.log('📝 Registered commands:', commandsToRegister.map(c => `/${c.name}`).join(', '));
     console.log('⏰ Commands may take up to 1 hour to appear globally.');
     console.log('💡 To test immediately, use guild-specific registration instead.');
   } catch (error) {
