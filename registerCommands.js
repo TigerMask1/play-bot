@@ -60,13 +60,28 @@ async function registerCommands() {
       const existingCmd = existingCommandsMap.get(newCmd.name);
       
       if (existingCmd) {
-        // Command exists - merge new definition with existing ID
+        // Command exists - merge new definition with existing ID and type
         console.log(`🔄 Updating existing command: /${newCmd.name} (ID: ${existingCmd.id})`);
         
         const updatedCmd = {
           ...newCmd,
           id: existingCmd.id
         };
+        
+        // Preserve the type field if it exists (immutable)
+        if (existingCmd.type !== undefined) {
+          updatedCmd.type = existingCmd.type;
+        }
+        
+        // If the existing command has integration_types, preserve them
+        if (existingCmd.integration_types) {
+          updatedCmd.integration_types = existingCmd.integration_types;
+        }
+        
+        // If the existing command has contexts, preserve them
+        if (existingCmd.contexts) {
+          updatedCmd.contexts = existingCmd.contexts;
+        }
         
         commandsToRegister.push(updatedCmd);
         existingCommandsMap.delete(newCmd.name);
