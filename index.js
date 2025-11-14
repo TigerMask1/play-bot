@@ -1983,16 +1983,31 @@ client.on('messageCreate', async (message) => {
         
         const mail = sendMailToAll(mailMsg, rewards, message.author.username);
         let mailCount = 0;
+        let dmCount = 0;
         
-        for (const userId in data.users) {
-          if (data.users[userId].started) {
-            addMailToUser(data.users[userId], mail);
+        for (const uid in data.users) {
+          if (data.users[uid].started) {
+            addMailToUser(data.users[uid], mail);
             mailCount++;
+            
+            try {
+              const targetUser = await client.users.fetch(uid);
+              const dmEmbed = new EmbedBuilder()
+                .setColor('#FFD700')
+                .setTitle('📬 You have new mail!')
+                .setDescription(`From: **${mail.from}**\n\n${mail.message}`)
+                .setFooter({ text: 'Use !mail to view and claim your rewards!' });
+              
+              await targetUser.send({ embeds: [dmEmbed] });
+              dmCount++;
+            } catch (error) {
+              console.log(`Could not send DM to user ${uid}`);
+            }
           }
         }
         
         saveData(data);
-        await message.reply(`✅ Sent mail to ${mailCount} players!`);
+        await message.reply(`✅ Sent mail to ${mailCount} players! (${dmCount} DM notifications sent)`);
         break;
         
       case 'news':
@@ -2035,7 +2050,27 @@ client.on('messageCreate', async (message) => {
         }
         
         postNews(newsTitle, newsContent);
-        await message.reply(`✅ News posted: **${newsTitle}**`);
+        
+        let newsDmCount = 0;
+        for (const uid in data.users) {
+          if (data.users[uid].started) {
+            try {
+              const targetUser = await client.users.fetch(uid);
+              const newsEmbed = new EmbedBuilder()
+                .setColor('#1ABC9C')
+                .setTitle(`📰 ${newsTitle}`)
+                .setDescription(newsContent)
+                .setFooter({ text: 'Use !news to view all announcements!' });
+              
+              await targetUser.send({ embeds: [newsEmbed] });
+              newsDmCount++;
+            } catch (error) {
+              console.log(`Could not send DM to user ${uid}`);
+            }
+          }
+        }
+        
+        await message.reply(`✅ News posted: **${newsTitle}** (${newsDmCount} DM notifications sent)`);
         break;
         
       case 'leaderboard':
