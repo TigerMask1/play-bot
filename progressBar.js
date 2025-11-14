@@ -32,16 +32,16 @@ function createColoredProgressBar(current, max, length = 20) {
 
 function createQuestProgressBar(current, max) {
   const percentage = Math.min(100, Math.max(0, (current / max) * 100));
-  const filledLength = Math.round((percentage / 100) * 15);
-  const emptyLength = 15 - filledLength;
+  const barLength = 15;
+  const filledLength = Math.round((percentage / 100) * barLength);
+  const emptyLength = barLength - filledLength;
   
-  const filled = '▰';
-  const empty = '▱';
+  const filled = '█';
+  const empty = '▬';
   
   const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
-  const status = percentage >= 100 ? '✅' : '⏳';
   
-  return `${status} ${bar} ${current}/${max}`;
+  return `${bar} ${current}/${max}`;
 }
 
 function createLevelProgressBar(currentTokens, requiredTokens) {

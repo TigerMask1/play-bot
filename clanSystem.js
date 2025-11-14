@@ -169,7 +169,7 @@ function getClanLeaderboard(data) {
   return clans;
 }
 
-function formatClanProfile(clan, guildName = 'Unknown Server') {
+function formatClanProfile(clan, guildName = 'Unknown Server', data) {
   const memberCount = Object.keys(clan.members).length;
   
   const embed = new EmbedBuilder()
@@ -188,10 +188,40 @@ function formatClanProfile(clan, guildName = 'Unknown Server') {
     embed.addFields({ name: '🎁 Last Week Reward', value: `${clan.lastWeekReward.toLocaleString()} points`, inline: true });
   }
   
+  if (data && data.clanWars) {
+    const timeRemaining = getTimeUntilReset(data);
+    embed.addFields({ name: '⏰ Week Resets In', value: timeRemaining, inline: false });
+  }
+  
   return embed;
 }
 
-function formatClanLeaderboard(clans, client) {
+function getTimeUntilReset(data) {
+  if (!data.clanWars || !data.clanWars.lastReset) {
+    return 'Unknown';
+  }
+  
+  const timeSinceReset = Date.now() - data.clanWars.lastReset;
+  const timeRemaining = WEEK_IN_MS - timeSinceReset;
+  
+  if (timeRemaining <= 0) {
+    return 'Resetting soon...';
+  }
+  
+  const days = Math.floor(timeRemaining / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((timeRemaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const minutes = Math.floor((timeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+  
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
+}
+
+function formatClanLeaderboard(clans, client, data) {
   const embed = new EmbedBuilder()
     .setColor('#00D9FF')
     .setTitle('🏆 Global Clan Wars Leaderboard')
@@ -219,6 +249,11 @@ function formatClanLeaderboard(clans, client) {
   }).join('\n');
   
   embed.addFields({ name: '📊 Rankings', value: leaderboardText, inline: false });
+  
+  if (data && data.clanWars) {
+    const timeRemaining = getTimeUntilReset(data);
+    embed.setFooter({ text: `⏰ Week resets in: ${timeRemaining}` });
+  }
   
   return embed;
 }

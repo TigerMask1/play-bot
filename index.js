@@ -592,14 +592,14 @@ client.on('messageCreate', async (message) => {
         }
         
         const clan = getClan(data, serverId);
-        const clanProfileEmbed = formatClanProfile(clan, message.guild.name);
+        const clanProfileEmbed = formatClanProfile(clan, message.guild.name, data);
         await message.reply({ embeds: [clanProfileEmbed] });
         break;
         
       case 'clans':
       case 'clanleaderboard':
         const leaderboard = getClanLeaderboard(data);
-        const leaderboardEmbed = formatClanLeaderboard(leaderboard, client);
+        const leaderboardEmbed = formatClanLeaderboard(leaderboard, client, data);
         await message.reply({ embeds: [leaderboardEmbed] });
         break;
         
@@ -720,6 +720,13 @@ client.on('messageCreate', async (message) => {
         
         if (user.selectedCharacter) {
           profileEmbed.addFields({ name: '⭐ Selected', value: user.selectedCharacter, inline: true });
+        }
+        
+        const userClanData = getUserClan(data, targetId);
+        if (userClanData) {
+          const clanGuild = client.guilds.cache.get(userClanData.serverId);
+          const clanName = clanGuild ? clanGuild.name : 'Unknown Clan';
+          profileEmbed.addFields({ name: '🏰 Clan', value: clanName, inline: true });
         }
         
         let displayCharName = user.profileDisplayCharacter || user.selectedCharacter;
