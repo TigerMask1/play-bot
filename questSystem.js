@@ -229,13 +229,13 @@ function formatQuestDisplay(userData, quest) {
   const progressBar = createQuestProgressBar(progress, quest.requirement);
   
   const rewards = [];
-  if (quest.reward.coins) rewards.push(`💰${quest.reward.coins}`);
-  if (quest.reward.gems) rewards.push(`💎${quest.reward.gems}`);
-  if (quest.reward.shards) rewards.push(`🔷${quest.reward.shards}`);
+  if (quest.reward.coins) rewards.push(`${quest.reward.coins.toLocaleString()} Pokécoins`);
+  if (quest.reward.gems) rewards.push(`${quest.reward.gems} Gems`);
+  if (quest.reward.shards) rewards.push(`${quest.reward.shards} Shards`);
   
-  const status = completed ? '✅ CLAIMED' : (canClaim ? '🎁 READY!' : '');
+  const status = completed ? ' ✅' : (canClaim ? ' 🎁' : '');
   
-  return `**${quest.id}. ${quest.name}** ${status}\n${quest.description}\n${progressBar}\nReward: ${rewards.join(' ')}`;
+  return `**${quest.description}${status}**\n${progressBar}\n**Reward:** ${rewards.join(', ')}`;
 }
 
 module.exports = {
