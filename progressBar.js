@@ -36,12 +36,12 @@ function createQuestProgressBar(current, max) {
   const filledLength = Math.round((percentage / 100) * barLength);
   const emptyLength = barLength - filledLength;
   
-  const filled = '█';
-  const empty = '░';
+  const filled = '🟨';
+  const empty = '⬛';
   
   const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
   
-  return `\`${bar}\` ${current}/${max}`;
+  return `${bar} ${current}/${max}`;
 }
 
 function createLevelProgressBar(currentTokens, requiredTokens) {
@@ -50,12 +50,12 @@ function createLevelProgressBar(currentTokens, requiredTokens) {
   const filledLength = Math.round((percentage / 100) * barLength);
   const emptyLength = barLength - filledLength;
   
-  const filled = '█';
-  const empty = '░';
+  const filled = '🟨';
+  const empty = '⬛';
   
   const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
   
-  return `🎫 \`${bar}\` **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
+  return `🎫 ${bar} **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
 }
 
 module.exports = {
