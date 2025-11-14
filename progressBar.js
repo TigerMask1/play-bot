@@ -50,11 +50,11 @@ function createLevelProgressBar(currentTokens, requiredTokens) {
   const filledLength = Math.round((percentage / 100) * barLength);
   const emptyLength = barLength - filledLength;
   
-  // ANSI color codes: \u001b[43m = yellow background, \u001b[40m = black background, \u001b[0m = reset
-  const filled = '\u001b[43m' + ' '.repeat(filledLength) + '\u001b[0m';
-  const empty = '\u001b[40m' + ' '.repeat(emptyLength) + '\u001b[0m';
+  // ANSI codes: 30 = black text, 43 = yellow bg, 40 = black bg
+  const filledBar = '\u001b[0;30;43m' + '█'.repeat(filledLength) + '\u001b[0m';
+  const emptyBar = '\u001b[0;30;40m' + '█'.repeat(emptyLength) + '\u001b[0m';
   
-  return '🎫 ```ansi\n' + filled + empty + '```' + `**${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
+  return `🎫 \`\`\`ansi\n${filledBar}${emptyBar}\n\`\`\` **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
 }
 
 module.exports = {
