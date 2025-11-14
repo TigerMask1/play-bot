@@ -101,6 +101,49 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
   - Message-based crate rewards (every 25 messages)
   - Quest rewards and daily rewards already used immediate saves
 - **Admin Commands:** Added `!pttasks` (list all 57 personalized tasks) and `!ptsendtask` (manually assign tasks by ID) for testing
+- **UI/UX Improvements & Security Hardening (November 14, 2025 - Latest):**
+  - **Simplified Progress Bars:** Updated quest progress bars to cleaner █/▬ block style with fraction display only (matching user's screenshot reference)
+  - **Clan War Timer:** Added time remaining display to clan profile and leaderboard commands showing countdown to weekly reset
+  - **Enhanced Profile Display:** User profiles now show clan membership (server name) when in a clan
+  - **DM Notifications:** Mail and news systems now send direct message notifications to all players when new content is posted
+    - Graceful error handling for users with DMs disabled
+    - Admin feedback shows count of successful DM notifications sent
+  - **Security Hardening:** Restricted 12 critical economy/admin commands to super-admin only (previously some were bot-admin accessible)
+    - Commands now requiring super-admin: !grant, !grantchar, !delete, !sendmail, !postnews, !setskin, !removeskin, !resetskin, !reset, !settrophies, !setemoji, !setchestgif
+    - Prevents potential economy manipulation by non-owner admins in public deployment
+    - Super admin IDs hardcoded in serverConfigManager.js for security
+  - **Bug Fixes:** Fixed runtime error in setDropChannel/setEventsChannel admin commands that was causing crashes
+  - **Clan Wars System:** Verified weekly prize distribution system is functional with proper reward calculation based on contribution
+  - **Promotion System:** Multi-server promotion system working (requires main server invite link configuration before deployment)
+
+## Multi-Server Architecture
+The bot supports deployment across multiple Discord servers with different feature sets:
+
+**Main Server Features:**
+- All standard features (character collection, battles, economy, etc.)
+- Faster drop rates (20 seconds vs 30 seconds on other servers)
+- Full clan wars participation and leaderboard
+- Event hosting and rewards distribution
+- No promotional messages
+
+**Non-Main Server Features:**
+- All standard features (character collection, battles, economy, etc.)
+- Standard drop rates (30 seconds)
+- Full clan wars participation (can compete against main server clan)
+- Promotional messages every 30 minutes advertising main server perks
+- Event participation (events are global across all servers)
+
+**Server Configuration:**
+- Main server ID defined in serverConfigManager.js: `'1430516117851340893'`
+- Super admin IDs (bot owners): `'1296110901057032202'`, `'1296109674361520146'`
+- Each server requires setup via `!setup` command to configure drop and events channels
+- Bot admins can be added per-server using `!addadmin` and `!removeadmin` commands
+
+**Configuration Requirements Before Deployment:**
+1. Update main server invite link in promotionSystem.js (line 9) - currently set to placeholder
+2. Verify main server ID in serverConfigManager.js matches your actual main server
+3. Verify super admin IDs in serverConfigManager.js are correct
+4. Run `!setup` in each server to configure channels
 
 ## External Dependencies
 - **Discord.js v14**: For Discord API interaction.
