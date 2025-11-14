@@ -1,5 +1,5 @@
 const CHARACTERS = [
-  { name: 'Bali', emoji: '<:bali:1429988685943799888>', obtainable: 'crate' },
+  { name: 'Bali', emoji: '<:bali:1429988685943799888>', customEmojiId: '1429988685943799888', obtainable: 'crate' },
   { name: 'Betsy', emoji: '🦫', obtainable: 'crate' },
   { name: 'Bruce', emoji: '🦍', obtainable: 'starter' },
   { name: 'Buck', emoji: '🐂', obtainable: 'starter' },
