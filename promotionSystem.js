@@ -2,7 +2,9 @@ const { EmbedBuilder } = require('discord.js');
 const { isMainServer, getServerConfig } = require('./serverConfigManager.js');
 
 const PROMOTION_INTERVAL = 30 * 60 * 1000; // 30 minutes
-const MAIN_SERVER_INVITE = 'https://discord.gg/yourinvitelink'; // Update this with your actual invite link
+// TODO: IMPORTANT - Update this with your actual main server invite link before deployment!
+// This link is shown in promotional messages on non-main servers
+const MAIN_SERVER_INVITE = 'https://discord.gg/yourinvitelink';
 
 let promotionIntervals = new Map();
 let client = null;
