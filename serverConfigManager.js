@@ -155,8 +155,8 @@ async function setDropChannel(serverId, channelId, setBy) {
     return { success: false, message: '❌ Cannot change drop channel on main server!' };
   }
   
-  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId) && !message?.member?.permissions.has(require('discord.js').PermissionFlagsBits.Administrator)) {
-    return { success: false, message: '❌ Only server admins or bot admins can set the drop channel!' };
+  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
+    return { success: false, message: '❌ Only bot admins can set the drop channel!' };
   }
   
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
@@ -185,8 +185,8 @@ async function setEventsChannel(serverId, channelId, setBy) {
     return { success: false, message: '❌ Cannot change events channel on main server!' };
   }
   
-  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId) && !message?.member?.permissions.has(require('discord.js').PermissionFlagsBits.Administrator)) {
-    return { success: false, message: '❌ Only server admins or bot admins can set the events channel!' };
+  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
+    return { success: false, message: '❌ Only bot admins can set the events channel!' };
   }
   
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };

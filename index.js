@@ -483,8 +483,8 @@ client.on('messageCreate', async (message) => {
         
       case 'delete':
       case 'deleteuser':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission to delete user accounts!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1182,8 +1182,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'grant':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1240,8 +1240,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'grantchar':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1323,8 +1323,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'addskin':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1350,8 +1350,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'grantskin':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1399,8 +1399,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'revokeskin':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1449,8 +1449,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'deleteskin':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1484,8 +1484,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'uploadskin':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -1948,8 +1948,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'sendmail':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -2009,8 +2009,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'postnews':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -2172,8 +2172,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'settrophies':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
@@ -2287,8 +2287,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'reset':
-        if (!isAdmin) {
-          await message.reply('❌ You need Administrator permission!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
