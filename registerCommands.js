@@ -77,17 +77,8 @@ async function registerCommands() {
       }
     }
     
-    // List of removed commands that should not be preserved
-    const removedCommands = ['arena', 'launch'];
-    
     // Preserve any remaining Entry Point commands that aren't in our new list
     for (const [name, existingCmd] of existingCommandsMap) {
-      // Skip commands that have been intentionally removed
-      if (removedCommands.includes(name.toLowerCase())) {
-        console.log(`🗑️ Removing command: /${name} (ID: ${existingCmd.id})`);
-        continue;
-      }
-      
       if (existingCmd.integration_types && existingCmd.integration_types.length > 0) {
         console.log(`📌 Preserving Entry Point command: /${name} (ID: ${existingCmd.id})`);
         

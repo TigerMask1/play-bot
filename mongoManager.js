@@ -60,9 +60,11 @@ async function loadData() {
   try {
     const usersCollection = await getCollection('users');
     const configCollection = await getCollection('config');
+    const clansCollection = await getCollection('clans');
     
     const users = await usersCollection.find({}).toArray();
     const config = await configCollection.findOne({ _id: 'bot_config' });
+    const clans = await clansCollection.find({}).toArray();
     
     const userData = {};
     users.forEach(user => {
@@ -72,8 +74,23 @@ async function loadData() {
       userData[userId] = user;
     });
     
+    const clansData = {};
+    clans.forEach(clan => {
+      const serverId = clan.serverId;
+      delete clan._id;
+      clansData[serverId] = clan;
+    });
+    
+    const clanWarsConfig = await configCollection.findOne({ _id: 'clan_wars' });
+    
     return {
       users: userData,
+      clans: clansData,
+      clanWars: clanWarsConfig || {
+        currentWeekStart: Date.now(),
+        lastReset: Date.now(),
+        weekNumber: 1
+      },
       dropChannelId: config?.dropChannelId || null,
       battleChannelId: config?.battleChannelId || null,
       eventChannelId: config?.eventChannelId || null
@@ -82,6 +99,12 @@ async function loadData() {
     console.error('Error loading data from MongoDB:', error);
     return {
       users: {},
+      clans: {},
+      clanWars: {
+        currentWeekStart: Date.now(),
+        lastReset: Date.now(),
+        weekNumber: 1
+      },
       dropChannelId: null,
       battleChannelId: null,
       eventChannelId: null
@@ -89,17 +112,39 @@ async function loadData() {
   }
 }
 
+function stripUnnecessaryFields(userData) {
+  const cleaned = { ...userData };
+  
+  if (cleaned.bronzeCrates === 0) delete cleaned.bronzeCrates;
+  if (cleaned.silverCrates === 0) delete cleaned.silverCrates;
+  if (cleaned.goldCrates === 0) delete cleaned.goldCrates;
+  if (cleaned.emeraldCrates === 0) delete cleaned.emeraldCrates;
+  if (cleaned.legendaryCrates === 0) delete cleaned.legendaryCrates;
+  if (cleaned.tyrantCrates === 0) delete cleaned.tyrantCrates;
+  if (cleaned.shards === 0) delete cleaned.shards;
+  if (cleaned.stBoosters === 0) delete cleaned.stBoosters;
+  if (cleaned.pendingTokens === 0) delete cleaned.pendingTokens;
+  if (cleaned.messageCount === 0) delete cleaned.messageCount;
+  if (Array.isArray(cleaned.mailbox) && cleaned.mailbox.length === 0) delete cleaned.mailbox;
+  if (Array.isArray(cleaned.completedQuests) && cleaned.completedQuests.length === 0) delete cleaned.completedQuests;
+  if (cleaned.inventory && Object.keys(cleaned.inventory).length === 0) delete cleaned.inventory;
+  
+  return cleaned;
+}
+
 async function saveData(data) {
   try {
     const usersCollection = await getCollection('users');
     const configCollection = await getCollection('config');
+    const clansCollection = await getCollection('clans');
     
     const bulkOps = [];
     for (const [userId, userData] of Object.entries(data.users)) {
+      const cleanedData = stripUnnecessaryFields(userData);
       bulkOps.push({
         updateOne: {
           filter: { userId },
-          update: { $set: { userId, ...userData } },
+          update: { $set: { userId, ...cleanedData } },
           upsert: true
         }
       });
@@ -107,6 +152,23 @@ async function saveData(data) {
     
     if (bulkOps.length > 0) {
       await usersCollection.bulkWrite(bulkOps);
+    }
+    
+    if (data.clans) {
+      const clanBulkOps = [];
+      for (const [serverId, clanData] of Object.entries(data.clans)) {
+        clanBulkOps.push({
+          updateOne: {
+            filter: { serverId },
+            update: { $set: { ...clanData } },
+            upsert: true
+          }
+        });
+      }
+      
+      if (clanBulkOps.length > 0) {
+        await clansCollection.bulkWrite(clanBulkOps);
+      }
     }
     
     await configCollection.updateOne(
@@ -120,6 +182,14 @@ async function saveData(data) {
       },
       { upsert: true }
     );
+    
+    if (data.clanWars) {
+      await configCollection.updateOne(
+        { _id: 'clan_wars' },
+        { $set: data.clanWars },
+        { upsert: true }
+      );
+    }
     
     return true;
   } catch (error) {
