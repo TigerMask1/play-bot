@@ -1,19 +1,14 @@
 function createProgressBar(current, max, length = 20, showPercentage = true) {
   const percentage = Math.min(100, Math.max(0, (current / max) * 100));
+  const filledLength = Math.round((percentage / 100) * length);
+  const emptyLength = length - filledLength;
 
-  // Improved fractional block system (8 levels)
-  const totalLevels = length * 8;
-  const filledLevels = Math.floor((percentage / 100) * totalLevels);
+  const blocks = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+  const fullBlocks = Math.floor(filledLength);
+  const partialBlock = filledLength - fullBlocks;
+  const partialIndex = Math.floor(partialBlock * (blocks.length - 1));
 
-  const fullBlocks = Math.floor(filledLevels / 8);
-  const partialIndex = filledLevels % 8;
-
-  const blocks = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'];
-
-  const bar =
-    '█'.repeat(fullBlocks) +
-    (partialIndex > 0 ? blocks[partialIndex] : '') +
-    '░'.repeat(length - fullBlocks - (partialIndex > 0 ? 1 : 0));
+  const bar = '█'.repeat(fullBlocks) + blocks[partialIndex] + '░'.repeat(Math.max(0, emptyLength - (partialBlock > 0 ? 1 : 0)));
 
   if (showPercentage) {
     return `${bar} ${percentage.toFixed(1)}%`;
@@ -23,27 +18,28 @@ function createProgressBar(current, max, length = 20, showPercentage = true) {
 
 function createColoredProgressBar(current, max, length = 20) {
   const percentage = Math.min(100, Math.max(0, (current / max) * 100));
-  const filled = Math.round((percentage / 100) * length);
-  const empty = length - filled;
+  const filledLength = Math.round((percentage / 100) * length);
+  const emptyLength = length - filledLength;
 
   let color = '🟩';
   if (percentage < 25) color = '🟥';
   else if (percentage < 50) color = '🟧';
   else if (percentage < 75) color = '🟨';
 
-  return `${color.repeat(filled)}${"⬛".repeat(empty)} ${current}/${max}`;
+  const bar = color.repeat(filledLength) + '⬛'.repeat(emptyLength);
+  return `${bar} ${current}/${max}`;
 }
 
 function createQuestProgressBar(current, max) {
   const percentage = Math.min(100, Math.max(0, (current / max) * 100));
   const barLength = 15;
-
   const filledLength = Math.round((percentage / 100) * barLength);
   const emptyLength = barLength - filledLength;
 
-  const bar =
-    '█'.repeat(filledLength) +
-    '▬'.repeat(emptyLength);
+  const filled = '█';
+  const empty = '▬';
+
+  const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
 
   return `${bar} ${current}/${max}`;
 }
@@ -51,43 +47,19 @@ function createQuestProgressBar(current, max) {
 function createLevelProgressBar(currentTokens, requiredTokens) {
   const percentage = Math.min(100, (currentTokens / requiredTokens) * 100);
   const barLength = 20;
+  const filledLength = Math.round((percentage / 100) * barLength);
+  const emptyLength = barLength - filledLength;
 
-  const filled = Math.round((percentage / 100) * barLength);
-  const empty = barLength - filled;
+  // ANSI codes: 33 = yellow text, 30 = black text, 40 = black background
+  const filledBar = '\u001b[0;33;40m' + '█'.repeat(filledLength) + '\u001b[0m';
+  const emptyBar = '\u001b[0;30;40m' + '█'.repeat(emptyLength) + '\u001b[0m';
 
-  const filledBar = '🟨'.repeat(filled);
-  const emptyBar = '⬛'.repeat(empty);
-
-  return `🎫 **${filledBar}${emptyBar} ${percentage.toFixed(0)}% (${currentTokens}/${requiredTokens})**`;
+  return `🎫 \`\`\`ansi\n${filledBar}${emptyBar}\n\`\`\` **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
 }
-
-
-// ⭐ NEW: CLEAN CONTINUOUS BORDERED PROGRESS BAR
-function createBorderProgressBar(current, max, length = 20) {
-  const percentage = Math.min(100, Math.max(0, (current / max) * 100));
-
-  const totalLevels = length * 8;
-  const filledLevels = Math.floor((percentage / 100) * totalLevels);
-
-  const fullBlocks = Math.floor(filledLevels / 8);
-  const partialIndex = filledLevels % 8;
-
-  const blocks = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'];
-
-  const bar =
-    '█'.repeat(fullBlocks) +
-    (partialIndex > 0 ? blocks[partialIndex] : '') +
-    '░'.repeat(length - fullBlocks - (partialIndex > 0 ? 1 : 0));
-
-  return `[${bar}] ${percentage.toFixed(1)}%`;
-}
-
-
 
 module.exports = {
   createProgressBar,
   createColoredProgressBar,
   createQuestProgressBar,
-  createLevelProgressBar,
-  createBorderProgressBar // added new one
+  createLevelProgressBar
 };
