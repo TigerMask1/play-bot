@@ -12,6 +12,8 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 **UI/UX Decisions:**
 - **Character Skins:** Visual skins for characters displayed in embeds, with an admin system for custom skins.
 - **Paginated Profiles:** User profiles and character details are paginated with progress bars.
+- **Enhanced Visual Progress Bars:** 12-slot colored emoji progress bars (🟩🟦🟨🟧🟥⬜) with percentage display for token collection tracking.
+- **Profile Customization:** Players can choose which owned character displays as their profile picture (separate from battle selection).
 - **Embeds for Information:** Extensive use of Discord embeds for displaying game information.
 - **Emoji Integration:** Characters and items are often represented with emojis.
 
@@ -37,6 +39,22 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Performance Optimization:** In-memory caching for skins (5-minute TTL), MongoDB indexes for fast queries on users, events, and participants, and optimized drop system that minimizes Discord API calls.
 
 ## Recent Changes (November 2025)
+- **Visual Enhancements & Player Documentation (November 14, 2025):**
+  - **Enhanced Progress Bars:** Implemented colorful 12-square visual progress bars using emoji indicators (🟩🟦🟨🟧🟥⬜)
+    - Color-coded based on percentage: Red (0-24%), Orange (25-49%), Yellow (50-74%), Blue (75-99%), Green (100%)
+    - Displays alongside percentage for easy at-a-glance progress tracking
+  - **Profile Customization:** Added `!setprofilepic` / `!setpfp` command
+    - Players can now choose which owned character displays as their profile picture
+    - Profile picture is separate from selected battle character
+    - Shows character's current equipped skin in profile thumbnail
+    - Graceful fallback: resets to selected character if profile character is traded/released
+  - **Data Layer:** Added `profileDisplayCharacter` field with automatic backfilling for existing users
+  - **Comprehensive Documentation:** Created PLAYER_GUIDE.md (500+ lines)
+    - Step-by-step tutorials for beginners
+    - Advanced strategies for experienced players
+    - Complete command reference covering all 11 major game systems
+    - FAQs, pro tips, and visual examples
+    - Validated against actual code implementation for accuracy
 - **Performance Optimization & Discord Activity Removal (November 14, 2025):**
   - **REMOVED:** All Discord Activity related code to reduce complexity and server load
     - Deleted activity folder, Socket.IO integration, arena routes, and all activity-related files
