@@ -6,8 +6,10 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 const USE_MONGODB = process.env.USE_MONGODB === 'true';
 
 let mongoManager = null;
+let emojiManager = null;
 if (USE_MONGODB) {
   mongoManager = require('./mongoManager.js');
+  emojiManager = require('./emojiAssetManager.js');
 }
 
 let saveQueue = [];
@@ -152,6 +154,10 @@ function backfillUserData(data) {
         if (!char.ownedSkins) {
           char.ownedSkins = ['default'];
           needsSave = true;
+        }
+        
+        if (emojiManager) {
+          emojiManager.applyCharacterEmoji(char);
         }
       });
     }

@@ -92,13 +92,28 @@ const {
   formatClanLeaderboard,
   startWeeklyClanWars
 } = require('./clanSystem.js');
+const { initializeEmojiAssets, getEmojiForCharacter, setCharacterEmoji, refreshAllCharacterEmojis } = require('./emojiAssetManager.js');
+const { 
+  initializeChestVisuals, 
+  getChestVisual, 
+  setChestGif, 
+  startPickSession, 
+  getActiveSession, 
+  clearSession 
+} = require('./chestInteractionManager.js');
 
 const PREFIX = '!';
 let data;
 
 async function initializeBot() {
+  await initializeEmojiAssets();
+  await initializeChestVisuals();
+  
   data = await loadData();
   console.log('✅ Data loaded successfully');
+  
+  await refreshAllCharacterEmojis(data.users);
+  console.log('✅ Custom emojis applied to all characters');
 }
 
 function generateST() {
@@ -411,6 +426,59 @@ client.on('messageCreate', async (message) => {
         
         const removeResult = await removeBotAdmin(serverId, userToRemove.id, userId);
         await message.reply(removeResult.message);
+        break;
+      
+      case 'setemoji':
+        if (serverId && !isBotAdmin(serverId, userId) && !isSuperAdmin(userId)) {
+          await message.reply('❌ Only bot admins can set custom character emojis!');
+          return;
+        }
+        
+        if (!serverId && !isSuperAdmin(userId)) {
+          await message.reply('❌ This command can only be used by super admins in DMs!');
+          return;
+        }
+        
+        const emojiCharName = args[0];
+        const emojiInput = args[1];
+        
+        if (!emojiCharName || !emojiInput) {
+          await message.reply('Usage: `!setemoji <character name> <emoji ID or unicode>`\n\nExample: `!setemoji Nix 1234567890` (for custom Discord emoji)\nExample: `!setemoji Nix 🦊` (for unicode emoji)');
+          return;
+        }
+        
+        const setEmojiResult = await setCharacterEmoji(emojiCharName, emojiInput);
+        
+        if (setEmojiResult.success) {
+          await refreshAllCharacterEmojis(data.users);
+          await saveDataImmediate(data);
+        }
+        
+        await message.reply(setEmojiResult.message);
+        break;
+      
+      case 'setchestgif':
+      case 'setcrategif':
+        if (serverId && !isBotAdmin(serverId, userId) && !isSuperAdmin(userId)) {
+          await message.reply('❌ Only bot admins can customize chest GIFs!');
+          return;
+        }
+        
+        if (!serverId && !isSuperAdmin(userId)) {
+          await message.reply('❌ This command can only be used by super admins in DMs!');
+          return;
+        }
+        
+        const chestType = args[0]?.toLowerCase();
+        const gifUrl = args[1];
+        
+        if (!chestType || !gifUrl) {
+          await message.reply('Usage: `!setchestgif <chest type> <gif URL>`\n\nAvailable types: bronze, silver, gold, emerald, legendary, tyrant\n\nExample: `!setchestgif gold https://media.giphy.com/media/67ThRZlYBvibtdF9JH/giphy.gif`');
+          return;
+        }
+        
+        const setGifResult = await setChestGif(chestType, gifUrl, userId);
+        await message.reply(setGifResult.message);
         break;
         
       case 'delete':
@@ -743,28 +811,74 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [resultEmbed] });
         break;
       
-      case 'opencrate':
-        const openCrateType = args[0]?.toLowerCase();
-        const allCrates = ['bronze', 'silver', 'gold', 'emerald', 'legendary', 'tyrant'];
+      case 'pickcrate':
+      case 'pickchest':
+        const pickType = args[0]?.toLowerCase();
+        const allCrateTypes = ['bronze', 'silver', 'gold', 'emerald', 'legendary', 'tyrant'];
         
-        if (!allCrates.includes(openCrateType)) {
-          await message.reply('Usage: `!opencrate <type>`\nAvailable: bronze, silver, gold, emerald, legendary, tyrant\n\nUse `!crate` to see your inventory!');
+        if (!allCrateTypes.includes(pickType)) {
+          await message.reply('Usage: `!pickcrate <type>`\nAvailable: bronze, silver, gold, emerald, legendary, tyrant\n\nUse `!crate` to see your inventory!');
           return;
         }
         
-        const openResult = await openCrate(data, userId, openCrateType, client);
+        const crateKey = `${pickType}Crates`;
+        const userCrateCount = data.users[userId][crateKey] || 0;
+        
+        if (userCrateCount < 1) {
+          await message.reply(`❌ You don't have any ${pickType} crates!`);
+          return;
+        }
+        
+        const sessionResult = startPickSession(userId, pickType);
+        if (!sessionResult.success) {
+          await message.reply(sessionResult.message);
+          return;
+        }
+        
+        const chestVisual = await getChestVisual(pickType);
+        
+        const readyEmbed = new EmbedBuilder()
+          .setColor(chestVisual.embedColor)
+          .setTitle(`${chestVisual.displayName} Chest is Ready! ✨`)
+          .setDescription(`<@${userId}> picked a **${chestVisual.displayName}** chest!\n\n🎁 Your chest is ready to open!\n⏰ You have **2 minutes** to open it.\n\nType \`!opencrate\` to open your chest!`)
+          .setImage(chestVisual.readyGifUrl)
+          .setTimestamp();
+        
+        await message.reply({ embeds: [readyEmbed] });
+        break;
+      
+      case 'opencrate':
+      case 'openchest':
+        const activeSession = getActiveSession(userId);
+        
+        if (!activeSession) {
+          await message.reply('❌ You don\'t have an active chest session!\n\nUse `!pickcrate <type>` to start opening a chest.\nExample: `!pickcrate gold`');
+          return;
+        }
+        
+        const timeLeft = Math.ceil((activeSession.expiresAt - Date.now()) / 1000);
+        
+        if (timeLeft <= 0) {
+          clearSession(userId);
+          await message.reply('❌ Your chest session expired! Use `!pickcrate <type>` to pick a new chest.');
+          return;
+        }
+        
+        const openResult = await openCrate(data, userId, activeSession.crateType, client);
         
         if (!openResult.success) {
+          clearSession(userId);
           await message.reply(`❌ ${openResult.message}`);
           return;
         }
         
+        clearSession(userId);
         await saveDataImmediate(data);
         
         const openResultEmbed = new EmbedBuilder()
           .setColor('#FFD700')
-          .setTitle(`🎁 ${openCrateType.toUpperCase()} CRATE OPENED!`)
-          .setDescription(`<@${userId}> opened a crate!\n\n${openResult.message}`)
+          .setTitle(`🎁 ${activeSession.crateType.toUpperCase()} CHEST OPENED!`)
+          .setDescription(`<@${userId}> opened their chest!\n\n${openResult.message}`)
           .setTimestamp();
         
         await message.reply({ embeds: [openResultEmbed] });

@@ -2,6 +2,7 @@ const CHARACTERS = require('./characters.js');
 const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 const eventSystem = require('./eventSystem.js');
 const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
+const { getEmojiForCharacter } = require('./emojiAssetManager.js');
 
 const CRATE_TYPES = {
   bronze: {
@@ -53,6 +54,8 @@ const CRATE_TYPES = {
     emoji: '🔴'
   }
 };
+
+module.exports.CRATE_TYPES = CRATE_TYPES;
 
 function generateST() {
   return parseFloat((Math.random() * 100).toFixed(2));
@@ -184,9 +187,9 @@ async function openCrate(data, userId, crateType, client = null) {
       const newMoves = assignMovesToCharacter(randomChar.name, newST);
       const newHP = calculateBaseHP(newST);
       
-      user.characters.push({
+      const newCharacter = {
         name: randomChar.name,
-        emoji: randomChar.emoji,
+        emoji: getEmojiForCharacter(randomChar.name),
         level: 1,
         tokens: startingTokens,
         st: newST,
@@ -194,7 +197,9 @@ async function openCrate(data, userId, crateType, client = null) {
         baseHp: newHP,
         currentSkin: 'default',
         ownedSkins: ['default']
-      });
+      };
+      
+      user.characters.push(newCharacter);
       
       user.questProgress.charsFromCrates = (user.questProgress.charsFromCrates || 0) + 1;
       
