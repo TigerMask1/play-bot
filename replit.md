@@ -16,11 +16,10 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Emoji Integration:** Characters and items are often represented with emojis.
 
 **Technical Implementations:**
-- **Discord Activity Battle Arena:** Real-time multiplayer arena with Phaser.js, Socket.IO, HMAC authentication, joystick controls, visual effects, and reward persistence. Toggle via `activityConfig.js`.
 - **Character System:** 50+ unique characters with specific tokens, a randomly assigned ST (Special Trait) stat, three predetermined moves, HP scaling, levels, and owned skins.
 - **Economy & Currency:** Coins, Gems, Trophies, and Character-specific Tokens, supported by daily login and message-based rewards.
 - **Crate System:** Four tiers of crates (Gold, Emerald, Legendary, Tyrant, plus Bronze and Silver) offering varying probabilities of characters, tokens, and coins, including a "pending tokens" system.
-- **Drop System:** Random drops (tokens, coins, gems) spawn every 20 seconds, claimable by the first user.
+- **Drop System:** Random drops (tokens, coins, gems) spawn every 20 seconds, claimable by the first user. **Optimized** to reduce API calls - uncaught drops are left in chat instead of being deleted (saves 4 API calls per uncaught drop).
 - **Trading System:** Secure player-to-player trading with dual confirmation.
 - **Battle System:** Turn-based combat with energy management, 51 unique character passive abilities, critical hits (15% base chance), status effects (burn, freeze, poison, paralyze, stun, regeneration), and consumable battle items. Includes an interactive shop for battle items and an AI battle system with varying difficulties.
 - **Items & Inventory:** MongoDB-compatible inventory for tracking battle items.
@@ -35,34 +34,20 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Environment-based Configuration:** Uses environment variables for sensitive data and operational modes.
 - **Data Persistence & Crash Safety:** Implemented dual-save system (`saveDataImmediate()` for critical operations, batched saves for telemetry) and graceful shutdown handlers to prevent data loss.
 - **Error Handling & Reliability:** Comprehensive try-catch blocks and user-friendly error messages for robust operation.
-- **Performance Optimization:** In-memory caching for skins (5-minute TTL) and MongoDB indexes for fast queries on users, events, and participants.
+- **Performance Optimization:** In-memory caching for skins (5-minute TTL), MongoDB indexes for fast queries on users, events, and participants, and optimized drop system that minimizes Discord API calls.
 
 ## Recent Changes (November 2025)
-- **NEW Discord Activity Real-Time Arena (November 12, 2025):**
-  - **Complete Rebuild:** Brand new real-time 2D battle arena system using Discord Activities
-  - **HTML5 Canvas Game:** Full-featured game with character selection, joystick controls, attack buttons, HP bars, and visual effects
-  - **Real-Time Combat:** Socket.IO-powered multiplayer with projectile physics, collision detection, and smooth animations
-  - **Move System Enhancement:** All 50+ character moves extended with arena properties (shapes, speeds, ranges, cooldowns, colors)
-  - **Match Lifecycle:** Proper lobby system, countdown, battle phase, victory conditions, and automatic cleanup
-  - **Commands:** `!arena @user` to challenge players to real-time battles
-  - **Architecture:** Express routes, Socket.IO namespace, config API endpoint, enhanced move data system
-  - **Files:** 
-    - `activity/arena/` - Frontend game (index.html, styles.css, game.js)
-    - `arenaSocketHandler.js` - Server-side match management and combat resolver
-    - `arenaRoutes.js` - API endpoints for config, characters, and OAuth
-    - `arenaMovesData.js` - Real-time move properties for all characters
-    - `ARENA_SETUP.md` - Complete setup and customization guide
-  - **Environment Variables Required:** `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `RENDER_EXTERNAL_URL`
-- **Discord Activity Battle Arena (November 11, 2025):**
-  - **Note:** Legacy Phaser.js arena system exists in `activity/` folder
-  - **Real-time PvP:** Interactive battle arena with Phaser.js game engine
-  - **Skill-based Combat:** Joystick movement, 4 unique abilities with energy/cooldown systems
-  - **Authentication:** HMAC token security with rate limiting and CORS protection
-  - **Rewards Integration:** Automatic reward distribution based on kills, damage, and survival time
-  - **Single Toggle:** Enable/disable entire system via `ACTIVITY_CONFIG.ENABLED` in activityConfig.js
-  - **Commands:** `!battleactivity`, `!activity` to launch
-  - **Architecture:** Reuses existing HTTP/Express server, Socket.IO for real-time multiplayer
-- **Removed:** Tutorial and Zoo Raids systems for improved performance and reduced complexity
+- **Performance Optimization & Discord Activity Removal (November 14, 2025):**
+  - **REMOVED:** All Discord Activity related code to reduce complexity and server load
+    - Deleted activity folder, Socket.IO integration, arena routes, and all activity-related files
+    - Removed slash commands: `/arena`, `/launch`
+    - Removed dependencies: `@discord/embedded-app-sdk`, `socket.io` (saved 34 npm packages)
+  - **Drop System Optimization:** Eliminated 4 Discord API calls per uncaught drop
+    - Previous behavior: fetch old message → delete old message → send vanish message → delete vanish message
+    - New behavior: uncaught drops simply remain in chat (saves bandwidth and reduces rate limit issues)
+  - **Simplified Express Server:** Now only serves health check endpoint (`/health`)
+  - **Result:** Significantly reduced server load and Discord API usage
+- **Removed:** Tutorial, Zoo Raids, and Discord Activity systems for improved performance and reduced complexity
 - **Event System Complete Overhaul (November 11, 2025):**
   - **CRITICAL FIX:** Rewrote event reward distribution to use same proven pattern as personalized tasks
   - **Crate Rewards:** Winners now receive crates (1 legendary for 1st, 1 emerald for 2nd, 2 gold for 3rd)
@@ -84,4 +69,5 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 ## External Dependencies
 - **Discord.js v14**: For Discord API interaction.
 - **Node.js 20**: The runtime environment.
+- **Express**: Lightweight HTTP server for health checks.
 - **MongoDB**: Optional, but recommended for production data storage.
