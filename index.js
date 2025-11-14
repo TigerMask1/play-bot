@@ -58,7 +58,6 @@ const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
-const { setupArenaRoutes, generateMatchId } = require('./arenaRoutes.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
@@ -158,7 +157,6 @@ client.on('clientReady', async () => {
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
   await loadServerConfigs();
-  setupArenaRoutes(app, data);
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   startPromotionSystem(client);
@@ -181,23 +179,14 @@ client.on('clientReady', async () => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   
-  const { handleArenaCommand } = require('./slashCommands.js');
-  
   try {
-    switch (interaction.commandName) {
-      case 'arena':
-      case 'launch':
-        await handleArenaCommand(interaction, data);
-        break;
-    }
+    // No slash commands currently registered
+    await interaction.reply({ 
+      content: '❌ This command is not available.',
+      ephemeral: true 
+    });
   } catch (error) {
     console.error('Error handling interaction:', error);
-    const errorMessage = { content: '❌ An error occurred while processing your command.', ephemeral: true };
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(errorMessage);
-    } else {
-      await interaction.reply(errorMessage);
-    }
   }
 });
 

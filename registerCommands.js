@@ -1,28 +1,6 @@
 const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
-const commands = [
-  {
-    name: 'arena',
-    description: 'Challenge someone to a 1v1 battle in the arena!',
-    options: [
-      {
-        name: 'opponent',
-        description: 'The player you want to challenge',
-        type: 6,
-        required: true
-      }
-    ],
-    integration_types: [0, 1],
-    contexts: [0, 1, 2]
-  },
-  {
-    name: 'launch',
-    description: 'Start a battle activity in voice channel',
-    options: [],
-    integration_types: [0, 1],
-    contexts: [0, 1, 2]
-  }
-];
+const commands = [];
 
 async function registerCommands() {
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -99,8 +77,17 @@ async function registerCommands() {
       }
     }
     
+    // List of removed commands that should not be preserved
+    const removedCommands = ['arena', 'launch'];
+    
     // Preserve any remaining Entry Point commands that aren't in our new list
     for (const [name, existingCmd] of existingCommandsMap) {
+      // Skip commands that have been intentionally removed
+      if (removedCommands.includes(name.toLowerCase())) {
+        console.log(`🗑️ Removing command: /${name} (ID: ${existingCmd.id})`);
+        continue;
+      }
+      
       if (existingCmd.integration_types && existingCmd.integration_types.length > 0) {
         console.log(`📌 Preserving Entry Point command: /${name} (ID: ${existingCmd.id})`);
         
