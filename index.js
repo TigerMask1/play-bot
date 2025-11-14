@@ -542,10 +542,25 @@ client.on('messageCreate', async (message) => {
         
         if (user.selectedCharacter) {
           profileEmbed.addFields({ name: '⭐ Selected', value: user.selectedCharacter, inline: true });
-          const selectedChar = user.characters.find(c => c.name === user.selectedCharacter);
-          if (selectedChar) {
-            const selectedSkinUrl = await getSkinUrl(selectedChar.name, selectedChar.currentSkin || 'default');
-            profileEmbed.setThumbnail(selectedSkinUrl);
+        }
+        
+        let displayCharName = user.profileDisplayCharacter || user.selectedCharacter;
+        if (displayCharName) {
+          let displayChar = user.characters.find(c => c.name === displayCharName);
+          
+          if (!displayChar && user.profileDisplayCharacter) {
+            user.profileDisplayCharacter = null;
+            await saveDataImmediate(data);
+            displayCharName = user.selectedCharacter;
+            displayChar = user.characters.find(c => c.name === displayCharName);
+          }
+          
+          if (displayChar) {
+            const displaySkinUrl = await getSkinUrl(displayChar.name, displayChar.currentSkin || 'default');
+            profileEmbed.setThumbnail(displaySkinUrl);
+            if (user.profileDisplayCharacter && user.profileDisplayCharacter !== user.selectedCharacter) {
+              profileEmbed.addFields({ name: '🖼️ Profile Picture', value: displayCharName, inline: true });
+            }
           }
         }
         
@@ -1332,6 +1347,37 @@ client.on('messageCreate', async (message) => {
           .setImage(equipSkinUrl);
         
         await message.reply({ embeds: [equipEmbed] });
+        break;
+        
+      case 'setprofilepic':
+      case 'setpfp':
+        const profileCharName = args[0];
+        
+        if (!profileCharName) {
+          await message.reply('Usage: `!setprofilepic <character>`\nExample: `!setprofilepic Nix`\n\nSet which character appears as your profile picture!');
+          return;
+        }
+        
+        const ownedChar = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === profileCharName.toLowerCase()
+        );
+        
+        if (!ownedChar) {
+          await message.reply('❌ You don\'t own this character! You can only use characters you own as your profile picture.');
+          return;
+        }
+        
+        data.users[userId].profileDisplayCharacter = ownedChar.name;
+        await saveDataImmediate(data);
+        
+        const profilePicUrl = await getSkinUrl(ownedChar.name, ownedChar.currentSkin || 'default');
+        const pfpEmbed = new EmbedBuilder()
+          .setColor('#FF69B4')
+          .setTitle('🖼️ Profile Picture Updated!')
+          .setDescription(`Your profile will now display **${ownedChar.emoji} ${ownedChar.name}** with the **${ownedChar.currentSkin || 'default'}** skin!\n\nUse \`!profile\` to see your updated profile.`)
+          .setThumbnail(profilePicUrl);
+        
+        await message.reply({ embeds: [pfpEmbed] });
         break;
         
       case 'b':

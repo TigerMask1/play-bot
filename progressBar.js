@@ -44,12 +44,19 @@ function createQuestProgressBar(current, max) {
 
 function createLevelProgressBar(currentTokens, requiredTokens) {
   const percentage = Math.min(100, (currentTokens / requiredTokens) * 100);
-  const filledLength = Math.round((percentage / 100) * 8);
-  const emptyLength = 8 - filledLength;
+  const filledLength = Math.round((percentage / 100) * 12);
+  const emptyLength = 12 - filledLength;
   
-  const bar = '▓'.repeat(filledLength) + '░'.repeat(emptyLength);
+  let barColor;
+  if (percentage >= 100) barColor = '🟩';
+  else if (percentage >= 75) barColor = '🟦';
+  else if (percentage >= 50) barColor = '🟨';
+  else if (percentage >= 25) barColor = '🟧';
+  else barColor = '🟥';
   
-  return `[${bar}] ${currentTokens}/${requiredTokens} 🎫`;
+  const bar = barColor.repeat(filledLength) + '⬜'.repeat(emptyLength);
+  
+  return `🎫 ${bar} **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
 }
 
 module.exports = {

@@ -122,6 +122,11 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.profileDisplayCharacter === undefined) {
+      user.profileDisplayCharacter = null;
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {
