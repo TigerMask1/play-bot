@@ -32,15 +32,16 @@ function createColoredProgressBar(current, max, length = 20) {
 
 function createQuestProgressBar(current, max) {
   const percentage = Math.min(100, Math.max(0, (current / max) * 100));
-  const barLength = 20;
+  const barLength = 15;
   const filledLength = Math.round((percentage / 100) * barLength);
   const emptyLength = barLength - filledLength;
   
-  // ANSI color codes: \u001b[43m = yellow background, \u001b[40m = black background, \u001b[0m = reset
-  const filled = '\u001b[43m' + ' '.repeat(filledLength) + '\u001b[0m';
-  const empty = '\u001b[40m' + ' '.repeat(emptyLength) + '\u001b[0m';
+  const filled = '█';
+  const empty = '▬';
   
-  return '```ansi\n' + filled + empty + '```' + ` ${current}/${max}`;
+  const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
+  
+  return `${bar} ${current}/${max}`;
 }
 
 function createLevelProgressBar(currentTokens, requiredTokens) {
