@@ -26,7 +26,7 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Battle System:** Turn-based combat with energy management, 51 unique character passive abilities, critical hits (15% base chance), status effects (burn, freeze, poison, paralyze, stun, regeneration), and consumable battle items. Includes an interactive shop for battle items and an AI battle system with varying difficulties.
 - **Items & Inventory:** MongoDB-compatible inventory for tracking battle items.
 - **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking and **automatic reward distribution**. Rewards are added directly to user accounts when events end - no claiming needed. Top 3 winners receive cage keys (5/3/1 respectively).
-- **Admin Tools:** Commands for managing resources, characters, skins, and bot channels.
+- **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, and bot channels.
 - **Key & Cage System:** Two-tier character unlock system with character-specific keys (1000 required to unlock) and cage keys (250 for random unlock). Top 3 event winners receive cage keys automatically. Includes !keys, !unlock, and !cage commands.
 
 **System Design Choices:**
@@ -39,6 +39,24 @@ The bot is built on Discord.js v14 and Node.js 20, using a dual-mode data storag
 - **Performance Optimization:** In-memory caching for skins (5-minute TTL), MongoDB indexes for fast queries on users, events, and participants, and optimized drop system that minimizes Discord API calls.
 
 ## Recent Changes (November 2025)
+- **Custom Emoji System & Interactive Chest Opening (November 14, 2025):**
+  - **Custom Emoji Support:** Full custom emoji system allowing bot-wide character emojis
+    - MongoDB collection `emoji_assets` stores custom Discord emoji IDs per character
+    - Admin command `!setemoji <character> <emojiID>` to set custom emojis
+    - Data-layer hydration applies custom emojis automatically on startup and character creation
+    - Emojis work across ALL servers where the bot is present
+    - Backwards compatible - falls back to unicode emojis if no custom emoji set
+  - **Interactive Chest Opening System:** Two-step chest opening with customizable GIFs
+    - Command `!pickcrate <type>` to select a chest → bot shows ready GIF embed
+    - 2-minute session timer before user must type `!opencrate` to reveal rewards
+    - MongoDB collection `crate_visuals` stores customizable GIF URLs per chest type
+    - Admin command `!setchestgif <type> <gifURL>` to customize chest opening animations
+    - Default GIFs provided for all chest types (bronze, silver, gold, emerald, legendary, tyrant)
+    - Session tracking prevents multiple simultaneous chest openings per user
+  - **Technical Implementation:**
+    - emojiAssetManager.js: Manages emoji caching, MongoDB persistence, and application
+    - chestInteractionManager.js: Session management with auto-expiry and GIF visuals
+    - Both systems fully integrated with existing data layer and save pipeline
 - **Visual Enhancements & Player Documentation (November 14, 2025):**
   - **Enhanced Progress Bars:** Implemented colorful 12-square visual progress bars using emoji indicators (🟩🟦🟨🟧🟥⬜)
     - Color-coded based on percentage: Red (0-24%), Orange (25-49%), Yellow (50-74%), Blue (75-99%), Green (100%)
