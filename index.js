@@ -1,34 +1,18 @@
-// Express server for Discord Activity and keep-alive
+// Lightweight Express server for health checks and arena routes
 const express = require('express');
 const http = require('http');
-const socketIO = require('socket.io');
 
 const PORT = process.env.PORT || 5000;
-const path = require('path');
 
 const app = express();
 app.use(express.json());
-
-// Serve activity static files (JS, CSS, assets) from root for Discord Activity
-app.use(express.static(path.join(__dirname, 'activity')));
-
-const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
-// Serve activity HTML at root for Discord Activity integration
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'activity', 'index.html'));
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.send('Bot is alive!');
 });
+
+const server = http.createServer(app);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
@@ -75,7 +59,6 @@ const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js')
 const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const { setupArenaRoutes, generateMatchId } = require('./arenaRoutes.js');
-const { initArenaSocket } = require('./arenaSocketHandler.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
@@ -98,7 +81,6 @@ const {
   sendCustomTask
 } = require('./personalizedTaskSystem.js');
 const { getHistory, getHistorySummary, formatHistory } = require('./historySystem.js');
-const { initializeActivitySystem, handleBattleActivityCommand, isEnabled: isActivityEnabled } = require('./activityBattleSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -176,9 +158,7 @@ client.on('clientReady', async () => {
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
   await loadServerConfigs();
-  initializeActivitySystem(server, app, data);
   setupArenaRoutes(app, data);
-  initArenaSocket(io, data);
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   startPromotionSystem(client);
@@ -1363,16 +1343,6 @@ client.on('messageCreate', async (message) => {
           .setImage(equipSkinUrl);
         
         await message.reply({ embeds: [equipEmbed] });
-        break;
-        
-      case 'battleactivity':
-      case 'activity':
-      case 'arena':
-        if (isActivityEnabled()) {
-          await handleBattleActivityCommand(message, data);
-        } else {
-          await message.reply('⚠️ The interactive battle arena is currently disabled.');
-        }
         break;
         
       case 'b':

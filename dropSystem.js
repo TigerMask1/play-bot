@@ -95,33 +95,10 @@ async function executeDrop(serverId) {
       activeData.serverDrops = {};
     }
 
-    // ===== PHASE 1: Handle previous drop =====
+    // ===== PHASE 1: Clear previous drop data (optimized - no message deletion) =====
     if (activeData.serverDrops[serverId]) {
-      const oldDrop = activeData.serverDrops[serverId];
+      // Simply remove the old drop data without deleting messages to reduce API calls
       delete activeData.serverDrops[serverId];
-
-      // Try deleting old drop message
-      if (oldDrop.messageId) {
-        try {
-          const oldMessage = await channel.messages.fetch(oldDrop.messageId);
-          if (oldMessage) await oldMessage.delete();
-        } catch {
-          console.warn(`⚠️ Old drop message already deleted.`);
-        }
-      }
-
-      // Send vanished notice
-      const oldReward = oldDrop.type === 'tokens'
-        ? `${oldDrop.amount} ${oldDrop.characterName} tokens`
-        : `${oldDrop.amount} ${oldDrop.type}`;
-
-      const vanishEmbed = new EmbedBuilder()
-        .setColor('#FF0000')
-        .setTitle('💨 Drop Vanished!')
-        .setDescription(`The previous drop (${oldReward}) disappeared!`);
-
-      const vanishMsg = await channel.send({ embeds: [vanishEmbed] });
-      setTimeout(() => vanishMsg.delete().catch(() => {}), 5000);
     }
 
     // ===== PHASE 2: Create a new drop =====
