@@ -80,6 +80,18 @@ const {
   sendCustomTask
 } = require('./personalizedTaskSystem.js');
 const { getHistory, getHistorySummary, formatHistory } = require('./historySystem.js');
+const { 
+  initializeClanData,
+  getClan,
+  getUserClan,
+  joinClan,
+  leaveClan,
+  donateToClan,
+  getClanLeaderboard,
+  formatClanProfile,
+  formatClanLeaderboard,
+  startWeeklyClanWars
+} = require('./clanSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -157,10 +169,12 @@ client.on('clientReady', async () => {
   console.log(`🎮 Bot is ready to serve ${client.guilds.cache.size} servers!`);
   await initializeBot();
   await loadServerConfigs();
+  initializeClanData(data);
   await eventSystem.init(client, data);
   startDropSystem(client, data);
   startPromotionSystem(client);
   startPersonalizedTaskSystem(client, data);
+  startWeeklyClanWars(client, data);
   
   if (process.env.DISCORD_APPLICATION_ID) {
     const { registerCommands } = require('./registerCommands.js');
@@ -293,10 +307,22 @@ client.on('messageCreate', async (message) => {
     }
   }
   
-  if (!message.content.startsWith(PREFIX)) return;
+  let commandContent = message.content;
+  let usedMention = false;
   
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
+  if (message.content.startsWith(`<@${client.user.id}>`) || message.content.startsWith(`<@!${client.user.id}>`)) {
+    commandContent = message.content.replace(/<@!?\d+>\s*/, '');
+    usedMention = true;
+  } else if (!message.content.startsWith(PREFIX)) {
+    return;
+  } else {
+    commandContent = message.content.slice(PREFIX.length);
+  }
+  
+  const args = commandContent.trim().split(/ +/);
+  const command = args.shift()?.toLowerCase();
+  
+  if (!command) return;
   
   const serverId = message.guild?.id;
   const isAdmin = isSuperAdmin(userId) || isBotAdmin(userId, serverId);
@@ -423,6 +449,90 @@ client.on('messageCreate', async (message) => {
         
         await message.reply({ embeds: [deleteEmbed] });
         console.log(`🗑️ Admin ${message.author.username} deleted user account: ${deletedUsername} (${userIdToDelete})`);
+        break;
+        
+      case 'joinclan':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const joinResult = joinClan(data, userId, serverId);
+        await message.reply(joinResult.message);
+        
+        if (joinResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'leaveclan':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const leaveResult = leaveClan(data, userId);
+        await message.reply(leaveResult.message);
+        
+        if (leaveResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'donate':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const donationType = args[0]?.toLowerCase();
+        const donationAmount = parseInt(args[1]);
+        
+        if (!donationType || !donationAmount) {
+          await message.reply('❌ Usage: `!donate <coins/gems/trophies> <amount>`\nExample: `!donate coins 100`');
+          return;
+        }
+        
+        if (isNaN(donationAmount) || donationAmount <= 0) {
+          await message.reply('❌ Amount must be a positive number!');
+          return;
+        }
+        
+        const donateResult = donateToClan(data, userId, serverId, donationType, donationAmount);
+        await message.reply(donateResult.message);
+        
+        if (donateResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'clan':
+      case 'clanprofile':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const clan = getClan(data, serverId);
+        const clanProfileEmbed = formatClanProfile(clan, message.guild.name);
+        await message.reply({ embeds: [clanProfileEmbed] });
+        break;
+        
+      case 'clans':
+      case 'clanleaderboard':
+        const leaderboard = getClanLeaderboard(data);
+        const leaderboardEmbed = formatClanLeaderboard(leaderboard, client);
+        await message.reply({ embeds: [leaderboardEmbed] });
         break;
         
       case 'start':

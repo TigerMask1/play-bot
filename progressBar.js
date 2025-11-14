@@ -3,10 +3,12 @@ function createProgressBar(current, max, length = 20, showPercentage = true) {
   const filledLength = Math.round((percentage / 100) * length);
   const emptyLength = length - filledLength;
   
-  const filledChar = '█';
-  const emptyChar = '░';
+  const blocks = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+  const fullBlocks = Math.floor(filledLength);
+  const partialBlock = filledLength - fullBlocks;
+  const partialIndex = Math.floor(partialBlock * (blocks.length - 1));
   
-  const bar = filledChar.repeat(filledLength) + emptyChar.repeat(emptyLength);
+  const bar = '█'.repeat(fullBlocks) + blocks[partialIndex] + '░'.repeat(Math.max(0, emptyLength - (partialBlock > 0 ? 1 : 0)));
   
   if (showPercentage) {
     return `${bar} ${percentage.toFixed(1)}%`;
@@ -24,7 +26,7 @@ function createColoredProgressBar(current, max, length = 20) {
   else if (percentage < 50) color = '🟧';
   else if (percentage < 75) color = '🟨';
   
-  const bar = color.repeat(filledLength) + '⬜'.repeat(emptyLength);
+  const bar = color.repeat(filledLength) + '⬛'.repeat(emptyLength);
   return `${bar} ${current}/${max}`;
 }
 
@@ -44,8 +46,15 @@ function createQuestProgressBar(current, max) {
 
 function createLevelProgressBar(currentTokens, requiredTokens) {
   const percentage = Math.min(100, (currentTokens / requiredTokens) * 100);
-  const filledLength = Math.round((percentage / 100) * 12);
-  const emptyLength = 12 - filledLength;
+  const barLength = 15;
+  const filledLength = (percentage / 100) * barLength;
+  
+  const fullBlocks = Math.floor(filledLength);
+  const partialBlock = filledLength - fullBlocks;
+  const emptyLength = barLength - Math.ceil(filledLength);
+  
+  const partialChars = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'];
+  const partialIndex = Math.floor(partialBlock * partialChars.length);
   
   let barColor;
   if (percentage >= 100) barColor = '🟩';
@@ -54,9 +63,11 @@ function createLevelProgressBar(currentTokens, requiredTokens) {
   else if (percentage >= 25) barColor = '🟧';
   else barColor = '🟥';
   
-  const bar = barColor.repeat(filledLength) + '⬜'.repeat(emptyLength);
+  const filledPart = '█'.repeat(fullBlocks);
+  const partial = partialIndex > 0 ? partialChars[partialIndex] : '';
+  const emptyPart = '░'.repeat(Math.max(0, emptyLength));
   
-  return `🎫 ${bar} **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
+  return `🎫 ${barColor} ${filledPart}${partial}${emptyPart} **${currentTokens}/${requiredTokens}** (${percentage.toFixed(0)}%)`;
 }
 
 module.exports = {
