@@ -354,7 +354,7 @@ async function executeDrop(serverId) {
             const pauseEmbed = new EmbedBuilder()
               .setColor('#FF0000')
               .setTitle('⚠️ DROPS PAUSED!')
-              .setDescription(`Drops have been paused due to ${MAX_UNCAUGHT_DROPS} uncaught drops.\n\n✅ Drops will resume automatically when someone catches the next drop!`);
+              .setDescription(`Drops have been paused due to ${MAX_UNCAUGHT_DROPS} uncaught drops.\n\n✅ Drops will resume automatically when anyone uses the \`!c <code>\` command (even if they don't catch it)!\n⏰ Your 3-hour timer is still running!`);
             await channel.send({ embeds: [pauseEmbed] });
           }
         }
