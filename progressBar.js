@@ -28,7 +28,7 @@ function createLevelProgressBar(currentTokens, requiredTokens) {
   const reset = "\u001b[0m";
 
   const filled = color + "█" + reset;
-  const empty = " "; // grey
+  const empty = "░"; // grey
 
   const bar = filled.repeat(filledLength) + empty.repeat(emptyLength);
 
