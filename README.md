@@ -22,6 +22,7 @@
 ### 🎁 Dynamic Drop System
 - **Main Server**: Unlimited free drops every 20 seconds
 - **Non-Main Servers**: Pay 100 gems for 3 hours of drops (drops every 30 seconds)
+  - **Super Admin Override**: Super admins can grant infinite drops to any server
 - **Smart Pausing**: Auto-pauses after 30 uncaught drops (3-hour timer keeps running)
 - **Drop Revival**: Anyone can revive drops by using `!c <code>` (even if they don't catch it)
 - **Rewards**: Coins, Gems, Shards, and Character Tokens
@@ -71,6 +72,7 @@
    - `!seteventschannel #channel` - Where events are announced
    - `!setupdateschannel #channel` - Where bot updates are posted
 5. **Activate Drops** (ZooAdmin only): `!paydrops` - Pay 100 gems for 3 hours of drops
+   - **Note:** Super admins can grant unlimited drops using `!setinfinitedrops on`
 
 ### For Players
 

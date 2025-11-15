@@ -49,6 +49,11 @@ All other users can access standard gameplay commands.
 #### Server Management
 - `!servers` / `!serverlist` - List all servers the bot is in
 - `!removeserver <server_id>` / `!leaveserver <server_id>` - Remove bot from a server
+- `!setinfinitedrops <on/off>` - Grant or revoke infinite drops for any server
+  - `!setinfinitedrops on` - Enable unlimited free drops (like main server)
+  - `!setinfinitedrops off` - Return to paid drop system
+  - When enabled, clears any pause state and starts drops immediately
+  - When disabled, stops drops cleanly (users must use `!paydrops` to reactivate)
 - `!reset` - Reset bot data (use with extreme caution)
 
 #### Communication
@@ -207,7 +212,7 @@ A: ZooAdmins don't add other ZooAdmins directly. Server administrators assign th
 - **ZooAdmin**: Server role for managing bot settings in your specific server (recommended)
 
 ### Q: Who can activate drops?
-A: Only users with the ZooAdmin role can pay gems to activate drops for non-main servers. The main server has unlimited drops.
+A: Only users with the ZooAdmin role can pay gems to activate drops for non-main servers. The main server has unlimited drops. Super admins can also grant any server unlimited drops using `!setinfinitedrops on`.
 
 ### Q: What happens when drops are paused?
 A: Drops auto-pause after 30 uncaught drops to reduce spam. Anyone can revive the system by using `!c <code>` - even if they don't own the character in the drop, it will still revive the system.
