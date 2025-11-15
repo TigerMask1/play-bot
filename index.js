@@ -186,7 +186,7 @@ client.on('clientReady', async () => {
   await loadServerConfigs();
   initializeClanData(data);
   await eventSystem.init(client, data);
-  startDropSystem(client, data);
+  await startDropSystem(client, data);
   startPromotionSystem(client);
   startPersonalizedTaskSystem(client, data);
   startWeeklyClanWars(client, data);

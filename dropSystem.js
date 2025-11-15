@@ -142,24 +142,32 @@ async function resetUncaughtDrops(serverId) {
 //  START / STOP SYSTEM
 // ======================================================
 
-function startDropSystem(client, data) {
+async function startDropSystem(client, data) {
   activeClient = client;
   activeData = data;
 
-  client.guilds.cache.forEach(guild => {
-    startDropsForServer(guild.id);
-  });
+  for (const guild of client.guilds.cache.values()) {
+    // Check if this server has active drops before sending notification
+    const hasActiveDrops = !isMainServer(guild.id) && areDropsActive(guild.id);
+    await startDropsForServer(guild.id, hasActiveDrops); // Only notify servers with active drops
+  }
 
   console.log(`✅ Drop system initialized for ${dropIntervals.size} servers`);
 }
 
-function startDropsForServer(serverId) {
+async function startDropsForServer(serverId, sendResumeNotification = false) {
   if (dropIntervals.has(serverId)) {
     clearInterval(dropIntervals.get(serverId));
   }
 
   if (!isMainServer(serverId) && !isServerSetup(serverId)) {
     console.log(`⚠️ Server ${serverId} not set up yet, skipping drops`);
+    return;
+  }
+
+  // Check if drops are actually active before starting
+  if (!isMainServer(serverId) && !areDropsActive(serverId)) {
+    console.log(`⚠️ Server ${serverId}: Drops not active (not paid or expired)`);
     return;
   }
 
@@ -171,6 +179,32 @@ function startDropsForServer(serverId) {
 
   dropIntervals.set(serverId, intervalId);
   console.log(`✅ Drops started for server ${serverId} (every ${interval/1000}s)`);
+  
+  // Send resume notification if this is an auto-resume after bot restart
+  if (sendResumeNotification && activeClient && !isMainServer(serverId)) {
+    try {
+      const config = getServerConfig(serverId);
+      const dropChannelId = config?.dropChannelId;
+      
+      if (dropChannelId) {
+        const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
+        if (channel) {
+          const timeRemaining = getDropsTimeRemaining(serverId);
+          const resumeEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('🔄 Bot Restarted - Drops Resumed!')
+            .setDescription(`✅ The bot has restarted and drops are back online!\n\n⏰ **Time Remaining:** ${timeRemaining}\n🎁 Drops will continue spawning every ${interval/1000} seconds\n\n💡 Drops will automatically stop when the timer expires.`)
+            .setFooter({ text: 'Drops are now active!' })
+            .setTimestamp();
+          
+          await channel.send({ embeds: [resumeEmbed] });
+          console.log(`✅ Server ${serverId}: Resume notification sent successfully.`);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error sending resume notification for server ${serverId}:`, error);
+    }
+  }
 }
 
 function stopDropSystem() {
@@ -181,11 +215,40 @@ function stopDropSystem() {
   console.log('⏹️ Drop system stopped for all servers!');
 }
 
-function stopDropsForServer(serverId) {
+async function stopDropsForServer(serverId, sendNotification = false) {
   if (dropIntervals.has(serverId)) {
     clearInterval(dropIntervals.get(serverId));
     dropIntervals.delete(serverId);
     console.log(`⏹️ Drops stopped for server ${serverId}`);
+    
+    // Send notification to channel if requested
+    if (sendNotification && activeClient) {
+      try {
+        let dropChannelId;
+        if (isMainServer(serverId)) {
+          dropChannelId = MAIN_DROP_CHANNEL;
+        } else {
+          const config = getServerConfig(serverId);
+          dropChannelId = config?.dropChannelId;
+        }
+        
+        if (dropChannelId) {
+          const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
+          if (channel) {
+            const stopEmbed = new EmbedBuilder()
+              .setColor('#FF0000')
+              .setTitle('⏰ Drops Expired!')
+              .setDescription(`❌ The drop system has stopped because your 3-hour drop period has expired.\n\n💎 Use \`!paydrops\` to activate drops again for 3 hours (costs 100 gems)\n\n**Only users with the ZooAdmin role can activate drops!**`)
+              .setFooter({ text: 'Need help? Use !setup to see server configuration' });
+            
+            await channel.send({ embeds: [stopEmbed] });
+            console.log(`✅ Server ${serverId}: Expiry notification sent successfully.`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error sending stop notification for server ${serverId}:`, error);
+      }
+    }
   }
 }
 
@@ -199,7 +262,7 @@ async function executeDrop(serverId) {
   try {
     // Check if payment is still valid (payment expiry, not pause)
     if (!areDropsActive(serverId)) {
-      stopDropsForServer(serverId);
+      await stopDropsForServer(serverId, true); // Send expiry notification
       return;
     }
     
