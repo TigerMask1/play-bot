@@ -180,6 +180,38 @@ function backfillUserData(data) {
     needsSave = true;
   }
   
+  if (!data.giveawayData) {
+    data.giveawayData = {
+      isActive: false,
+      channel: null,
+      drawTime: '20:00',
+      prize: {
+        coins: 5000,
+        gems: 100,
+        crates: { type: 'gold', count: 3 }
+      },
+      participants: [],
+      lastDrawDate: null,
+      dailyWinners: []
+    };
+    needsSave = true;
+  }
+  
+  if (!data.lotteryData) {
+    data.lotteryData = {
+      isActive: false,
+      channel: null,
+      drawTime: '21:00',
+      entryFee: 100,
+      prizePool: 0,
+      participants: [],
+      lastDrawDate: null,
+      dailyWinners: [],
+      maxEntriesPerUser: 5
+    };
+    needsSave = true;
+  }
+  
   delete data.currentDrop;
   
   return { data, needsSave };

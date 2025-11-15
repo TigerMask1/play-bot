@@ -101,6 +101,27 @@ const {
   getActiveSession, 
   clearSession 
 } = require('./chestInteractionManager.js');
+const { 
+  initializeGiveawaySystem,
+  joinGiveaway,
+  getGiveawayInfo,
+  startGiveaway,
+  stopGiveaway,
+  setGiveawayTime,
+  setGiveawayPrize,
+  getGiveawayData
+} = require('./giveawaySystem.js');
+const { 
+  initializeLotterySystem,
+  joinLottery,
+  getLotteryInfo,
+  startLottery,
+  stopLottery,
+  setLotteryTime,
+  setLotteryFee,
+  setLotteryMaxEntries,
+  getLotteryData
+} = require('./lotterySystem.js');
 
 const PREFIX = '!';
 let data;
@@ -190,6 +211,8 @@ client.on('clientReady', async () => {
   startPromotionSystem(client);
   startPersonalizedTaskSystem(client, data);
   startWeeklyClanWars(client, data);
+  initializeGiveawaySystem(client, data);
+  initializeLotterySystem(client, data);
   
   console.log('✅ All systems initialized!');
 });
@@ -588,6 +611,235 @@ client.on('messageCreate', async (message) => {
         
         await message.reply({ embeds: [infiniteEmbed] });
         console.log(`🎁 Super Admin ${message.author.username} ${shouldEnable ? 'enabled' : 'disabled'} infinite drops for server ${serverId}`);
+        break;
+        
+      case 'giveaway':
+        const giveawaySubcommand = args[0]?.toLowerCase();
+        
+        if (!giveawaySubcommand || giveawaySubcommand === 'info') {
+          const giveawayEmbed = getGiveawayInfo();
+          await message.reply({ embeds: [giveawayEmbed] });
+        } else if (giveawaySubcommand === 'join') {
+          if (!serverId || !isMainServer(serverId)) {
+            await message.reply('❌ The daily giveaway is only available on the main server!');
+            return;
+          }
+          
+          if (!data.users[userId].started) {
+            await message.reply('❌ You must start first! Use `!start` to begin.');
+            return;
+          }
+          
+          const joinResult = joinGiveaway(userId, message.author.username);
+          if (joinResult.success) {
+            data.giveawayData = getGiveawayData();
+            await saveDataImmediate(data);
+          }
+          await message.reply(joinResult.message);
+        } else {
+          await message.reply('Usage: `!giveaway` or `!giveaway join`\n\n`!giveaway` - View giveaway info\n`!giveaway join` - Register for today\'s giveaway');
+        }
+        break;
+        
+      case 'giveawaystart':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        if (!serverId || !isMainServer(serverId)) {
+          await message.reply('❌ The daily giveaway can only be started on the main server!');
+          return;
+        }
+        
+        const giveawayChannel = message.mentions.channels.first() || message.channel;
+        const startGiveawayResult = startGiveaway(giveawayChannel.id);
+        await message.reply(startGiveawayResult.message);
+        data.giveawayData = getGiveawayData();
+        await saveDataImmediate(data);
+        console.log(`🎁 Super Admin ${message.author.username} started daily giveaway in channel ${giveawayChannel.id}`);
+        break;
+        
+      case 'giveawaystop':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const stopGiveawayResult = stopGiveaway();
+        await message.reply(stopGiveawayResult.message);
+        data.giveawayData = getGiveawayData();
+        await saveDataImmediate(data);
+        console.log(`🎁 Super Admin ${message.author.username} stopped daily giveaway`);
+        break;
+        
+      case 'giveawaytime':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const newTime = args[0];
+        if (!newTime) {
+          await message.reply('Usage: `!giveawaytime <HH:MM>`\n\nExample: `!giveawaytime 20:00`');
+          return;
+        }
+        
+        const timeResult = setGiveawayTime(newTime);
+        await message.reply(timeResult.message);
+        if (timeResult.success) {
+          data.giveawayData = getGiveawayData();
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'giveawayprize':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const giveawayCoins = args[0];
+        const giveawayGems = args[1];
+        const giveawayCrateType = args[2];
+        const giveawayCrateCount = args[3];
+        
+        if (!giveawayCoins || !giveawayGems || !giveawayCrateType || !giveawayCrateCount) {
+          await message.reply('Usage: `!giveawayprize <coins> <gems> <crate type> <crate count>`\n\nExample: `!giveawayprize 5000 100 gold 3`\n\nValid crate types: bronze, silver, gold, emerald, legendary, tyrant');
+          return;
+        }
+        
+        const prizeResult = setGiveawayPrize(giveawayCoins, giveawayGems, giveawayCrateType, giveawayCrateCount);
+        await message.reply(prizeResult.message);
+        if (prizeResult.success) {
+          data.giveawayData = getGiveawayData();
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'lottery':
+        const lotterySubcommand = args[0]?.toLowerCase();
+        
+        if (!lotterySubcommand || lotterySubcommand === 'info') {
+          const lotteryEmbed = getLotteryInfo();
+          await message.reply({ embeds: [lotteryEmbed] });
+        } else if (lotterySubcommand === 'join') {
+          if (!serverId || !isMainServer(serverId)) {
+            await message.reply('❌ The daily lottery is only available on the main server!');
+            return;
+          }
+          
+          if (!data.users[userId].started) {
+            await message.reply('❌ You must start first! Use `!start` to begin.');
+            return;
+          }
+          
+          const ticketAmount = parseInt(args[1]) || 1;
+          const lotteryJoinResult = joinLottery(userId, message.author.username, ticketAmount, data.users[userId]);
+          
+          if (lotteryJoinResult.success) {
+            data.users[userId].gems -= lotteryJoinResult.cost;
+            await saveDataImmediate(data);
+            data.lotteryData = getLotteryData();
+            await saveDataImmediate(data);
+          }
+          
+          await message.reply(lotteryJoinResult.message);
+        } else {
+          await message.reply('Usage: `!lottery` or `!lottery join [amount]`\n\n`!lottery` - View lottery info\n`!lottery join [amount]` - Buy lottery tickets (default: 1)');
+        }
+        break;
+        
+      case 'lotterystart':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        if (!serverId || !isMainServer(serverId)) {
+          await message.reply('❌ The daily lottery can only be started on the main server!');
+          return;
+        }
+        
+        const lotteryChannel = message.mentions.channels.first() || message.channel;
+        const startLotteryResult = startLottery(lotteryChannel.id);
+        await message.reply(startLotteryResult.message);
+        data.lotteryData = getLotteryData();
+        await saveDataImmediate(data);
+        console.log(`🎰 Super Admin ${message.author.username} started daily lottery in channel ${lotteryChannel.id}`);
+        break;
+        
+      case 'lotterystop':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const stopLotteryResult = stopLottery();
+        await message.reply(stopLotteryResult.message);
+        data.lotteryData = getLotteryData();
+        await saveDataImmediate(data);
+        console.log(`🎰 Super Admin ${message.author.username} stopped daily lottery`);
+        break;
+        
+      case 'lotterytime':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const newLotteryTime = args[0];
+        if (!newLotteryTime) {
+          await message.reply('Usage: `!lotterytime <HH:MM>`\n\nExample: `!lotterytime 21:00`');
+          return;
+        }
+        
+        const lotteryTimeResult = setLotteryTime(newLotteryTime);
+        await message.reply(lotteryTimeResult.message);
+        if (lotteryTimeResult.success) {
+          data.lotteryData = getLotteryData();
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'lotteryfee':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const newFee = args[0];
+        if (!newFee) {
+          await message.reply('Usage: `!lotteryfee <amount>`\n\nExample: `!lotteryfee 100`');
+          return;
+        }
+        
+        const feeResult = setLotteryFee(newFee);
+        await message.reply(feeResult.message);
+        if (feeResult.success) {
+          data.lotteryData = getLotteryData();
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'lotterymax':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const newMax = args[0];
+        if (!newMax) {
+          await message.reply('Usage: `!lotterymax <amount>`\n\nExample: `!lotterymax 5`');
+          return;
+        }
+        
+        const maxResult = setLotteryMaxEntries(newMax);
+        await message.reply(maxResult.message);
+        if (maxResult.success) {
+          data.lotteryData = getLotteryData();
+          await saveDataImmediate(data);
+        }
         break;
         
       case 'joinclan':
