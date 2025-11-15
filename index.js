@@ -60,7 +60,7 @@ const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
-const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
+const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
@@ -203,7 +203,7 @@ client.on('guildCreate', async (guild) => {
       const setupEmbed = new EmbedBuilder()
         .setColor('#00D9FF')
         .setTitle('👋 Thanks for adding ZooBot!')
-        .setDescription(`Hi! Before I can start working in this server, I need some setup:\n\n**Required Commands:**\n\`!setup\` - Start the setup process\n\nThis will help you configure:\n🎁 **Drop Channel** - Where drops will appear\n🎯 **Events Channel** - Where events will be announced\n\n**Note:** Only bot admins can run setup commands.\nUse \`!addadmin @user\` to add admins (super admins only).`)
+        .setDescription(`Hi! Before I can start working in this server, I need some setup:\n\n**Important:** Create a role called **"ZooAdmin"** (case insensitive) and assign it to users who should manage the bot.\n\n**Setup Commands (ZooAdmin only):**\n\`!setup\` - Start the setup process\n\`!setdropchannel #channel\` - Set where drops appear\n\`!seteventschannel #channel\` - Set where events are announced\n\`!setupdateschannel #channel\` - Set where bot updates are posted\n\`!paydrops\` - Activate drops (costs 100 gems for 3 hours)\n\n**Customization Commands (ZooAdmin only):**\n\`!setemoji <character> <emoji>\` - Set custom character emojis\n\`!setchestgif <type> <url>\` - Set custom chest opening GIFs\n\n**Note:** Only users with the **ZooAdmin** role can manage server settings and activate drops.`)
         .setFooter({ text: 'Looking for more features? Check out our main server!' });
       
       await owner.send({ embeds: [setupEmbed] }).catch(() => {
@@ -325,15 +325,15 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!isSuperAdmin(userId) && !message.member?.permissions.has(PermissionFlagsBits.Administrator)) {
-          await message.reply('❌ Only server administrators can run initial setup!');
+        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
+          await message.reply('❌ Only users with the **ZooAdmin** role can run server setup!\n\nPlease create a role called "ZooAdmin" and assign it to server admins who should manage the bot.');
           return;
         }
         
         const setupEmbed = new EmbedBuilder()
           .setColor('#00D9FF')
           .setTitle('🛠️ Server Setup')
-          .setDescription(`Welcome! Let's set up ZooBot for your server.\n\n**Required Steps:**\n1. Set drop channel: \`!setdropchannel #channel\`\n2. Set events channel: \`!seteventschannel #channel\`\n3. Set updates channel: \`!setupdateschannel #channel\`\n4. Add bot admins: \`!addadmin @user\` (super admins only)\n\n**Current Status:**\n${isServerSetup(serverId) ? '✅ Setup complete!' : '⚠️ Setup incomplete'}\n\n**Note:** Drops appear every 30 seconds on non-main servers and require payment (100 gems for 3 hours).\nFor unlimited drops and exclusive features, join our main server!`)
+          .setDescription(`Welcome! Let's set up ZooBot for your server.\n\n**Role Requirement:** You need the **ZooAdmin** role to manage this bot.\n\n**Required Steps:**\n1. Set drop channel: \`!setdropchannel #channel\`\n2. Set events channel: \`!seteventschannel #channel\`\n3. Set updates channel: \`!setupdateschannel #channel\`\n\n**Current Status:**\n${isServerSetup(serverId) ? '✅ Setup complete!' : '⚠️ Setup incomplete'}\n\n**Note:** Drops appear every 30 seconds on non-main servers and require payment (100 gems for 3 hours by ZooAdmins).\nOnly users with the **ZooAdmin** role can activate drops and customize server settings.\n\nFor unlimited drops and exclusive features, join our main server!`)
           .setFooter({ text: 'Use the commands above to complete setup' });
         
         await message.reply({ embeds: [setupEmbed] });
@@ -346,7 +346,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const dropChannel = message.mentions.channels.first() || message.channel;
-        const dropResult = await setDropChannel(serverId, dropChannel.id, userId);
+        const dropResult = await setDropChannel(serverId, dropChannel.id, userId, message.member);
         
         await message.reply(dropResult.message);
         
@@ -362,7 +362,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const eventsChannel = message.mentions.channels.first() || message.channel;
-        const eventsResult = await setEventsChannel(serverId, eventsChannel.id, userId);
+        const eventsResult = await setEventsChannel(serverId, eventsChannel.id, userId, message.member);
         
         await message.reply(eventsResult.message);
         
@@ -410,7 +410,7 @@ client.on('messageCreate', async (message) => {
         }
         
         const updatesChannel = message.mentions.channels.first() || message.channel;
-        const updatesResult = await setUpdatesChannel(serverId, updatesChannel.id, userId);
+        const updatesResult = await setUpdatesChannel(serverId, updatesChannel.id, userId, message.member);
         
         await message.reply(updatesResult.message);
         break;
@@ -460,8 +460,8 @@ client.on('messageCreate', async (message) => {
         break;
       
       case 'setemoji':
-        if (serverId && !isBotAdmin(serverId, userId) && !isSuperAdmin(userId)) {
-          await message.reply('❌ Only bot admins can set custom character emojis!');
+        if (serverId && !isZooAdmin(message.member) && !isSuperAdmin(userId)) {
+          await message.reply('❌ Only users with the **ZooAdmin** role can set custom character emojis!');
           return;
         }
         
@@ -490,8 +490,8 @@ client.on('messageCreate', async (message) => {
       
       case 'setchestgif':
       case 'setcrategif':
-        if (serverId && !isBotAdmin(serverId, userId) && !isSuperAdmin(userId)) {
-          await message.reply('❌ Only bot admins can customize chest GIFs!');
+        if (serverId && !isZooAdmin(message.member) && !isSuperAdmin(userId)) {
+          await message.reply('❌ Only users with the **ZooAdmin** role can customize chest GIFs!');
           return;
         }
         
@@ -1107,6 +1107,16 @@ client.on('messageCreate', async (message) => {
         
       case 'paydrops':
       case 'activatedrops':
+        if (!serverId || isMainServer(serverId)) {
+          await message.reply('❌ This command is only for non-main servers!');
+          return;
+        }
+        
+        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
+          await message.reply('❌ Only users with the **ZooAdmin** role can activate drops for this server!\n\nAsk a server administrator to give you the "ZooAdmin" role to manage the bot.');
+          return;
+        }
+        
         const payResult = await payForDrops(serverId, userId, data);
         
         if (payResult.success) {
@@ -2796,6 +2806,40 @@ client.on('messageCreate', async (message) => {
           console.error('Error sending task:', error);
           await message.reply(`❌ Failed to send task: ${error.message}`);
         }
+        break;
+        
+      case 'permissions':
+      case 'perms':
+      case 'roles':
+        const permEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle('🔐 ZooBot Permission System')
+          .setDescription('ZooBot uses a three-tier permission system for command access.\n\n**For full documentation, see PERMISSIONS_DOCUMENTATION.md**')
+          .addFields(
+            { 
+              name: '👑 Super Admin (Bot Owners)', 
+              value: 'Hardcoded bot owners with full access to all commands across all servers.\n\n**Commands:** User management, skin management, server management, bot updates, data resets, etc.'
+            },
+            { 
+              name: '🛡️ ZooAdmin (Server Customization)', 
+              value: '**Role Name:** `ZooAdmin` (case insensitive)\n\nCreate this role in your Discord server and assign it to trusted users who should manage the bot.\n\n**Commands:**\n• `!setup` - Server setup\n• `!setdropchannel` - Configure drop channel\n• `!seteventschannel` - Configure events channel\n• `!setupdateschannel` - Configure updates channel\n• `!paydrops` - Activate drops (100 gems/3h)\n• `!setemoji` - Custom character emojis\n• `!setchestgif` - Custom chest GIFs'
+            },
+            { 
+              name: '🔧 Bot Admin (Legacy System)', 
+              value: 'Database-stored admins (being phased out). Can manage events.\n\n**Commands:** `!addadmin`, `!removeadmin`, `!startevent`, `!stopevent`, `!eventschedule`'
+            },
+            { 
+              name: '👥 Regular Users (Everyone)', 
+              value: 'All standard gameplay commands: battles, trading, quests, crates, profile, shop, etc.\n\nUse `!help` to see all available commands.'
+            },
+            {
+              name: '❓ How to Setup ZooAdmin',
+              value: '1. Create a Discord role named "ZooAdmin"\n2. Assign it to users who should manage the bot\n3. They can now run all customization commands!'
+            }
+          )
+          .setFooter({ text: 'Type !help for all commands | Read PERMISSIONS_DOCUMENTATION.md for details' });
+        
+        await message.reply({ embeds: [permEmbed] });
         break;
         
       case 'help':

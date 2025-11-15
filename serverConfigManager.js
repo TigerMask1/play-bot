@@ -60,6 +60,14 @@ function isBotAdmin(userId, serverId) {
   return config.botAdmins.includes(userId);
 }
 
+function isZooAdmin(member) {
+  if (!member || !member.roles) return false;
+  
+  return member.roles.cache.some(role => 
+    role.name.toLowerCase() === 'zooadmin'
+  );
+}
+
 async function addBotAdmin(serverId, userId, addedBy) {
   if (!isSuperAdmin(addedBy) && !isBotAdmin(addedBy, serverId)) {
     return { success: false, message: '❌ Only bot admins can add other admins!' };
@@ -156,13 +164,13 @@ function getUpdatesChannel(serverId) {
   return config ? config.updatesChannelId : null;
 }
 
-async function setDropChannel(serverId, channelId, setBy) {
+async function setDropChannel(serverId, channelId, setBy, member) {
   if (isMainServer(serverId)) {
     return { success: false, message: '❌ Cannot change drop channel on main server!' };
   }
   
-  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
-    return { success: false, message: '❌ Only bot admins can set the drop channel!' };
+  if (!isSuperAdmin(setBy) && !isZooAdmin(member)) {
+    return { success: false, message: '❌ Only users with the **ZooAdmin** role can set the drop channel!' };
   }
   
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
@@ -191,13 +199,13 @@ async function setDropChannel(serverId, channelId, setBy) {
   return { success: true, message: responseMessage, setupComplete: config.setupComplete };
 }
 
-async function setEventsChannel(serverId, channelId, setBy) {
+async function setEventsChannel(serverId, channelId, setBy, member) {
   if (isMainServer(serverId)) {
     return { success: false, message: '❌ Cannot change events channel on main server!' };
   }
   
-  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
-    return { success: false, message: '❌ Only bot admins can set the events channel!' };
+  if (!isSuperAdmin(setBy) && !isZooAdmin(member)) {
+    return { success: false, message: '❌ Only users with the **ZooAdmin** role can set the events channel!' };
   }
   
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
@@ -225,9 +233,9 @@ async function setEventsChannel(serverId, channelId, setBy) {
   return { success: true, message: responseMessage, setupComplete: config.setupComplete };
 }
 
-async function setUpdatesChannel(serverId, channelId, setBy) {
-  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
-    return { success: false, message: '❌ Only bot admins can set the updates channel!' };
+async function setUpdatesChannel(serverId, channelId, setBy, member) {
+  if (!isSuperAdmin(setBy) && !isZooAdmin(member)) {
+    return { success: false, message: '❌ Only users with the **ZooAdmin** role can set the updates channel!' };
   }
   
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
@@ -262,6 +270,7 @@ module.exports = {
   isMainServer,
   isSuperAdmin,
   isBotAdmin,
+  isZooAdmin,
   addBotAdmin,
   removeBotAdmin,
   setupServer,
