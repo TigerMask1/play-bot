@@ -22,8 +22,8 @@
 ### 🎁 Dynamic Drop System
 - **Main Server**: Unlimited free drops every 20 seconds
 - **Non-Main Servers**: Pay 100 gems for 3 hours of drops (drops every 30 seconds)
-- **Smart Pausing**: Auto-pauses after 30 uncaught drops
-- **Drop Revival**: Anyone can revive drops by catching, even without owning the character
+- **Smart Pausing**: Auto-pauses after 30 uncaught drops (3-hour timer keeps running)
+- **Drop Revival**: Anyone can revive drops by using `!c <code>` (even if they don't catch it)
 - **Rewards**: Coins, Gems, Shards, and Character Tokens
 
 ### 📦 Interactive Crate System
@@ -136,15 +136,16 @@
 ### Non-Main Servers
 - **Paid drop system**: 100 gems for 3 hours
 - Drops every 30 seconds when active
-- **Auto-pause**: After 30 uncaught drops
-- **Auto-revival**: Anyone using `!c <code>` revives the system
+- **Auto-pause**: After 30 uncaught drops (timer keeps running)
+- **Auto-revival**: Anyone using `!c <code>` revives the system (even if they don't catch it)
 - Only **ZooAdmins** can activate drops with `!paydrops`
 
 ### Drop Revival Feature
-Even if you don't own the character in a token drop, using the correct code with `!c <code>` will:
-- ✅ Revive the drop system if paused
-- ✅ Clear the drop so a new one can spawn
-- ⚠️ You won't receive the tokens, but you help the community!
+Using `!c <code>` **always revives paused drops**, regardless of whether you catch the drop or not:
+- ✅ **Catch successful**: You get the reward AND revive drops (if paused)
+- ✅ **Catch failed** (don't own character): You don't get tokens BUT still revive drops
+- ⏰ **Timer continues**: The 3-hour timer keeps running even when drops are paused
+- 🎯 **Help your community**: Use `!c <code>` to help restart drops, even if you can't claim the reward!
 
 ---
 
