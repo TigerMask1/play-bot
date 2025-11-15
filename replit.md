@@ -23,6 +23,10 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Battle System:** Turn-based combat with energy management, 51 unique passive abilities, critical hits, status effects, and consumable items. Includes an AI battle system.
 - **Inventory:** MongoDB-compatible inventory for battle items.
 - **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking, automatic reward distribution, and manual/scheduled control.
+- **Permission System:** Three-tier role-based access control:
+  - **Super Admin:** Hardcoded bot owners with full access to all commands globally
+  - **ZooAdmin Role:** Discord role (case insensitive) for server customization - allows server admins to configure channels, activate drops, customize emojis/GIFs
+  - **Bot Admin (Legacy):** Database-stored admins for event management (being phased out)
 - **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically.
@@ -34,7 +38,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Data Management:** Automatic data backfilling, environment-based configuration, and a dual-save system (`saveDataImmediate()` for critical operations, batched saves for telemetry) with graceful shutdown handlers.
 - **Error Handling:** Comprehensive error handling with user-friendly messages.
 - **Performance Optimization:** In-memory caching for skins, MongoDB indexes for fast queries, and optimized drop system to minimize Discord API calls.
-- **Security:** Critical economy/admin commands restricted to super-admins.
+- **Security:** Critical economy/admin commands restricted to super-admins. Server customization requires ZooAdmin role for safe delegation of bot management to trusted server members.
 - **Multi-Server Architecture:** Supports deployment across multiple Discord servers, differentiating features like drop rates, clan wars, and promotional messages between a "Main Server" and "Non-Main Servers."
 
 ## External Dependencies
