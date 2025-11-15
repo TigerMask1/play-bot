@@ -288,9 +288,22 @@ async function executeDrop(serverId) {
       activeData.serverDrops = {};
     }
 
-    // ===== PHASE 1: Clear previous drop data (optimized - no message deletion) =====
+    // ===== PHASE 1: Check if previous drop was uncaught and increment counter =====
     if (activeData.serverDrops[serverId]) {
-      // Simply remove the old drop data without deleting messages to reduce API calls
+      // Previous drop still exists and wasn't caught - increment uncaught counter
+      console.log(`📊 Drop uncaught in server ${serverId}, incrementing counter...`);
+      const paused = await incrementUncaughtDrops(serverId);
+      if (paused) {
+        console.log(`⏸️ Drops PAUSED in server ${serverId} after ${MAX_UNCAUGHT_DROPS} uncaught drops`);
+        const pauseEmbed = new EmbedBuilder()
+          .setColor('#FF0000')
+          .setTitle('💤 Drops Stopped!')
+          .setDescription(`Yikes! Your server is **really inactive**... 😴\n\n${MAX_UNCAUGHT_DROPS} drops went uncaught in a row! That's pretty impressive (in a bad way).\n\n🔄 **Want to revive drops?** Just use \`!c <code>\` on any drop to wake things up again!\n⏰ Your 3-hour timer is still ticking, so don't waste it!`)
+          .setFooter({ text: 'Pro tip: Being active helps you catch more drops!' });
+        await channel.send({ embeds: [pauseEmbed] });
+        console.log(`📨 Pause notification sent to server ${serverId}`);
+      }
+      // Remove the old drop data without deleting messages to reduce API calls
       delete activeData.serverDrops[serverId];
     }
 
@@ -352,33 +365,6 @@ async function executeDrop(serverId) {
     };
 
     saveData(activeData);
-    
-    // Set a timeout to increment uncaught drops if not caught within spawn interval
-    // Capture both spawn time and interval at spawn time to avoid mismatches
-    const dropSpawnTime = activeData.serverDrops[serverId].spawnedAt;
-    const dropInterval = getDropInterval(serverId);
-    setTimeout(async () => {
-      // Check if this specific drop is still active (not caught)
-      // Compare the spawn time to ensure we're checking the same drop, not a new one
-      if (activeData.serverDrops[serverId] && 
-          activeData.serverDrops[serverId].spawnedAt === dropSpawnTime) {
-        console.log(`📊 Drop uncaught in server ${serverId}, incrementing counter...`);
-        const paused = await incrementUncaughtDrops(serverId);
-        if (paused) {
-          console.log(`⏸️ Drops PAUSED in server ${serverId} after ${MAX_UNCAUGHT_DROPS} uncaught drops`);
-          const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
-          if (channel) {
-            const pauseEmbed = new EmbedBuilder()
-              .setColor('#FF0000')
-              .setTitle('💤 Drops Stopped!')
-              .setDescription(`Yikes! Your server is **really inactive**... 😴\n\n${MAX_UNCAUGHT_DROPS} drops went uncaught in a row! That's pretty impressive (in a bad way).\n\n🔄 **Want to revive drops?** Just use \`!c <code>\` on any drop to wake things up again!\n⏰ Your 3-hour timer is still ticking, so don't waste it!`)
-              .setFooter({ text: 'Pro tip: Being active helps you catch more drops!' });
-            await channel.send({ embeds: [pauseEmbed] });
-            console.log(`📨 Pause notification sent to server ${serverId}`);
-          }
-        }
-      }
-    }, dropInterval);
 
   } catch (error) {
     console.error('❌ Drop execution error:', error);

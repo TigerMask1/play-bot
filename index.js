@@ -1192,10 +1192,17 @@ client.on('messageCreate', async (message) => {
         
         if (!serverId) return;
         
+        // Check if user has started the game
+        if (!data.users[userId] || !data.users[userId].started) {
+          await message.reply('❌ You need to start the game first! Use `!start` to begin your adventure!');
+          return;
+        }
+        
         if (!data.serverDrops) data.serverDrops = {};
         
         if (data.serverDrops[serverId] && data.serverDrops[serverId].code === code) {
           const drop = data.serverDrops[serverId];
+          console.log(`✅ User ${userId} caught drop in server ${serverId}: ${drop.type} x${drop.amount}`);
           
           if (drop.type === 'tokens') {
             const charToReward = data.users[userId].characters.find(c => 
@@ -2961,8 +2968,10 @@ client.on('messageCreate', async (message) => {
         break;
     }
   } catch (error) {
-    console.error('Command error:', error);
-    await message.reply('❌ An error occurred while processing your command!');
+    console.error('❌ Command error:', error);
+    console.error('Error details:', error.stack);
+    console.error(`Command: ${command}, Args: ${args.join(' ')}, User: ${userId}, Server: ${serverId}`);
+    await message.reply(`❌ An error occurred while processing your command!\n\`\`\`${error.message}\`\`\``);
   }
 });
 
