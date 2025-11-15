@@ -23,6 +23,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
   - **Timer Persistence:** The 3-hour timer continues running even when drops are paused
   - **Drop Revival:** Anyone using `!c <code>` revives paused drops, even if they don't catch the drop or own the character
   - **Community Feature:** Players can help revive drops for their server even without being able to claim the reward
+  - **Infinite Drops Override:** Super admins can grant unlimited free drops to any server using `!setinfinitedrops on`, bypassing the paid system entirely
 - **Trading System:** Secure player-to-player trading with dual confirmation.
 - **Battle System:** Turn-based combat with energy management, 51 unique passive abilities, critical hits, status effects, and consumable items. Includes an AI battle system.
 - **Inventory:** MongoDB-compatible inventory for battle items.
@@ -31,7 +32,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
   - **Super Admin:** Hardcoded bot owners with full access to all commands globally
   - **ZooAdmin Role:** Discord role (case insensitive) for server customization - allows server admins to configure channels, activate drops, customize emojis/GIFs
   - **Bot Admin (Legacy):** Database-stored admins for event management (being phased out)
-- **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
+- **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, bot channels, server infinite drops override, and bot update broadcasting.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically.
 - **Mail System:** Inbox clearing functionality for users.
