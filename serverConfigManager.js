@@ -263,6 +263,41 @@ async function setUpdatesChannel(serverId, channelId, setBy, member) {
   return { success: true, message: responseMessage, setupComplete: config.setupComplete };
 }
 
+function hasInfiniteDrops(serverId) {
+  if (isMainServer(serverId)) return true;
+  
+  const config = getServerConfig(serverId);
+  return config && config.infiniteDrops === true;
+}
+
+async function setInfiniteDrops(serverId, enable, setBy) {
+  if (!isSuperAdmin(setBy)) {
+    return { success: false, message: '❌ Only Super Admins can set infinite drops!' };
+  }
+  
+  if (isMainServer(serverId)) {
+    return { success: false, message: '❌ Main server already has infinite drops!' };
+  }
+  
+  const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
+  config.infiniteDrops = enable;
+  
+  if (enable) {
+    config.dropsPaidUntil = null;
+    config.uncaughtDropCount = 0;
+    config.dropsPaused = false;
+  }
+  
+  await saveServerConfig(serverId, config);
+  
+  const statusText = enable ? 'ENABLED' : 'DISABLED';
+  const message = enable 
+    ? `✅ Infinite drops **${statusText}** for this server!\n\n🎉 This server now has unlimited free drops just like the main server!`
+    : `✅ Infinite drops **${statusText}** for this server!\n\n⚠️ This server will now use the paid drop system (100 gems for 3 hours).`;
+  
+  return { success: true, message, enabled: enable };
+}
+
 module.exports = {
   loadServerConfigs,
   saveServerConfig,
@@ -282,6 +317,8 @@ module.exports = {
   setDropChannel,
   setEventsChannel,
   setUpdatesChannel,
+  hasInfiniteDrops,
+  setInfiniteDrops,
   MAIN_SERVER_ID,
   SUPER_ADMINS
 };

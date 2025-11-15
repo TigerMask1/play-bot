@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveData, saveDataImmediate } = require('./dataManager.js');
 const CHARACTERS = require('./characters.js');
-const { isMainServer, getServerConfig, getDropInterval, isServerSetup, saveServerConfig } = require('./serverConfigManager.js');
+const { isMainServer, getServerConfig, getDropInterval, isServerSetup, saveServerConfig, hasInfiniteDrops } = require('./serverConfigManager.js');
 
 let dropIntervals = new Map();
 let activeClient = null;
@@ -21,6 +21,7 @@ const MAX_UNCAUGHT_DROPS = 30;
 
 function areDropsActive(serverId) {
   if (isMainServer(serverId)) return true; // Main server always has drops
+  if (hasInfiniteDrops(serverId)) return true; // Server with infinite drops enabled
   
   const config = getServerConfig(serverId);
   if (!config) return false;
@@ -86,6 +87,7 @@ async function payForDrops(serverId, userId, data) {
 
 function getDropsTimeRemaining(serverId) {
   if (isMainServer(serverId)) return '∞'; // Infinite for main server
+  if (hasInfiniteDrops(serverId)) return '∞'; // Infinite for servers with infinite drops enabled
   
   const config = getServerConfig(serverId);
   if (!config || !config.dropsPaidUntil) return '0m';
@@ -104,6 +106,7 @@ function getDropsTimeRemaining(serverId) {
 
 async function incrementUncaughtDrops(serverId) {
   if (isMainServer(serverId)) return; // Main server doesn't count uncaught drops
+  if (hasInfiniteDrops(serverId)) return; // Servers with infinite drops don't count uncaught drops
   
   const config = getServerConfig(serverId);
   if (!config) return;
