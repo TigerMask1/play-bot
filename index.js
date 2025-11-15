@@ -101,6 +101,15 @@ const {
   getActiveSession, 
   clearSession 
 } = require('./chestInteractionManager.js');
+const { 
+  coinDuel, 
+  diceClash, 
+  doorOfFate, 
+  almostWinMachine, 
+  rockPaperScissors,
+  handleDiceClashButton,
+  handleDoorButton
+} = require('./minigamesSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -211,6 +220,24 @@ client.on('guildCreate', async (guild) => {
       });
     } catch (error) {
       console.error('Error sending setup message:', error);
+    }
+  }
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+  if (!data) return;
+  
+  try {
+    if (interaction.customId.startsWith('diceclash_')) {
+      await handleDiceClashButton(interaction, data);
+    } else if (interaction.customId.startsWith('door_')) {
+      await handleDoorButton(interaction, data);
+    }
+  } catch (error) {
+    console.error('Error handling button interaction:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
     }
   }
 });
@@ -2238,6 +2265,52 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [dailyEmbed] });
         break;
         
+      case 'coinduel':
+      case 'coinflip':
+        if (!data.users[userId].started) {
+          await message.reply('❌ Start your journey with `!start` first!');
+          return;
+        }
+        await coinDuel(message, args, data);
+        break;
+        
+      case 'diceclash':
+      case 'dice':
+        if (!data.users[userId].started) {
+          await message.reply('❌ Start your journey with `!start` first!');
+          return;
+        }
+        await diceClash(message, args, data);
+        break;
+        
+      case 'dooroffate':
+      case 'door':
+        if (!data.users[userId].started) {
+          await message.reply('❌ Start your journey with `!start` first!');
+          return;
+        }
+        await doorOfFate(message, args, data);
+        break;
+        
+      case 'almostwin':
+      case 'slot':
+      case 'roll':
+        if (!data.users[userId].started) {
+          await message.reply('❌ Start your journey with `!start` first!');
+          return;
+        }
+        await almostWinMachine(message, args, data);
+        break;
+        
+      case 'rps':
+      case 'rockpaperscissors':
+        if (!data.users[userId].started) {
+          await message.reply('❌ Start your journey with `!start` first!');
+          return;
+        }
+        await rockPaperScissors(message, args, data);
+        break;
+        
       case 'event':
         const eventInfo = await eventSystem.getEventInfo(userId);
 
@@ -2849,6 +2922,7 @@ client.on('messageCreate', async (message) => {
           .setDescription('Use `!overview` to see all game systems\n\n**📚 Command Categories:**')
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <character>` - Choose starter character' },
+            { name: '🎰 Minigames (NEW!)', value: '`!coinduel <h/t> <bet>` - Coin flip (×2, rare ×5)\n`!diceclash <bet>` - Progressive dice rolling\n`!dooroffate <bet>` - Pick 1 of 3 doors\n`!almostwin <bet>` - Roll 1-100 for prizes\n`!rps <r/p/s> <bet>` - Rock Paper Scissors\n💡 **1.5× rewards on main server!**' },
             { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
             { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop' },
             { name: '🎁 Drops & Rewards', value: '`!c <code>` - Catch drops\n`!paydrops` - Activate drops (100 gems/3h)\n`!dropstatus` - Check drop timer\n`!daily` - Daily rewards' },
@@ -2878,6 +2952,7 @@ client.on('messageCreate', async (message) => {
           .setDescription('**Welcome to ZooBot!** Here\'s what this huge update includes:\n\n')
           .addFields(
             { name: '🎯 Character Collection (51 Characters)', value: 'Collect unique characters, each with special stats (ST), moves, and leveling. Unlock via keys or cages!' },
+            { name: '🎰 Minigames **[NEW!]**', value: '5 fast-paced, addictive minigames to earn coins and gems! Coin Duel, Dice Clash, Door of Fate, Almost-Win Machine, and Rock Paper Scissors. **Main server gets 1.5× rewards!**' },
             { name: '⚔️ Battle System', value: 'Turn-based battles with energy management, 51 unique abilities, status effects (burn, poison, stun, etc.), and battle items!' },
             { name: '🎁 Drop System **[NEW PAID MODEL]**', value: '**Non-main servers:** Pay 100 gems for 3 hours of drops! Auto-pauses after 30 uncaught drops.\n**Main server:** Unlimited free drops!' },
             { name: '📦 Crate System', value: '6 crate tiers (Bronze, Silver, Gold, Emerald, Legendary, Tyrant) with interactive 2-step opening and custom GIF animations!' },
