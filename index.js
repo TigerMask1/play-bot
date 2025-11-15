@@ -203,8 +203,8 @@ client.on('guildCreate', async (guild) => {
       const setupEmbed = new EmbedBuilder()
         .setColor('#00D9FF')
         .setTitle('👋 Thanks for adding ZooBot!')
-        .setDescription(`Hi! Before I can start working in this server, I need some setup:\n\n**Important:** Create a role called **"ZooAdmin"** (case insensitive) and assign it to users who should manage the bot.\n\n**Setup Commands (ZooAdmin only):**\n\`!setup\` - Start the setup process\n\`!setdropchannel #channel\` - Set where drops appear\n\`!seteventschannel #channel\` - Set where events are announced\n\`!setupdateschannel #channel\` - Set where bot updates are posted\n\`!paydrops\` - Activate drops (costs 100 gems for 3 hours)\n\n**Customization Commands (ZooAdmin only):**\n\`!setemoji <character> <emoji>\` - Set custom character emojis\n\`!setchestgif <type> <url>\` - Set custom chest opening GIFs\n\n**Note:** Only users with the **ZooAdmin** role can manage server settings and activate drops.`)
-        .setFooter({ text: 'Looking for more features? Check out our main server!' });
+        .setDescription(`Hi! Welcome to **ZooBot** - a character collection game with 51+ unique characters!\n\n**🔧 Quick Setup Guide:**\n\n**Step 1:** Create a role called **"ZooAdmin"** and assign it to trusted users\n\n**Step 2 (ZooAdmin):** Configure your server\n\`!setup\` - View setup instructions\n\`!setdropchannel #channel\` - Set drop channel\n\`!seteventschannel #channel\` - Set events channel  \n\`!setupdateschannel #channel\` - Set updates channel\n\n**Step 3 (ZooAdmin):** Activate Drops\n\`!paydrops\` - Activate drops for 3 hours (costs 100 gems)\n*You'll need to play and earn gems first, or ask someone to donate!*\n\n**💡 Drop System:**\n• Drops spawn every 30 seconds when active\n• Each activation costs 100 gems for 3 hours\n• Only ZooAdmins can activate drops\n• Main server has unlimited free drops!\n\n**🎨 Customization (Optional):**\n\`!setemoji <character> <emoji>\` - Custom emojis\n\`!setchestgif <type> <url>\` - Custom chest GIFs`)
+        .setFooter({ text: 'Use !help to see all commands | Join our main server for unlimited drops!' });
       
       await owner.send({ embeds: [setupEmbed] }).catch(() => {
         console.log(`Could not DM owner of ${guild.name}`);
@@ -1162,12 +1162,13 @@ client.on('messageCreate', async (message) => {
               c.name.toLowerCase() === drop.characterName.toLowerCase()
             );
             
+            delete data.serverDrops[serverId];
+            
+            const wasPaused = areDropsPaused(serverId);
+            await resetUncaughtDrops(serverId);
+            
             if (charToReward) {
-              delete data.serverDrops[serverId];
               charToReward.tokens += drop.amount;
-              
-              // Reset uncaught drop counter and resume if paused
-              await resetUncaughtDrops(serverId);
               
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
               data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
@@ -1188,16 +1189,23 @@ client.on('messageCreate', async (message) => {
               const dropEmbed = new EmbedBuilder()
                 .setColor('#00FF00')
                 .setTitle('🎉 DROP CAUGHT!')
-                .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${drop.amount} ${drop.characterName} tokens 🎫`);
+                .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${drop.amount} ${drop.characterName} tokens 🎫${wasPaused ? '\n\n✅ **Drops have been revived!** New drops will spawn again!' : ''}`);
               
               await message.reply({ embeds: [dropEmbed] });
             } else {
-              await message.reply(`❌ You don't own **${drop.characterName}**, so you can't collect these tokens! Drop remains active.`);
+              saveData(data);
+              
+              const reviveEmbed = new EmbedBuilder()
+                .setColor('#FFA500')
+                .setTitle('⚠️ Drop Revived!')
+                .setDescription(`<@${userId}> used the correct code but doesn't own **${drop.characterName}**!\n\n❌ You couldn't claim the tokens, but you helped revive the drop system!${wasPaused ? '\n\n✅ **Drops have been revived!** New drops will spawn again!' : ''}`);
+              
+              await message.reply({ embeds: [reviveEmbed] });
             }
           } else {
             delete data.serverDrops[serverId];
             
-            // Reset uncaught drop counter and resume if paused
+            const wasPaused = areDropsPaused(serverId);
             await resetUncaughtDrops(serverId);
             
             if (drop.type === 'coins') {
@@ -1236,7 +1244,7 @@ client.on('messageCreate', async (message) => {
             const dropEmbed = new EmbedBuilder()
               .setColor('#00FF00')
               .setTitle('🎉 DROP CAUGHT!')
-              .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${rewardText}`);
+              .setDescription(`<@${userId}> caught the drop!\n\n**Reward:** ${rewardText}${wasPaused ? '\n\n✅ **Drops have been revived!** New drops will spawn again!' : ''}`);
             
             await message.reply({ embeds: [dropEmbed] });
           }

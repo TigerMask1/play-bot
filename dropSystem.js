@@ -138,6 +138,48 @@ async function resetUncaughtDrops(serverId) {
   }
 }
 
+async function notifyDropsExpired(serverId) {
+  if (!activeClient || isMainServer(serverId)) return;
+  
+  try {
+    const config = getServerConfig(serverId);
+    if (!config || !config.dropChannelId) return;
+    
+    const guild = await activeClient.guilds.fetch(serverId).catch(() => null);
+    if (!guild) return;
+    
+    const channel = await activeClient.channels.fetch(config.dropChannelId).catch(() => null);
+    if (!channel) return;
+    
+    const members = await guild.members.fetch().catch(() => null);
+    if (!members) return;
+    
+    const zooAdmins = members.filter(member => 
+      member.roles.cache.some(role => role.name.toLowerCase() === 'zooadmin')
+    );
+    
+    let pingText = '';
+    if (zooAdmins.size > 0) {
+      pingText = zooAdmins.map(m => `<@${m.id}>`).join(' ');
+    } else {
+      const owner = await guild.fetchOwner().catch(() => null);
+      if (owner) {
+        pingText = `<@${owner.id}>`;
+      }
+    }
+    
+    const expireEmbed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('⏰ Drops Expired!')
+      .setDescription(`${pingText}\n\n❌ The drop system has stopped because your 3-hour drop period has expired.\n\n💎 Use \`!paydrops\` to activate drops again for 3 hours (costs 100 gems)\n\n**Only users with the ZooAdmin role can activate drops!**`)
+      .setFooter({ text: 'Need help? Use !setup to see server configuration' });
+    
+    await channel.send({ embeds: [expireEmbed] });
+  } catch (error) {
+    console.error('Error notifying drops expired:', error);
+  }
+}
+
 // ======================================================
 //  START / STOP SYSTEM
 // ======================================================
@@ -199,6 +241,7 @@ async function executeDrop(serverId) {
   try {
     // Check if payment is still valid (payment expiry, not pause)
     if (!areDropsActive(serverId)) {
+      await notifyDropsExpired(serverId);
       stopDropsForServer(serverId);
       return;
     }
