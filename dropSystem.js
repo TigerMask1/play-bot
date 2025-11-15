@@ -13,7 +13,6 @@ const MAIN_DROP_CHANNEL = '1430525383635107850';
 const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 'win', 'get', 'take'];
 const DROP_DURATION = 3 * 3600000; // 3 hours in milliseconds
 const DROP_COST = 100; // gems
-const MAX_UNCAUGHT_DROPS = 30;
 
 // ======================================================
 //  DROP PAYMENT & STATUS FUNCTIONS
@@ -25,18 +24,9 @@ function areDropsActive(serverId) {
   const config = getServerConfig(serverId);
   if (!config) return false;
   
-  // Only check if drops are paid for (ignore pause flag here)
-  // Pause is handled separately to keep interval alive
   if (!config.dropsPaidUntil) return false;
   
   return Date.now() < config.dropsPaidUntil;
-}
-
-function areDropsPaused(serverId) {
-  if (isMainServer(serverId)) return false;
-  
-  const config = getServerConfig(serverId);
-  return config && config.dropsPaused === true;
 }
 
 async function payForDrops(serverId, userId, data) {
@@ -67,8 +57,6 @@ async function payForDrops(serverId, userId, data) {
   const expiryTime = Date.now() + DROP_DURATION;
   
   config.dropsPaidUntil = expiryTime;
-  config.uncaughtDropCount = 0;
-  config.dropsPaused = false;
   
   await saveServerConfig(serverId, config);
   await saveDataImmediate(data);
@@ -100,42 +88,6 @@ function getDropsTimeRemaining(serverId) {
     return `${hours}h ${minutes}m`;
   }
   return `${minutes}m`;
-}
-
-async function incrementUncaughtDrops(serverId) {
-  if (isMainServer(serverId)) return; // Main server doesn't count uncaught drops
-  
-  const config = getServerConfig(serverId);
-  if (!config) return;
-  
-  config.uncaughtDropCount = (config.uncaughtDropCount || 0) + 1;
-  
-  if (config.uncaughtDropCount >= MAX_UNCAUGHT_DROPS) {
-    config.dropsPaused = true;
-    await saveServerConfig(serverId, config);
-    // Don't stop the interval - just set the pause flag
-    // Next drops will be skipped until someone catches the current drop
-    return true; // Drops paused
-  }
-  
-  await saveServerConfig(serverId, config);
-  return false;
-}
-
-async function resetUncaughtDrops(serverId) {
-  const config = getServerConfig(serverId);
-  if (!config) return;
-  
-  const wasPaused = config.dropsPaused;
-  config.uncaughtDropCount = 0;
-  config.dropsPaused = false;
-  
-  await saveServerConfig(serverId, config);
-  
-  // Resume drops if they were paused and payment is still valid
-  if (wasPaused && areDropsActive(serverId)) {
-    startDropsForServer(serverId);
-  }
 }
 
 // ======================================================
@@ -260,16 +212,9 @@ async function executeDrop(serverId) {
   if (!activeClient || !activeData) return;
 
   try {
-    // Check if payment is still valid (payment expiry, not pause)
+    // Check if payment is still valid
     if (!areDropsActive(serverId)) {
       await stopDropsForServer(serverId, true); // Send expiry notification
-      return;
-    }
-    
-    // Check if drops are paused - if so, skip spawning but keep interval alive
-    if (areDropsPaused(serverId)) {
-      // Skip spawning new drops while paused, but don't stop the interval
-      // The last drop before pause is still catchable and will trigger resume
       return;
     }
     
@@ -361,25 +306,6 @@ async function executeDrop(serverId) {
     };
 
     saveData(activeData);
-    
-    // Set a timeout to increment uncaught drops if not caught within spawn interval
-    setTimeout(async () => {
-      // Check if this drop is still active (not caught)
-      if (activeData.serverDrops[serverId] && 
-          activeData.serverDrops[serverId].spawnedAt === activeData.serverDrops[serverId].spawnedAt) {
-        const paused = await incrementUncaughtDrops(serverId);
-        if (paused) {
-          const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
-          if (channel) {
-            const pauseEmbed = new EmbedBuilder()
-              .setColor('#FF0000')
-              .setTitle('⚠️ DROPS PAUSED!')
-              .setDescription(`Drops have been paused due to ${MAX_UNCAUGHT_DROPS} uncaught drops.\n\n✅ Drops will resume automatically when someone catches the next drop!`);
-            await channel.send({ embeds: [pauseEmbed] });
-          }
-        }
-      }
-    }, getDropInterval(serverId));
 
   } catch (error) {
     console.error('❌ Drop execution error:', error);
@@ -403,8 +329,5 @@ module.exports = {
   getActiveClient,
   payForDrops,
   areDropsActive,
-  areDropsPaused,
-  getDropsTimeRemaining,
-  resetUncaughtDrops,
-  incrementUncaughtDrops
+  getDropsTimeRemaining
 };

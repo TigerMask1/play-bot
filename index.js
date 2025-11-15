@@ -45,7 +45,7 @@ const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate, buyCrate } = require('./crateSystem.js');
-const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops } = require('./dropSystem.js');
+const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
@@ -1193,9 +1193,6 @@ client.on('messageCreate', async (message) => {
               delete data.serverDrops[serverId];
               charToReward.tokens += drop.amount;
               
-              // Reset uncaught drop counter and resume if paused
-              await resetUncaughtDrops(serverId);
-              
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
               data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
               data.users[userId].lastActivity = Date.now();
@@ -1223,9 +1220,6 @@ client.on('messageCreate', async (message) => {
             }
           } else {
             delete data.serverDrops[serverId];
-            
-            // Reset uncaught drop counter and resume if paused
-            await resetUncaughtDrops(serverId);
             
             if (drop.type === 'coins') {
               data.users[userId].coins += drop.amount;

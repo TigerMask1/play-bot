@@ -191,9 +191,35 @@ async function loadData() {
       const data = await mongoManager.loadData();
       const { data: backfilledData, needsSave } = backfillUserData(data);
       
-      if (needsSave) {
+      if (!backfilledData.giveawayData) {
+        backfilledData.giveawayData = {
+          active: false,
+          channelId: null,
+          drawTime: '20:00',
+          participants: [],
+          lastDrawDate: null,
+          prizeConfig: { coins: 5000, gems: 100, crateType: 'gold', crateCount: 3 },
+          winnersHistory: []
+        };
+      }
+      
+      if (!backfilledData.lotteryData) {
+        backfilledData.lotteryData = {
+          active: false,
+          channelId: null,
+          drawTime: '21:00',
+          entryFee: 100,
+          maxTicketsPerPerson: 5,
+          prizePool: 0,
+          participants: [],
+          lastDrawDate: null,
+          winnersHistory: []
+        };
+      }
+      
+      if (needsSave || !data.giveawayData || !data.lotteryData) {
         await mongoManager.saveData(backfilledData);
-        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, and skins');
+        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, and lottery');
       }
       
       return backfilledData;
@@ -233,9 +259,35 @@ async function loadData() {
     
     const { data: backfilledData, needsSave } = backfillUserData(data);
     
-    if (needsSave) {
+    if (!backfilledData.giveawayData) {
+      backfilledData.giveawayData = {
+        active: false,
+        channelId: null,
+        drawTime: '20:00',
+        participants: [],
+        lastDrawDate: null,
+        prizeConfig: { coins: 5000, gems: 100, crateType: 'gold', crateCount: 3 },
+        winnersHistory: []
+      };
+    }
+    
+    if (!backfilledData.lotteryData) {
+      backfilledData.lotteryData = {
+        active: false,
+        channelId: null,
+        drawTime: '21:00',
+        entryFee: 100,
+        maxTicketsPerPerson: 5,
+        prizePool: 0,
+        participants: [],
+        lastDrawDate: null,
+        winnersHistory: []
+      };
+    }
+    
+    if (needsSave || !data.giveawayData || !data.lotteryData) {
       saveData(backfilledData);
-      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, and skins');
+      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, and lottery');
     }
     
     return backfilledData;
