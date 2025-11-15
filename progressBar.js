@@ -47,7 +47,7 @@ function createLevelProgressBar(currentTokens, requiredTokens) {
   const filledLength = Math.round((percentage / 100) * 8);
   const emptyLength = 8 - filledLength;
   
-  const bar = '▓'.repeat(filledLength) + '░'.repeat(emptyLength);
+  const bar = '█'.repeat(filledLength) + '░'.repeat(emptyLength);
   
   return `[${bar}] ${currentTokens}/${requiredTokens} 🎫`;
 }
