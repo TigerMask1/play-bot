@@ -2869,7 +2869,7 @@ client.on('messageCreate', async (message) => {
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
-            { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
+            { name: '🔧 Server Setup (ZooAdmin)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel` - Set drop channel\n`!seteventschannel #channel` - Set events channel\n`!setupdateschannel #channel` - Set updates channel\n`!setemoji <char> <emoji>` - Custom emojis\n`!setchestgif <type> <url>` - Custom GIFs\n`!permissions` - View permission info' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
           )
@@ -2887,7 +2887,7 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: '🎯 Character Collection (51 Characters)', value: 'Collect unique characters, each with special stats (ST), moves, and leveling. Unlock via keys or cages!' },
             { name: '⚔️ Battle System', value: 'Turn-based battles with energy management, 51 unique abilities, status effects (burn, poison, stun, etc.), and battle items!' },
-            { name: '🎁 Drop System **[NEW PAID MODEL]**', value: '**Non-main servers:** Pay 100 gems for 3 hours of drops! Auto-pauses after 30 uncaught drops.\n**Main server:** Unlimited free drops!' },
+            { name: '🎁 Drop System **[PAID MODEL]**', value: '**Non-main servers:** ZooAdmins pay 100 gems for 3 hours of drops. Auto-pauses after 30 uncaught drops but revives when anyone catches! Anyone can revive drops by using `!c <code>` even without owning the character.\n**Main server:** Unlimited free drops!' },
             { name: '📦 Crate System', value: '6 crate tiers (Bronze, Silver, Gold, Emerald, Legendary, Tyrant) with interactive 2-step opening and custom GIF animations!' },
             { name: '🔷 ST Booster System', value: 'Collect shards to craft boosters and reroll your character\'s ST stat. Higher ST = higher risk!' },
             { name: '💱 Trading System', value: 'Secure player-to-player trading with dual confirmation for characters, coins, gems, and items!' },
