@@ -28,6 +28,20 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Battle System:** Turn-based combat with energy management, 51 unique passive abilities, critical hits, status effects, and consumable items. Includes an AI battle system.
 - **Inventory:** MongoDB-compatible inventory for battle items.
 - **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking, automatic reward distribution, and manual/scheduled control.
+- **Daily Giveaway System:** Automated daily giveaway with participant registration, configurable prizes (coins, gems, crates), scheduled draws, and winner tracking. Main server only. Features:
+  - **Daily Registration:** Users register each day with `!giveaway join`
+  - **Automatic Draws:** Scheduled draws at configurable time (default 20:00)
+  - **Configurable Prizes:** Super admins can set coin, gem, and crate rewards
+  - **Winner History:** Tracks last 30 daily winners
+  - **Persistence:** Full state preservation across restarts, including participants and draw history
+- **Daily Lottery System:** Player-funded lottery with ticket purchases, prize pool accumulation, and winner selection. Main server only. Features:
+  - **Ticket Purchases:** Players buy tickets with gems (configurable entry fee)
+  - **Prize Pool:** Grows with each ticket purchase, winner takes all
+  - **Multiple Entries:** Configurable max tickets per person (default 5)
+  - **Automatic Draws:** Scheduled draws at configurable time (default 21:00)
+  - **Fair Chances:** More tickets = higher win probability
+  - **Winner History:** Tracks last 30 daily winners with prize amounts
+  - **Persistence:** Full state preservation including prize pool and participant tickets
 - **Permission System:** Three-tier role-based access control:
   - **Super Admin:** Hardcoded bot owners with full access to all commands globally
   - **ZooAdmin Role:** Discord role (case insensitive) for server customization - allows server admins to configure channels, activate drops, customize emojis/GIFs
