@@ -45,14 +45,14 @@ const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate, buyCrate } = require('./crateSystem.js');
-const { startDropSystem, stopDropSystem } = require('./dropSystem.js');
+const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
 const { createLevelProgressBar } = require('./progressBar.js');
 const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
 const { craftBooster, useBooster, getBoosterInfo, getCharacterBoostCount, MAX_BOOSTS_PER_CHARACTER } = require('./stBoosterSystem.js');
-const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay } = require('./mailSystem.js');
+const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay, clearClaimedMail } = require('./mailSystem.js');
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
@@ -60,7 +60,7 @@ const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
-const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel } = require('./serverConfigManager.js');
+const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
@@ -156,7 +156,7 @@ function startPersonalizedTaskSystem(client, data) {
   setInterval(async () => {
     const now = Date.now();
     const activeThreshold = 2 * 3600000; // Active if within 2 hours
-    const minTimeBetweenTasks = 3 * 3600000; // 3 hours
+    const minTimeBetweenTasks = 4 * 3600000; // 4 hours
     
     for (const userId in data.users) {
       const userData = data.users[userId];
@@ -174,7 +174,7 @@ function startPersonalizedTaskSystem(client, data) {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
-  }, 10800000); // Every 3 hours
+  }, 14400000); // Every 4 hours
   
   console.log('✅ Personalized Task System started!');
 }
@@ -191,32 +191,7 @@ client.on('clientReady', async () => {
   startPersonalizedTaskSystem(client, data);
   startWeeklyClanWars(client, data);
   
-  if (process.env.DISCORD_APPLICATION_ID) {
-    const { registerCommands } = require('./registerCommands.js');
-    try {
-      await registerCommands();
-    } catch (error) {
-      console.error('❌ Failed to register slash commands:', error);
-    }
-  } else {
-    console.log('⚠️ DISCORD_APPLICATION_ID not set - slash commands disabled');
-  }
-  
   console.log('✅ All systems initialized!');
-});
-
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  
-  try {
-    // No slash commands currently registered
-    await interaction.reply({ 
-      content: '❌ This command is not available.',
-      ephemeral: true 
-    });
-  } catch (error) {
-    console.error('Error handling interaction:', error);
-  }
 });
 
 client.on('guildCreate', async (guild) => {
@@ -358,7 +333,7 @@ client.on('messageCreate', async (message) => {
         const setupEmbed = new EmbedBuilder()
           .setColor('#00D9FF')
           .setTitle('🛠️ Server Setup')
-          .setDescription(`Welcome! Let's set up ZooBot for your server.\n\n**Required Steps:**\n1. Set drop channel: \`!setdropchannel #channel\`\n2. Set events channel: \`!seteventschannel #channel\`\n3. Add bot admins: \`!addadmin @user\` (super admins only)\n\n**Current Status:**\n${isServerSetup(serverId) ? '✅ Setup complete!' : '⚠️ Setup incomplete'}\n\n**Note:** Drops appear every 30 seconds on non-main servers.\nFor faster drops (20s) and exclusive features like raids and AI battles, join our main server!`)
+          .setDescription(`Welcome! Let's set up ZooBot for your server.\n\n**Required Steps:**\n1. Set drop channel: \`!setdropchannel #channel\`\n2. Set events channel: \`!seteventschannel #channel\`\n3. Set updates channel: \`!setupdateschannel #channel\`\n4. Add bot admins: \`!addadmin @user\` (super admins only)\n\n**Current Status:**\n${isServerSetup(serverId) ? '✅ Setup complete!' : '⚠️ Setup incomplete'}\n\n**Note:** Drops appear every 30 seconds on non-main servers and require payment (100 gems for 3 hours).\nFor unlimited drops and exclusive features, join our main server!`)
           .setFooter({ text: 'Use the commands above to complete setup' });
         
         await message.reply({ embeds: [setupEmbed] });
@@ -426,6 +401,62 @@ client.on('messageCreate', async (message) => {
         
         const removeResult = await removeBotAdmin(serverId, userToRemove.id, userId);
         await message.reply(removeResult.message);
+        break;
+        
+      case 'setupdateschannel':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const updatesChannel = message.mentions.channels.first() || message.channel;
+        const updatesResult = await setUpdatesChannel(serverId, updatesChannel.id, userId);
+        
+        await message.reply(updatesResult.message);
+        break;
+        
+      case 'postupdate':
+      case 'botupdate':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const updateMessage = args.join(' ');
+        if (!updateMessage) {
+          await message.reply('Usage: `!postupdate <message>`\n\nThis will post the update to all configured server update channels.');
+          return;
+        }
+        
+        const updateEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle('🔔 Bot Update')
+          .setDescription(updateMessage)
+          .setTimestamp()
+          .setFooter({ text: 'ZooBot Official Update' });
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const guild of client.guilds.cache.values()) {
+          try {
+            const channelId = getUpdatesChannel(guild.id);
+            if (channelId) {
+              const channel = await guild.channels.fetch(channelId).catch(() => null);
+              if (channel) {
+                await channel.send({ embeds: [updateEmbed] });
+                successCount++;
+              } else {
+                failCount++;
+              }
+            }
+          } catch (error) {
+            failCount++;
+            console.error(`Failed to post update to ${guild.name}:`, error.message);
+          }
+        }
+        
+        await message.reply(`✅ Update posted!\n📤 Sent to ${successCount} servers\n❌ Failed: ${failCount}`);
         break;
       
       case 'setemoji':
@@ -1074,6 +1105,36 @@ client.on('messageCreate', async (message) => {
         await message.reply('✅ Drop system stopped!');
         break;
         
+      case 'paydrops':
+      case 'activatedrops':
+        const payResult = await payForDrops(serverId, userId, data);
+        
+        if (payResult.success) {
+          const payEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('💎 Drops Activated!')
+            .setDescription(payResult.message);
+          
+          await message.reply({ embeds: [payEmbed] });
+        } else {
+          await message.reply(payResult.message);
+        }
+        break;
+        
+      case 'dropstatus':
+        const isActive = areDropsActive(serverId);
+        const dropsTimeLeft = getDropsTimeRemaining(serverId);
+        
+        const statusEmbed = new EmbedBuilder()
+          .setColor(isActive ? '#00FF00' : '#FF0000')
+          .setTitle('🎁 Drop System Status')
+          .setDescription(isActive 
+            ? `✅ **Drops are ACTIVE**\n⏰ Time remaining: ${dropsTimeLeft}\n\n💡 Drops will expire after ${dropsTimeLeft}${isMainServer(serverId) ? ' (unlimited in main server)' : ''}` 
+            : `❌ **Drops are INACTIVE**\n\n💎 Use \`!paydrops\` to activate drops for 3 hours (100 gems)${isMainServer(serverId) ? '\n\n✨ Main server has unlimited drops!' : ''}`);
+        
+        await message.reply({ embeds: [statusEmbed] });
+        break;
+        
       case 'c':
         const code = args[0]?.toLowerCase();
         
@@ -1094,6 +1155,9 @@ client.on('messageCreate', async (message) => {
             if (charToReward) {
               delete data.serverDrops[serverId];
               charToReward.tokens += drop.amount;
+              
+              // Reset uncaught drop counter and resume if paused
+              await resetUncaughtDrops(serverId);
               
               if (!data.users[userId].questProgress) data.users[userId].questProgress = {};
               data.users[userId].questProgress.dropsCaught = (data.users[userId].questProgress.dropsCaught || 0) + 1;
@@ -1122,6 +1186,9 @@ client.on('messageCreate', async (message) => {
             }
           } else {
             delete data.serverDrops[serverId];
+            
+            // Reset uncaught drop counter and resume if paused
+            await resetUncaughtDrops(serverId);
             
             if (drop.type === 'coins') {
               data.users[userId].coins += drop.amount;
@@ -1954,6 +2021,17 @@ client.on('messageCreate', async (message) => {
         }
         break;
         
+      case 'clearmail':
+        const clearResult = clearClaimedMail(data.users[userId]);
+        
+        if (clearResult.success) {
+          await saveDataImmediate(data);
+          await message.reply(clearResult.message);
+        } else {
+          await message.reply(clearResult.message);
+        }
+        break;
+        
       case 'sendmail':
         if (!isSuperAdmin(userId)) {
           await message.reply('❌ This command is restricted to Super Admins only!');
@@ -2328,6 +2406,65 @@ client.on('messageCreate', async (message) => {
         }
         break;
         
+      case 'servers':
+      case 'serverlist':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const guilds = client.guilds.cache.map(g => ({
+          name: g.name,
+          id: g.id,
+          members: g.memberCount,
+          owner: g.ownerId
+        }));
+        
+        const serverListEmbed = new EmbedBuilder()
+          .setColor('#FF6B35')
+          .setTitle(`🌐 Bot Server List (${guilds.length} servers)`)
+          .setDescription(guilds.map((g, i) => 
+            `**${i + 1}.** ${g.name}\n└ ID: \`${g.id}\` | Members: ${g.members}${isMainServer(g.id) ? ' ⭐ **MAIN**' : ''}`
+          ).join('\n\n'))
+          .setFooter({ text: 'Use !removeserver <server_id> to remove bot from a server' });
+        
+        await message.reply({ embeds: [serverListEmbed] });
+        break;
+        
+      case 'removeserver':
+      case 'leaveserver':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const targetServerId = args[0];
+        if (!targetServerId) {
+          await message.reply('Usage: `!removeserver <server_id>`\n\n💡 Use `!servers` to see all server IDs');
+          return;
+        }
+        
+        if (isMainServer(targetServerId)) {
+          await message.reply('❌ Cannot remove bot from the main server!');
+          return;
+        }
+        
+        const targetGuild = client.guilds.cache.get(targetServerId);
+        if (!targetGuild) {
+          await message.reply('❌ Bot is not in a server with that ID!');
+          return;
+        }
+        
+        const guildName = targetGuild.name;
+        
+        try {
+          await targetGuild.leave();
+          await message.reply(`✅ Successfully left server: **${guildName}** (${targetServerId})`);
+        } catch (error) {
+          await message.reply(`❌ Failed to leave server: ${error.message}`);
+        }
+        break;
+        
       case 'reset':
         if (!isSuperAdmin(userId)) {
           await message.reply('❌ This command is restricted to Super Admins only!');
@@ -2664,26 +2801,58 @@ client.on('messageCreate', async (message) => {
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
-          .setTitle('🎮 Bot Commands')
+          .setTitle('🎮 ZooBot - Complete Command Guide')
+          .setDescription('Use `!overview` to see all game systems\n\n**📚 Command Categories:**')
           .addFields(
-            { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <nix/bruce/buck>` - Choose starter' },
-            { name: '👤 Profile & Characters', value: '`!profile [page]` - View profile\n`!char <name>` - Character details\n`!I <name>` - View character battle info\n`!levelup <name>` - Level up character (requires tokens AND coins)\n`!release <name>` - Release character (lvl 10+)' },
-            { name: '⚔️ Battle', value: '`!b @user` - Challenge to battle\n`!b ai` - AI battle (coming soon)\n\nWinner: +5 🏆 | Loser: -7 🏆' },
-            { name: '🎁 Rewards', value: '`!daily` - Claim daily rewards (15 🏆, 10-100 💰, 1-3 💎)\n\nChat to earn! Every 25 messages = random reward!' },
-            { name: '📜 Quests', value: '`!quests [page]` - View quests\n`!quest <id>` - View quest details\n`!claim <id>` - Claim quest rewards' },
-            { name: '🔷 ST Boosters', value: '`!shards` - View shard info\n`!craft` - Craft booster (8 shards)\n`!boost <character>` - Use booster' },
-            { name: '📬 Mail & News', value: '`!mail [page]` - View mailbox\n`!claimmail <#>` - Claim mail\n`!news` - Latest news' },
-            { name: '🏆 Leaderboards', value: '`!leaderboard <coins/gems/battles/collection/trophies>` - View top 10' },
-            { name: '🎁 Crates', value: '`!crate [type]` - Open or view crates' },
-            { name: '💱 Trading', value: '`!t @user` - Start a trade' },
-            { name: '🎯 Drops', value: '`!c <code>` - Catch drops' },
-            { name: '🦁 Zoo Raids', value: '`!joinraid [character]` - Join the active raid\n`!raidinfo [#]` - View raid status or history' },
-            { name: '🔑 Keys & Cages', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock character with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
-            { name: '👑 Admin', value: '`!setdrop` - Set drop channel\n`!setbattle` - Set battle channel\n`!startdrops` - Start drops\n`!stopdrops` - Stop drops\n`!grant` - Grant resources\n`!grantchar` - Grant character\n`!settrophies @user <amt>` - Set trophies\n`!reset` - Reset all bot data\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!startraid` - Start raid manually\n`!endraid` - End active raid\n`!ptsend @user` - Send random task\n`!pttasks [difficulty]` - List all tasks\n`!ptsendtask @user <id>` - Send specific task\n`!ptcustom @user <type> <amt> <diff>` - Send custom task\n`!pttoggle @user on/off` - Toggle tasks\n`!ptstats @user` - View task stats\n`!history @user [page]` - View user transaction history' },
-            { name: 'ℹ️ Info', value: '`!botinfo` - About this bot' }
-          );
+            { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <character>` - Choose starter character' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop' },
+            { name: '🎁 Drops & Rewards', value: '`!c <code>` - Catch drops\n`!paydrops` - Activate drops (100 gems/3h)\n`!dropstatus` - Check drop timer\n`!daily` - Daily rewards' },
+            { name: '📦 Crates & Shop', value: '`!crate [type]` - Open crates\n`!pickcrate <type>` - Choose crate to open\n`!opencrate` - Open selected crate\n`!buycrate <type>` - Buy crates' },
+            { name: '💱 Trading', value: '`!t @user` - Trade with users' },
+            { name: '📜 Quests & Tasks', value: '`!quests [page]` - View quests\n`!quest <id>` - Quest details\n`!claim <id>` - Claim quest rewards\n`!ptoggle on/off` - Toggle personalized tasks' },
+            { name: '🔷 ST Boosters', value: '`!shards` - View shard info\n`!craft` - Craft booster (8 shards)\n`!boost <character>` - Reroll character ST' },
+            { name: '📬 Mail & News', value: '`!mail [page]` - View mailbox\n`!claimmail <#>` - Claim mail rewards\n`!clearmail` - Clear claimed mail\n`!news` - Latest bot news' },
+            { name: '🏆 Leaderboards & Rankings', value: '`!leaderboard <type>` - Top 10 rankings\nTypes: coins, gems, battles, collection, trophies' },
+            { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
+            { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
+            { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
+            { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
+            { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
+            { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
+          )
+          .setFooter({ text: '💡 Tip: Most commands have shorter aliases! Try !b, !t, !c' });
         
         await message.reply({ embeds: [helpEmbed] });
+        break;
+        
+      case 'overview':
+      case 'systems':
+        const overviewEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle('🎮 ZooBot Systems Overview')
+          .setDescription('**Welcome to ZooBot!** Here\'s what this huge update includes:\n\n')
+          .addFields(
+            { name: '🎯 Character Collection (51 Characters)', value: 'Collect unique characters, each with special stats (ST), moves, and leveling. Unlock via keys or cages!' },
+            { name: '⚔️ Battle System', value: 'Turn-based battles with energy management, 51 unique abilities, status effects (burn, poison, stun, etc.), and battle items!' },
+            { name: '🎁 Drop System **[NEW PAID MODEL]**', value: '**Non-main servers:** Pay 100 gems for 3 hours of drops! Auto-pauses after 30 uncaught drops.\n**Main server:** Unlimited free drops!' },
+            { name: '📦 Crate System', value: '6 crate tiers (Bronze, Silver, Gold, Emerald, Legendary, Tyrant) with interactive 2-step opening and custom GIF animations!' },
+            { name: '🔷 ST Booster System', value: 'Collect shards to craft boosters and reroll your character\'s ST stat. Higher ST = higher risk!' },
+            { name: '💱 Trading System', value: 'Secure player-to-player trading with dual confirmation for characters, coins, gems, and items!' },
+            { name: '📜 Quest System', value: 'Complete quests to earn rewards like coins, gems, crates, and character tokens!' },
+            { name: '📬 Personalized Tasks **[UPDATED]**', value: 'Receive personalized tasks every **4 hours** (was 2 hours) based on your activity. Earn exclusive rewards!' },
+            { name: '🎯 Daily Events', value: 'Compete in rotating events (Trophy Hunt, Crate Master, Drop Catcher) with automatic reward distribution!' },
+            { name: '🏆 Leaderboards', value: 'Compete for top rankings in coins, gems, battles won, character collection, and trophies!' },
+            { name: '👥 Clan Wars', value: 'Join clans, donate resources, compete in weekly clan wars for exclusive prizes!' },
+            { name: '🔑 Key & Cage System', value: 'Collect character keys (1000 to unlock specific character) or cage keys (250 for random unlock)!' },
+            { name: '📬 Mail System **[UPDATED]**', value: 'Receive mail from admins with rewards. **New:** Use `!clearmail` to clean up claimed messages!' },
+            { name: '📰 News & Updates **[NEW]**', value: 'Stay informed with bot updates posted to your server\'s updates channel!' },
+            { name: '🎨 Custom Emojis & Visuals', value: 'Characters can have custom Discord emojis, and crates have customizable opening GIF animations!' },
+            { name: '💎 Economy System', value: 'Earn and spend Coins, Gems, Shards, Trophies, and character-specific Tokens!' }
+          )
+          .setFooter({ text: 'Type !help to see all commands | This is a fan-made game for entertainment!' });
+        
+        await message.reply({ embeds: [overviewEmbed] });
         break;
         
       case 'keys':

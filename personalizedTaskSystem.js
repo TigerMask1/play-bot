@@ -428,13 +428,13 @@ function getEligibleUsers(data) {
     
     let minTimeBetweenTasks;
     if (isActive) {
-      // Active players: Send task every 3 hours minimum
-      minTimeBetweenTasks = 3 * 3600000;
+      // Active players: Send task every 4 hours minimum
+      minTimeBetweenTasks = 4 * 3600000;
     } else {
-      // Inactive players (6+ hours idle): Send task every 2 hours minimum
+      // Inactive players (6+ hours idle): Send task every 4 hours minimum
       const inactiveThreshold = 6 * 3600000;
       if (timeSinceActivity < inactiveThreshold) continue; // Not inactive enough yet
-      minTimeBetweenTasks = 2 * 3600000;
+      minTimeBetweenTasks = 4 * 3600000;
     }
     
     // User is ready for a task

@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
-const { saveData } = require('./dataManager.js');
+const { saveData, saveDataImmediate } = require('./dataManager.js');
 const CHARACTERS = require('./characters.js');
-const { isMainServer, getServerConfig, getDropInterval, isServerSetup } = require('./serverConfigManager.js');
+const { isMainServer, getServerConfig, getDropInterval, isServerSetup, saveServerConfig } = require('./serverConfigManager.js');
 
 let dropIntervals = new Map();
 let activeClient = null;
@@ -11,6 +11,132 @@ const MAIN_SERVER_ID = '1430516117851340893';
 const MAIN_DROP_CHANNEL = '1430525383635107850';
 
 const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 'win', 'get', 'take'];
+const DROP_DURATION = 3 * 3600000; // 3 hours in milliseconds
+const DROP_COST = 100; // gems
+const MAX_UNCAUGHT_DROPS = 30;
+
+// ======================================================
+//  DROP PAYMENT & STATUS FUNCTIONS
+// ======================================================
+
+function areDropsActive(serverId) {
+  if (isMainServer(serverId)) return true; // Main server always has drops
+  
+  const config = getServerConfig(serverId);
+  if (!config) return false;
+  
+  // Only check if drops are paid for (ignore pause flag here)
+  // Pause is handled separately to keep interval alive
+  if (!config.dropsPaidUntil) return false;
+  
+  return Date.now() < config.dropsPaidUntil;
+}
+
+function areDropsPaused(serverId) {
+  if (isMainServer(serverId)) return false;
+  
+  const config = getServerConfig(serverId);
+  return config && config.dropsPaused === true;
+}
+
+async function payForDrops(serverId, userId, data) {
+  if (isMainServer(serverId)) {
+    return { success: false, message: '❌ Main server has unlimited drops - no payment needed!' };
+  }
+  
+  // Check if server is properly set up before accepting payment
+  if (!isServerSetup(serverId)) {
+    return { success: false, message: '❌ Server not set up yet! Complete setup with `!setup` before activating drops.' };
+  }
+  
+  const config = getServerConfig(serverId);
+  if (!config || !config.dropChannelId) {
+    return { success: false, message: '❌ No drop channel configured! Use `!setdropchannel #channel` first.' };
+  }
+  
+  const userData = data.users[userId];
+  if (!userData) {
+    return { success: false, message: '❌ User data not found!' };
+  }
+  
+  if ((userData.gems || 0) < DROP_COST) {
+    return { success: false, message: `❌ You need ${DROP_COST} gems to activate drops for 3 hours!\n💎 You have: ${userData.gems || 0} gems` };
+  }
+  
+  userData.gems -= DROP_COST;
+  const expiryTime = Date.now() + DROP_DURATION;
+  
+  config.dropsPaidUntil = expiryTime;
+  config.uncaughtDropCount = 0;
+  config.dropsPaused = false;
+  
+  await saveServerConfig(serverId, config);
+  await saveDataImmediate(data);
+  
+  // Restart drops for this server to begin immediately
+  startDropsForServer(serverId);
+  
+  const expiryDate = new Date(expiryTime);
+  return {
+    success: true,
+    message: `✅ Drops activated for 3 hours!\n💎 Gems spent: ${DROP_COST}\n⏰ Drops expire: ${expiryDate.toLocaleTimeString()}\n\n🎁 Drops will now spawn in <#${config.dropChannelId}>!`,
+    expiryTime
+  };
+}
+
+function getDropsTimeRemaining(serverId) {
+  if (isMainServer(serverId)) return '∞'; // Infinite for main server
+  
+  const config = getServerConfig(serverId);
+  if (!config || !config.dropsPaidUntil) return '0m';
+  
+  const remaining = config.dropsPaidUntil - Date.now();
+  if (remaining <= 0) return '0m';
+  
+  const hours = Math.floor(remaining / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+async function incrementUncaughtDrops(serverId) {
+  if (isMainServer(serverId)) return; // Main server doesn't count uncaught drops
+  
+  const config = getServerConfig(serverId);
+  if (!config) return;
+  
+  config.uncaughtDropCount = (config.uncaughtDropCount || 0) + 1;
+  
+  if (config.uncaughtDropCount >= MAX_UNCAUGHT_DROPS) {
+    config.dropsPaused = true;
+    await saveServerConfig(serverId, config);
+    // Don't stop the interval - just set the pause flag
+    // Next drops will be skipped until someone catches the current drop
+    return true; // Drops paused
+  }
+  
+  await saveServerConfig(serverId, config);
+  return false;
+}
+
+async function resetUncaughtDrops(serverId) {
+  const config = getServerConfig(serverId);
+  if (!config) return;
+  
+  const wasPaused = config.dropsPaused;
+  config.uncaughtDropCount = 0;
+  config.dropsPaused = false;
+  
+  await saveServerConfig(serverId, config);
+  
+  // Resume drops if they were paused and payment is still valid
+  if (wasPaused && areDropsActive(serverId)) {
+    startDropsForServer(serverId);
+  }
+}
 
 // ======================================================
 //  START / STOP SYSTEM
@@ -71,6 +197,19 @@ async function executeDrop(serverId) {
   if (!activeClient || !activeData) return;
 
   try {
+    // Check if payment is still valid (payment expiry, not pause)
+    if (!areDropsActive(serverId)) {
+      stopDropsForServer(serverId);
+      return;
+    }
+    
+    // Check if drops are paused - if so, skip spawning but keep interval alive
+    if (areDropsPaused(serverId)) {
+      // Skip spawning new drops while paused, but don't stop the interval
+      // The last drop before pause is still catchable and will trigger resume
+      return;
+    }
+    
     let dropChannelId;
     
     if (isMainServer(serverId)) {
@@ -133,11 +272,16 @@ async function executeDrop(serverId) {
       ? `**Reward:** ${amount} ${characterName} tokens ${selectedDrop.emoji}`
       : `**Reward:** ${amount} ${selectedDrop.type} ${selectedDrop.emoji}`;
 
+    const timeRemaining = getDropsTimeRemaining(serverId);
+    const footerText = isMainServer(serverId) 
+      ? 'First person to type the command gets it!'
+      : `⏰ Drops expire in: ${timeRemaining} | First person to catch wins!`;
+
     const dropEmbed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle('🎁 DROP APPEARED!')
       .setDescription(`A wild drop appeared!\n\n${rewardText}\n\nType \`!c ${code}\` to catch it!`)
-      .setFooter({ text: 'First person to type the command gets it!' })
+      .setFooter({ text: footerText })
       .setTimestamp();
 
     const dropMessage = await channel.send({ embeds: [dropEmbed] });
@@ -149,10 +293,30 @@ async function executeDrop(serverId) {
       code,
       characterName,
       messageId: dropMessage.id,
-      serverId
+      serverId,
+      spawnedAt: Date.now()
     };
 
     saveData(activeData);
+    
+    // Set a timeout to increment uncaught drops if not caught within spawn interval
+    setTimeout(async () => {
+      // Check if this drop is still active (not caught)
+      if (activeData.serverDrops[serverId] && 
+          activeData.serverDrops[serverId].spawnedAt === activeData.serverDrops[serverId].spawnedAt) {
+        const paused = await incrementUncaughtDrops(serverId);
+        if (paused) {
+          const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
+          if (channel) {
+            const pauseEmbed = new EmbedBuilder()
+              .setColor('#FF0000')
+              .setTitle('⚠️ DROPS PAUSED!')
+              .setDescription(`Drops have been paused due to ${MAX_UNCAUGHT_DROPS} uncaught drops.\n\n✅ Drops will resume automatically when someone catches the next drop!`);
+            await channel.send({ embeds: [pauseEmbed] });
+          }
+        }
+      }
+    }, getDropInterval(serverId));
 
   } catch (error) {
     console.error('❌ Drop execution error:', error);
@@ -173,5 +337,11 @@ module.exports = {
   stopDropsForServer,
   startDropsForServer,
   getActiveData,
-  getActiveClient
+  getActiveClient,
+  payForDrops,
+  areDropsActive,
+  areDropsPaused,
+  getDropsTimeRemaining,
+  resetUncaughtDrops,
+  incrementUncaughtDrops
 };

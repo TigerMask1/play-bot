@@ -106,11 +106,12 @@ async function removeBotAdmin(serverId, userId, removedBy) {
   return { success: true, message: `✅ <@${userId}> is no longer a bot admin!` };
 }
 
-async function setupServer(serverId, dropChannelId, eventsChannelId) {
+async function setupServer(serverId, dropChannelId, eventsChannelId, updatesChannelId) {
   const config = {
     serverId,
     dropChannelId,
     eventsChannelId,
+    updatesChannelId,
     dropInterval: isMainServer(serverId) ? 20000 : 30000,
     setupComplete: true,
     setupDate: new Date().toISOString(),
@@ -150,6 +151,11 @@ function getEventsChannel(serverId) {
   return config ? config.eventsChannelId : null;
 }
 
+function getUpdatesChannel(serverId) {
+  const config = getServerConfig(serverId);
+  return config ? config.updatesChannelId : null;
+}
+
 async function setDropChannel(serverId, channelId, setBy) {
   if (isMainServer(serverId)) {
     return { success: false, message: '❌ Cannot change drop channel on main server!' };
@@ -163,7 +169,7 @@ async function setDropChannel(serverId, channelId, setBy) {
   config.dropChannelId = channelId;
   config.dropInterval = 30000;
   
-  if (config.dropChannelId && config.eventsChannelId && !config.setupComplete) {
+  if (config.dropChannelId && config.eventsChannelId && config.updatesChannelId && !config.setupComplete) {
     config.setupComplete = true;
     config.setupDate = new Date().toISOString();
   }
@@ -172,9 +178,14 @@ async function setDropChannel(serverId, channelId, setBy) {
   
   let responseMessage = `✅ Drop channel set to <#${channelId}>!`;
   if (config.setupComplete) {
-    responseMessage += '\n🎉 **Setup complete!** Drops will start appearing every 30 seconds!';
-  } else if (!config.eventsChannelId) {
-    responseMessage += '\n⚠️ **Still need to set events channel!** Use `!seteventschannel #channel`';
+    responseMessage += '\n🎉 **Setup complete!** All channels configured!';
+  } else {
+    const missing = [];
+    if (!config.eventsChannelId) missing.push('events channel');
+    if (!config.updatesChannelId) missing.push('updates channel');
+    if (missing.length > 0) {
+      responseMessage += `\n⚠️ **Still need to set:** ${missing.join(', ')}`;
+    }
   }
   
   return { success: true, message: responseMessage, setupComplete: config.setupComplete };
@@ -192,7 +203,7 @@ async function setEventsChannel(serverId, channelId, setBy) {
   const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
   config.eventsChannelId = channelId;
   
-  if (config.dropChannelId && config.eventsChannelId && !config.setupComplete) {
+  if (config.dropChannelId && config.eventsChannelId && config.updatesChannelId && !config.setupComplete) {
     config.setupComplete = true;
     config.setupDate = new Date().toISOString();
   }
@@ -202,8 +213,43 @@ async function setEventsChannel(serverId, channelId, setBy) {
   let responseMessage = `✅ Events channel set to <#${channelId}>!`;
   if (config.setupComplete) {
     responseMessage += '\n🎉 **Setup complete!** The bot is now fully configured for your server!';
-  } else if (!config.dropChannelId) {
-    responseMessage += '\n⚠️ **Still need to set drop channel!** Use `!setdropchannel #channel`';
+  } else {
+    const missing = [];
+    if (!config.dropChannelId) missing.push('drop channel');
+    if (!config.updatesChannelId) missing.push('updates channel');
+    if (missing.length > 0) {
+      responseMessage += `\n⚠️ **Still need to set:** ${missing.join(', ')}`;
+    }
+  }
+  
+  return { success: true, message: responseMessage, setupComplete: config.setupComplete };
+}
+
+async function setUpdatesChannel(serverId, channelId, setBy) {
+  if (!isSuperAdmin(setBy) && !isBotAdmin(setBy, serverId)) {
+    return { success: false, message: '❌ Only bot admins can set the updates channel!' };
+  }
+  
+  const config = getServerConfig(serverId) || { serverId, botAdmins: [] };
+  config.updatesChannelId = channelId;
+  
+  if (config.dropChannelId && config.eventsChannelId && config.updatesChannelId && !config.setupComplete) {
+    config.setupComplete = true;
+    config.setupDate = new Date().toISOString();
+  }
+  
+  await saveServerConfig(serverId, config);
+  
+  let responseMessage = `✅ Updates channel set to <#${channelId}>!`;
+  if (config.setupComplete) {
+    responseMessage += '\n🎉 **Setup complete!** All channels configured!';
+  } else {
+    const missing = [];
+    if (!config.dropChannelId) missing.push('drop channel');
+    if (!config.eventsChannelId) missing.push('events channel');
+    if (missing.length > 0) {
+      responseMessage += `\n⚠️ **Still need to set:** ${missing.join(', ')}`;
+    }
   }
   
   return { success: true, message: responseMessage, setupComplete: config.setupComplete };
@@ -223,8 +269,10 @@ module.exports = {
   getDropInterval,
   getDropChannel,
   getEventsChannel,
+  getUpdatesChannel,
   setDropChannel,
   setEventsChannel,
+  setUpdatesChannel,
   MAIN_SERVER_ID,
   SUPER_ADMINS
 };

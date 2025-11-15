@@ -4,8 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "node migrate.js",
-    "register-commands": "node registerCommands.js"
+    "migrate": "node migrate.js"
   },
   "keywords": [],
   "author": "",

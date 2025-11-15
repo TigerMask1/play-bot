@@ -132,10 +132,32 @@ function formatMailDisplay(mail, index) {
   return `${status} **Mail #${index + 1}** from ${mail.from} (${date})\n${mail.message}\n${rewardText}`;
 }
 
+function clearClaimedMail(userData) {
+  if (!userData.mailbox || userData.mailbox.length === 0) {
+    return { success: false, message: "❌ Your mailbox is already empty!" };
+  }
+  
+  const initialCount = userData.mailbox.length;
+  const unclaimedCount = userData.mailbox.filter(m => !m.claimed).length;
+  
+  if (unclaimedCount === initialCount) {
+    return { success: false, message: "❌ You have no claimed mail to clear!" };
+  }
+  
+  userData.mailbox = userData.mailbox.filter(m => !m.claimed);
+  const clearedCount = initialCount - userData.mailbox.length;
+  
+  return {
+    success: true,
+    message: `✅ Cleared ${clearedCount} claimed mail from your inbox!\n📬 ${unclaimedCount} unclaimed mail remaining.`
+  };
+}
+
 module.exports = {
   sendMailToAll,
   addMailToUser,
   claimMail,
   getUnclaimedMailCount,
-  formatMailDisplay
+  formatMailDisplay,
+  clearClaimedMail
 };
