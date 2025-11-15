@@ -45,7 +45,7 @@ const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate, buyCrate } = require('./crateSystem.js');
-const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops } = require('./dropSystem.js');
+const { startDropSystem, stopDropSystem, stopDropsForServer, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
@@ -60,7 +60,7 @@ const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
-const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
+const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel, setInfiniteDrops, hasInfiniteDrops } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
@@ -548,6 +548,46 @@ client.on('messageCreate', async (message) => {
         
         await message.reply({ embeds: [deleteEmbed] });
         console.log(`🗑️ Admin ${message.author.username} deleted user account: ${deletedUsername} (${userIdToDelete})`);
+        break;
+        
+      case 'setinfinitedrops':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const enableInfiniteDrops = args[0]?.toLowerCase();
+        
+        if (!enableInfiniteDrops || !['on', 'off', 'enable', 'disable', 'true', 'false'].includes(enableInfiniteDrops)) {
+          const currentStatus = hasInfiniteDrops(serverId);
+          await message.reply(`**Current Status:** ${currentStatus ? '✅ Infinite drops ENABLED' : '❌ Infinite drops DISABLED'}\n\nUsage: \`!setinfinitedrops <on/off>\`\n\n**Examples:**\n\`!setinfinitedrops on\` - Enable infinite drops for this server\n\`!setinfinitedrops off\` - Disable infinite drops (return to paid system)`);
+          return;
+        }
+        
+        const shouldEnable = ['on', 'enable', 'true'].includes(enableInfiniteDrops);
+        const infiniteDropsResult = await setInfiniteDrops(serverId, shouldEnable, userId);
+        
+        if (infiniteDropsResult.success) {
+          if (shouldEnable) {
+            startDropsForServer(serverId);
+          } else {
+            stopDropsForServer(serverId);
+          }
+        }
+        
+        const infiniteEmbed = new EmbedBuilder()
+          .setColor(shouldEnable ? '#00FF00' : '#FFA500')
+          .setTitle(shouldEnable ? '✅ Infinite Drops Enabled!' : '⚠️ Infinite Drops Disabled')
+          .setDescription(infiniteDropsResult.message)
+          .setFooter({ text: `Set by ${message.author.username}` });
+        
+        await message.reply({ embeds: [infiniteEmbed] });
+        console.log(`🎁 Super Admin ${message.author.username} ${shouldEnable ? 'enabled' : 'disabled'} infinite drops for server ${serverId}`);
         break;
         
       case 'joinclan':
@@ -2870,7 +2910,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
             { name: '🔧 Server Setup (ZooAdmin)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel` - Set drop channel\n`!seteventschannel #channel` - Set events channel\n`!setupdateschannel #channel` - Set updates channel\n`!setemoji <char> <emoji>` - Custom emojis\n`!setchestgif <type> <url>` - Custom GIFs\n`!permissions` - View permission info' },
-            { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
+            { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!setinfinitedrops <on/off>` - Set infinite drops for server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
           )
           .setFooter({ text: '💡 Tip: Most commands have shorter aliases! Try !b, !t, !c' });

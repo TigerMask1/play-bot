@@ -286,14 +286,18 @@ async function setInfiniteDrops(serverId, enable, setBy) {
     config.dropsPaidUntil = null;
     config.uncaughtDropCount = 0;
     config.dropsPaused = false;
+  } else {
+    config.dropsPaidUntil = null;
+    config.uncaughtDropCount = 0;
+    config.dropsPaused = false;
   }
   
   await saveServerConfig(serverId, config);
   
   const statusText = enable ? 'ENABLED' : 'DISABLED';
   const message = enable 
-    ? `✅ Infinite drops **${statusText}** for this server!\n\n🎉 This server now has unlimited free drops just like the main server!`
-    : `✅ Infinite drops **${statusText}** for this server!\n\n⚠️ This server will now use the paid drop system (100 gems for 3 hours).`;
+    ? `✅ Infinite drops **${statusText}** for this server!\n\n🎉 This server now has unlimited free drops just like the main server!\n\n💡 Drops will start spawning immediately in your drop channel.`
+    : `✅ Infinite drops **${statusText}** for this server!\n\n⚠️ This server will now use the paid drop system (100 gems for 3 hours).\n\n💡 Use \`!paydrops\` to activate drops when ready.`;
   
   return { success: true, message, enabled: enable };
 }
