@@ -76,6 +76,9 @@ All other users can access standard gameplay commands.
 #### Drop Management
 - `!paydrops` / `!activatedrops` - Activate drops for 3 hours (costs 100 gems)
   - **Note:** Only ZooAdmins can spend gems to activate drops for the server
+  - Drops auto-pause after 30 uncaught drops
+  - Anyone can revive paused drops by using `!c <code>` (even without owning the character)
+  - ZooAdmins receive notification when drops expire
 
 #### Customization
 - `!setemoji <character> <emoji>` - Set custom emoji for a character
@@ -205,6 +208,12 @@ A: ZooAdmins don't add other ZooAdmins directly. Server administrators assign th
 
 ### Q: Who can activate drops?
 A: Only users with the ZooAdmin role can pay gems to activate drops for non-main servers. The main server has unlimited drops.
+
+### Q: What happens when drops are paused?
+A: Drops auto-pause after 30 uncaught drops to reduce spam. Anyone can revive the system by using `!c <code>` - even if they don't own the character in the drop, it will still revive the system.
+
+### Q: Can regular users revive drops?
+A: Yes! Anyone can revive paused drops by using the `!c <code>` command with the correct code. Even if you don't own the character (for token drops), using the correct code will revive the drop system for everyone.
 
 ---
 
