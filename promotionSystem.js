@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { isMainServer, getServerConfig } = require('./serverConfigManager.js');
 
-const PROMOTION_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const PROMOTION_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 // TODO: IMPORTANT - Update this with your actual main server invite link before deployment!
 // This link is shown in promotional messages on non-main servers
 const MAIN_SERVER_INVITE = 'https://discord.gg/yourinvitelink';
@@ -56,25 +56,27 @@ async function sendPromotion(serverId) {
 
   try {
     const config = getServerConfig(serverId);
-    if (!config || !config.dropChannelId) {
-      console.log(`⚠️ No drop channel configured for server ${serverId}, skipping promotion`);
+    if (!config || !config.updatesChannelId) {
+      console.log(`⚠️ No updates channel configured for server ${serverId}, skipping promotion`);
       return;
     }
 
-    const channel = await client.channels.fetch(config.dropChannelId).catch(() => null);
+    const channel = await client.channels.fetch(config.updatesChannelId).catch(() => null);
     if (!channel) {
-      console.error(`❌ Drop channel not found for server ${serverId}`);
+      console.error(`❌ Updates channel not found for server ${serverId}`);
       return;
     }
 
+    console.log(`📢 Sending promotion to server ${serverId} updates channel...`);
     const promoEmbed = new EmbedBuilder()
       .setColor('#FF6B35')
       .setTitle('🎉 Want More Features?')
       .setDescription(`**Join our main server for exclusive perks:**\n\n⚡ **Faster Drops** - Every 20 seconds (instead of 30s)\n🦁 **Zoo Raids** - Cooperative boss battles every hour\n🤖 **AI Battles** - Practice against AI opponents\n🎯 **Priority Events** - More events and rewards\n🏆 **Leaderboards** - Compete with the best players\n\n[Click here to join!](${MAIN_SERVER_INVITE})`)
-      .setFooter({ text: 'This message appears every 30 minutes' })
+      .setFooter({ text: 'This message appears every 6 hours' })
       .setTimestamp();
 
     await channel.send({ embeds: [promoEmbed] });
+    console.log(`✅ Promotion sent successfully to server ${serverId}`);
   } catch (error) {
     console.error(`❌ Promotion error for server ${serverId}:`, error);
   }
