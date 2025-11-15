@@ -18,7 +18,11 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Character System:** 50+ unique characters with tokens, special traits, moves, HP scaling, levels, and owned skins.
 - **Economy & Currency:** Coins, Gems, Trophies, and Character-specific Tokens, with daily login and message-based rewards.
 - **Crate System:** Multi-tiered crates (Gold, Emerald, Legendary, Tyrant, Bronze, Silver) offering characters, tokens, and coins, including a "pending tokens" system and interactive opening with customizable GIFs.
-- **Drop System:** Random token, coin, and gem drops every 20 seconds, claimable by the first user, optimized to reduce API calls by leaving uncaught drops in chat. Includes a paid drop system for non-main servers and smart pausing.
+- **Drop System:** Random token, coin, and gem drops every 20 seconds (main server) or 30 seconds (non-main servers), claimable by the first user, optimized to reduce API calls by leaving uncaught drops in chat. Includes a paid drop system for non-main servers (100 gems for 3 hours) with smart pausing:
+  - **Smart Pausing:** Auto-pauses after 30 uncaught drops to avoid spam
+  - **Timer Persistence:** The 3-hour timer continues running even when drops are paused
+  - **Drop Revival:** Anyone using `!c <code>` revives paused drops, even if they don't catch the drop or own the character
+  - **Community Feature:** Players can help revive drops for their server even without being able to claim the reward
 - **Trading System:** Secure player-to-player trading with dual confirmation.
 - **Battle System:** Turn-based combat with energy management, 51 unique passive abilities, critical hits, status effects, and consumable items. Includes an AI battle system.
 - **Inventory:** MongoDB-compatible inventory for battle items.
