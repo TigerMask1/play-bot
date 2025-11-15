@@ -442,7 +442,8 @@ Examples:
 
 ### Drop System
 
-Every 20 seconds, a random drop appears in the drop channel!
+**Main Server:** Drops appear every 20 seconds (unlimited free drops)
+**Non-Main Servers:** Drops appear every 30 seconds when activated by ZooAdmins (100 gems for 3 hours)
 
 #### How to Catch Drops
 ```
@@ -463,6 +464,11 @@ Example codes: `tyrant`, `zooba`, `zoo`, `catch`, `grab`, `quick`, `fast`, `win`
 - **Coins** (30%): 1-10 coins
 - **Gems** (8%): 1-2 gems
 - **Shards** (2%): 1-2 shards (ultra rare!)
+
+#### Drop Pausing & Revival (Non-Main Servers)
+- **Auto-pause:** After 30 uncaught drops, drops pause (but the 3-hour timer keeps running)
+- **Revival:** Anyone using `!c <code>` revives drops - even if they don't catch it or own the character!
+- **Help your community:** Use `!c <code>` on any drop to restart the system, even if you can't claim the reward!
 
 **Pro Tip:** Uncaught drops stay in chat now - no pressure if you miss one!
 

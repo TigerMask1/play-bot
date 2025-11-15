@@ -76,8 +76,8 @@ All other users can access standard gameplay commands.
 #### Drop Management
 - `!paydrops` / `!activatedrops` - Activate drops for 3 hours (costs 100 gems)
   - **Note:** Only ZooAdmins can spend gems to activate drops for the server
-  - Drops auto-pause after 30 uncaught drops
-  - Anyone can revive paused drops by using `!c <code>` (even without owning the character)
+  - Drops auto-pause after 30 uncaught drops (3-hour timer keeps running)
+  - Anyone can revive paused drops by using `!c <code>` - even if they don't catch it or own the character
   - ZooAdmins receive notification when drops expire
 
 #### Customization
