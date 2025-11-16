@@ -1,0 +1,306 @@
+🎮 **WELCOME TO THE CHARACTER COLLECTION BOT!** 🎮
+
+Hi there! Thanks for joining our community! Here's everything you need to know to get started:
+
+═══════════════════════════════════════════
+
+📚 **YOUR FIRST STEPS**
+
+You just received:
+✅ 1 Starter Character (Nix 🦊, Bruce 🦍, or Buck 🐂)
+✅ 200 Coins 💰
+✅ 5 Gems 💎
+✅ 200 Trophies 🏆
+
+═══════════════════════════════════════════
+
+⚡ **ESSENTIAL COMMANDS**
+
+**View Your Profile:**
+`!profile` - See your stats, currencies, and characters
+
+**View Your Character:**
+`!char <name>` - See level, ST stat, tokens, skins
+`!info <name>` - See battle moves and passive ability
+
+**Select Battle Character:**
+`!select <character>` - Choose who you fight with
+
+**Level Up:**
+`!levelup <character>` - Use tokens + coins to level up
+
+═══════════════════════════════════════════
+
+⚔️ **BATTLE SYSTEM - START HERE!**
+
+**How to Battle:**
+`!battle @player` or `!b @player` - Challenge players
+`!b ai` - Fight AI (practice mode - main server only)
+
+**ENERGY SYSTEM - MOST IMPORTANT!**
+• Start with 100 energy ⚡
+• Regenerate +20 energy per turn
+• Each move costs energy
+• DON'T spam moves - you'll run out!
+
+**Every Character Has:**
+• 3 Unique Moves (basic, special, tier)
+• 1 Passive Ability (always active)
+• HP based on their ST stat
+• Different energy costs per move
+
+**Battle Tips:**
+✅ Use basic attacks when low on energy
+✅ Save special moves for critical moments
+✅ Watch your energy bar!
+✅ Learn your character's moves with `!info <character>`
+
+**Win Battles:** +15 🏆 Trophies
+**Lose Battles:** -5 🏆 Trophies
+
+═══════════════════════════════════════════
+
+💰 **ECONOMY & CURRENCIES**
+
+**Coins** 💰 - Primary currency
+• Earn: Message in chat, open crates, complete events
+• Use: Level up characters, buy shop items
+
+**Gems** 💎 - Premium currency
+• Earn: Catch gem drops, daily login, events
+• Use: Buy premium crates
+
+**Trophies** 🏆 - Competitive ranking
+• Earn: Win battles, complete events
+• Lose: Lose battles
+
+**Character Tokens** 🎫 - Level up specific characters
+• Each character has their own tokens
+• Earn: Catch drops, open crates, events
+• Use: Level up that specific character
+
+═══════════════════════════════════════════
+
+🎁 **DROPS & CRATES**
+
+**Catching Drops:**
+`!c <code>` - Claim token/coin/gem drops
+• Main Server: Every 20 seconds
+• Other Servers: Every 30 seconds (requires payment or admin grant)
+• First person to claim gets the reward!
+
+**Free Crates:**
+• Bronze Crate 🟫: Every 25 messages
+• Silver Crate ⚪: Every 50 messages
+
+**Premium Crates (buy with gems):**
+• Gold Crate 🥇: 100 gems (1.5% character chance)
+• Emerald Crate 🟢: 250 gems (5% character chance)
+• Legendary Crate 🟣: 500 gems (10% character chance)
+• Tyrant Crate 🔴: 1000 gems (guaranteed character!)
+
+Commands:
+`!crate <type>` - Buy a crate
+`!opencrate <type>` - Open owned crate
+
+═══════════════════════════════════════════
+
+🛡️ **BATTLE ITEMS (SHOP)**
+
+`!shop` - View available items
+
+**Essential Items:**
+• Healing Potion (50 coins): +100 HP
+• Energy Drink (30 coins): +40 energy
+• Attack Boost (75 coins): +20% damage for 3 turns
+• Defense Shield (75 coins): -20% damage for 3 turns
+• Full Restore (150 coins): Full HP + Energy
+• Revival Token (200 coins): Auto-revive at 50% HP
+
+**Use in Battle:**
+`!use <item>` - Use item during active battle
+
+═══════════════════════════════════════════
+
+📊 **CHARACTER SYSTEM**
+
+**51 Unique Characters** with:
+• Special Trait (ST): 0-100% stat that affects HP
+• 3 Battle Moves
+• 1 Passive Ability
+• Level System (higher level = stronger)
+• Multiple Skins (cosmetic appearances)
+
+**Leveling Formula:**
+• Tokens: Level × 50
+• Coins: Level × 100
+
+Example: Level 5 → 6 needs 250 tokens + 500 coins
+
+**View Progress:**
+Beautiful progress bars show token collection:
+🟥 Red: 0-24%
+🟧 Orange: 25-49%
+🟨 Yellow: 50-74%
+🟦 Blue: 75-99%
+🟩 Green: 100% (ready!)
+
+═══════════════════════════════════════════
+
+🔥 **STATUS EFFECTS IN BATTLE**
+
+**Damage Over Time:**
+• Burn 🔥: 5 damage per turn
+• Poison ☠️: Increasing damage (3, 5, 7...)
+
+**Control Effects:**
+• Freeze ❄️: Skip turn
+• Paralyze ⚡: Skip turn
+• Stun 💫: Skip turn
+
+**Healing:**
+• Regeneration 💚: +5 HP per turn
+
+Status effects last 3 turns and can stack!
+
+═══════════════════════════════════════════
+
+🎨 **CUSTOMIZATION**
+
+**Profile Picture:**
+`!setprofilepic <character>` or `!setpfp <character>`
+• Display ANY owned character as your profile pic
+• Different from your selected battle character
+• Shows your favorite character to everyone!
+
+═══════════════════════════════════════════
+
+🎯 **EVENTS & COMPETITIONS**
+
+**Daily Events** (compete for rewards):
+• Trophy Hunt 🏆: Most trophies earned
+• Crate Master 📦: Most crates opened
+• Drop Catcher 💰: Most drops caught
+
+**Daily Giveaway** (Main Server):
+`!giveaway join` - Enter daily giveaway
+• Free to join every day
+• Win coins, gems, and crates!
+
+**Daily Lottery** (Main Server):
+`!lottery buy` - Buy lottery tickets with gems
+• Prize pool grows with each ticket
+• Winner takes all!
+
+═══════════════════════════════════════════
+
+🔑 **CHARACTER UNLOCK SYSTEM**
+
+**How to Unlock New Characters:**
+1. **Find in Crates** - Premium crates contain characters
+2. **Use Character Keys** - Specific keys unlock specific characters
+3. **Use Cage Keys** - Random character unlock from any cage
+
+Commands:
+`!cages` - View all character cages
+`!opencage <character>` - Use key to unlock
+
+═══════════════════════════════════════════
+
+🤝 **TRADING SYSTEM**
+
+**Trade with Other Players:**
+`!trade @player` - Start trade
+`!offer <item> <amount>` - Add items to trade
+`!confirm` - Confirm trade (both players)
+`!cancel` - Cancel trade
+
+You can trade:
+• Characters
+• Tokens
+• Coins
+• Gems
+• Skins
+
+═══════════════════════════════════════════
+
+❓ **HELPFUL COMMANDS**
+
+`!help` - Full command list
+`!help battle` - Battle help
+`!help crates` - Crate help
+`!profile @user` - View another player's profile
+`!leaderboard` - See top players
+`!daily` - Claim daily login rewards
+
+═══════════════════════════════════════════
+
+💡 **BEGINNER STRATEGY TIPS**
+
+1. **Start with Battles**
+   • Practice with AI first (`!b ai`)
+   • Learn energy management
+   • Try different characters
+
+2. **Focus on Your Starter**
+   • Catch their tokens from drops
+   • Level them up first
+   • Higher level = stronger in battles
+
+3. **Participate in Events**
+   • Easy way to earn rewards
+   • Check `!event` for current event
+
+4. **Buy Battle Items**
+   • Stock up on healing potions
+   • Energy drinks are crucial
+   • Items can turn battles around!
+
+5. **Join Daily Giveaway**
+   • Free to enter (`!giveaway join`)
+   • Extra rewards every day
+
+6. **Collect Crates**
+   • Message in chat to earn bronze/silver crates
+   • Save gems for premium crates
+   • Tyrant crate guarantees a character!
+
+═══════════════════════════════════════════
+
+🎊 **SPECIAL FEATURES**
+
+**Skins & Customization:**
+`!setskin <character> <skin>` - Change appearance
+`!skins <character>` - View owned skins
+
+**Mail System:**
+`!mail` - Check inbox
+`!clearmail` - Clear all mail
+
+**Character Info:**
+`!allchars` - View all 51 characters
+`!i <character>` - Detailed character info
+
+═══════════════════════════════════════════
+
+🌟 **YOUR JOURNEY BEGINS NOW!**
+
+**Recommended First Actions:**
+
+1. `!info <your starter>` - Learn your character's moves
+2. `!b ai` - Practice battle (main server)
+3. Start catching drops with `!c <code>`
+4. `!giveaway join` - Enter today's giveaway
+5. Message in chat to earn crates!
+
+═══════════════════════════════════════════
+
+📖 **FULL PLAYER GUIDE**
+
+For the complete detailed guide with advanced strategies, character lists, and more, check out `PLAYER_GUIDE.md` in the bot files!
+
+═══════════════════════════════════════════
+
+🎮 **Welcome to the adventure! Have fun collecting characters and dominating battles!** 🎮
+
+Need help? Ask in the server - our community is friendly and helpful!

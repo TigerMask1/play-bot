@@ -1,0 +1,400 @@
+🎮 **MAJOR UPDATES & COMPLETE GUIDE** 🎮
+
+Hello everyone! Here's a comprehensive overview of all recent updates and everything you need to know about playing the bot!
+
+═══════════════════════════════════════════
+
+🆕 **LATEST UPDATES**
+
+═══════════════════════════════════════════
+
+⚔️ **1. BATTLE SYSTEM OVERHAUL**
+
+The battle system has been completely reworked! Here are the major changes:
+
+**Energy System (NEW!):**
+• Start every battle with 100 energy ⚡
+• Regenerate +20 energy per turn
+• Maximum 100 energy cap
+• Each move costs energy to use
+• **CRITICAL:** Manage your energy or lose!
+
+**3-Move System:**
+Every character now has exactly 3 unique moves:
+1. **Basic Attack** - Low energy (5-15), moderate damage
+2. **Special Move** - High energy (30-60), powerful effects
+3. **Tier Move** - Variable cost, unique per character
+
+**Check Your Moves:**
+`!info <character>` or `!i <character>`
+
+**Passive Abilities (51 Unique!):**
+Every character has a unique passive ability that's ALWAYS active:
+• Examples: Royal Authority, Pack Leader, Armored Shell
+• Some heal, some boost damage, some counter-attack
+• Use `!info <character>` to see your ability
+
+**Status Effects:**
+• Burn 🔥: 5 damage/turn
+• Poison ☠️: Increasing damage
+• Freeze ❄️: Skip turn
+• Paralyze ⚡: Skip turn
+• Stun 💫: Skip turn
+• Regeneration 💚: +5 HP/turn
+
+**Critical Hits:**
+• 15% base chance
+• Deals 1.5x damage
+• Some abilities increase crit chance
+
+**Battle Items:**
+Use shop items during battles!
+`!shop` - View items
+`!use <item>` - Use in battle
+
+Available items:
+• Healing Potion (50 coins): +100 HP
+• Energy Drink (30 coins): +40 energy
+• Attack Boost (75 coins): +20% damage
+• Defense Shield (75 coins): -20% damage taken
+• Full Restore (150 coins): Full HP + Energy
+• Revival Token (200 coins): Auto-revive at 50% HP
+
+═══════════════════════════════════════════
+
+😴 **2. DROP INACTIVITY SYSTEM**
+
+**New Feature: Auto-Pause for Inactive Servers**
+
+For non-main servers with paid drops:
+• Drops automatically pause after **15 minutes of inactivity**
+• Resumes when **ANY** player uses **ANY** command
+• Your 3-hour paid timer continues running during pause
+• Prevents wasted drops in empty servers!
+
+How it helps:
+✅ No more drops going to waste in inactive servers
+✅ Your paid drop time lasts longer
+✅ Community feature: anyone's activity helps everyone
+
+═══════════════════════════════════════════
+
+📖 **COMPLETE HOW-TO-PLAY GUIDE**
+
+═══════════════════════════════════════════
+
+⚡ **BATTLE STRATEGY TIPS**
+
+**For Beginners:**
+1. Don't use special moves on turn 1!
+2. Build energy with basic attacks
+3. Use special moves strategically
+4. Watch your energy bar carefully
+5. Practice with `!b ai` first
+
+**For Advanced Players:**
+1. Learn all your character's moves
+2. Know when to use each move
+3. Time your status effects
+4. Use items at critical moments
+5. Select characters with high ST stats
+6. Counter enemy passives with strategy
+
+**Common Mistakes:**
+❌ Spamming special moves (runs out of energy)
+❌ Not using battle items
+❌ Ignoring passive abilities
+❌ Not selecting high-ST characters
+
+═══════════════════════════════════════════
+
+💰 **ECONOMY GUIDE**
+
+**4 Currencies:**
+
+1. **Coins** 💰
+   • Earn: Messages, drops, crates, events
+   • Use: Level up characters, buy items
+
+2. **Gems** 💎
+   • Earn: Drops, daily login, events
+   • Use: Premium crates, special purchases
+
+3. **Trophies** 🏆
+   • Earn: Win battles (+15), events
+   • Lose: Lose battles (-5)
+
+4. **Character Tokens** 🎫
+   • Each character has unique tokens
+   • Earn: Drops, crates, events
+   • Use: Level up that specific character
+
+═══════════════════════════════════════════
+
+📊 **CHARACTER SYSTEM**
+
+**51 Unique Characters**
+
+Each character has:
+• Special Trait (ST): 0-100% (affects HP)
+• 3 Battle Moves
+• 1 Passive Ability
+• Level System
+• Multiple Skins
+
+**Leveling Formula:**
+• Tokens needed: Level × 50
+• Coins needed: Level × 100
+
+Examples:
+• Level 1→2: 50 tokens + 100 coins
+• Level 5→6: 250 tokens + 500 coins
+• Level 10→11: 500 tokens + 1000 coins
+
+**Commands:**
+`!char <name>` - View character stats, level, tokens
+`!info <name>` - View moves and passive ability
+`!levelup <name>` - Level up character
+`!select <name>` - Choose battle character
+
+═══════════════════════════════════════════
+
+🎁 **CRATES & DROPS**
+
+**Free Crates:**
+• Bronze 🟫: Every 25 messages
+• Silver ⚪: Every 50 messages
+
+**Premium Crates:**
+• Gold 🥇: 100 gems (1.5% character chance)
+• Emerald 🟢: 250 gems (5% character chance)
+• Legendary 🟣: 500 gems (10% character chance)
+• Tyrant 🔴: 1000 gems (guaranteed character!)
+
+**Commands:**
+`!crate <type>` - Buy crate
+`!opencrate <type>` - Open crate
+
+**Drops:**
+• Main Server: Every 20 seconds
+• Other Servers: Every 30 seconds (paid or admin granted)
+• Catch with: `!c <code>`
+• Contains: Tokens, coins, or gems
+
+═══════════════════════════════════════════
+
+🎯 **EVENTS & COMPETITIONS**
+
+**Daily Events:**
+Three rotating events with leaderboards!
+
+1. **Trophy Hunt** 🏆
+   • Earn most trophies from battles
+   
+2. **Crate Master** 📦
+   • Open most crates
+   
+3. **Drop Catcher** 💰
+   • Catch most drops
+
+**Rewards:**
+• 1st: 500 coins + 50 gems
+• 2nd: 300 coins + 30 gems
+• 3rd: 150 coins + 15 gems
+
+Commands:
+`!event` - View current event
+`!leaderboard` - See top players
+
+**Daily Giveaway (Main Server):**
+`!giveaway join` - Enter free daily giveaway
+• Draws at 20:00
+• Win coins, gems, crates!
+
+**Daily Lottery (Main Server):**
+`!lottery buy` - Buy tickets with gems
+• Draws at 21:00
+• Winner takes entire prize pool!
+
+═══════════════════════════════════════════
+
+🤝 **TRADING**
+
+**Trade with Players:**
+`!trade @player` - Start trade
+`!offer <item> <amount>` - Add to trade
+`!confirm` - Confirm (both must confirm)
+`!cancel` - Cancel trade
+
+**Tradeable Items:**
+• Characters
+• Character Tokens
+• Coins
+• Gems
+• Skins
+
+═══════════════════════════════════════════
+
+🎨 **CUSTOMIZATION**
+
+**Profile Picture:**
+`!setprofilepic <character>` or `!setpfp <character>`
+• Display any owned character
+• Different from battle character
+• Shows character's current skin
+
+**Character Skins:**
+`!skins <character>` - View owned skins
+`!setskin <character> <skin>` - Equip skin
+
+═══════════════════════════════════════════
+
+🔑 **UNLOCKING CHARACTERS**
+
+**3 Ways to Get New Characters:**
+
+1. **Premium Crates**
+   • Gold, Emerald, Legendary, Tyrant
+   • Tyrant guarantees a character!
+
+2. **Character Keys**
+   • Specific keys unlock specific characters
+   • `!opencage <character>`
+
+3. **Cage Keys**
+   • Random character from any cage
+   • Earn from events
+
+Commands:
+`!cages` - View all character cages
+`!opencage <character>` - Use key to unlock
+
+═══════════════════════════════════════════
+
+📖 **ESSENTIAL COMMANDS**
+
+**Profile & Stats:**
+`!profile` - Your profile
+`!profile @user` - View other player
+`!daily` - Daily login rewards
+
+**Characters:**
+`!char <name>` - Character stats
+`!info <name>` - Moves & ability
+`!allchars` - All 51 characters
+`!select <name>` - Choose battle character
+`!levelup <name>` - Level up character
+
+**Battles:**
+`!battle @player` or `!b @player` - Challenge
+`!b ai` - Fight AI (main server)
+`!b easy/normal/hard` - AI difficulty
+
+**Shop & Items:**
+`!shop` - View shop items
+`!use <item>` - Use in battle
+
+**Crates & Drops:**
+`!c <code>` - Catch drop
+`!crate <type>` - Buy crate
+`!opencrate <type>` - Open crate
+
+**Events:**
+`!event` - Current event
+`!leaderboard` - Top players
+`!giveaway join` - Enter giveaway (main server)
+`!lottery buy` - Buy lottery ticket (main server)
+
+**Trading:**
+`!trade @player` - Start trade
+`!offer <item> <amount>` - Add items
+`!confirm` - Confirm trade
+`!cancel` - Cancel trade
+
+**Customization:**
+`!setpfp <character>` - Set profile pic
+`!setskin <character> <skin>` - Equip skin
+`!skins <character>` - View skins
+
+**Other:**
+`!help` - Full help menu
+`!help <topic>` - Specific help
+`!mail` - Check inbox
+`!clearmail` - Clear mail
+
+═══════════════════════════════════════════
+
+💡 **PRO TIPS**
+
+**Battle Tips:**
+1. Learn your character's passive ability
+2. Manage energy - don't spam moves!
+3. Use basic attacks to build energy
+4. Save special moves for critical moments
+5. Stock up on battle items before important fights
+6. Select characters with high ST stats
+7. Practice with AI before PvP
+
+**Economy Tips:**
+1. Save gems for Tyrant crates (guaranteed character)
+2. Level up your main battle character first
+3. Participate in daily events for extra rewards
+4. Join giveaway every day (free!)
+5. Message in chat to earn free crates
+
+**Collection Tips:**
+1. Catch every drop you can
+2. Focus on leveling favorite characters
+3. Trade duplicates for tokens you need
+4. Open free crates regularly
+5. Participate in events for cage keys
+
+═══════════════════════════════════════════
+
+🎊 **NEW PLAYER ONBOARDING**
+
+Good news! New players now receive a comprehensive welcome guide via DM when they use `!start` for the first time. This helps them understand all the systems immediately!
+
+═══════════════════════════════════════════
+
+❓ **FREQUENTLY ASKED QUESTIONS**
+
+**Q: Why can't I use my special move?**
+A: Not enough energy! Each move costs energy. Wait to regenerate or use basic attacks.
+
+**Q: How do I see my character's moves?**
+A: Use `!info <character>` or `!i <character>`
+
+**Q: What's the best character?**
+A: It depends on your playstyle! Each has unique moves and abilities. High ST stats = more HP.
+
+**Q: How do I get more gems?**
+A: Catch gem drops, daily login rewards, win events, and complete quests.
+
+**Q: Can I change my starter character?**
+A: No, but you can unlock all 51 characters through crates and keys!
+
+**Q: What's ST (Special Trait)?**
+A: A 0-100% stat that affects your character's max HP and some abilities. Higher is better!
+
+**Q: How do passive abilities work?**
+A: They're ALWAYS active in battle. View with `!info <character>`.
+
+**Q: Why did drops stop in my server?**
+A: Either inactivity pause (use any command to resume) or your 3-hour paid period ended.
+
+═══════════════════════════════════════════
+
+🌟 **KEEP HAVING FUN!**
+
+The bot is constantly being improved with new features and updates. Stay active, participate in events, and help new players learn the systems!
+
+If you have questions, ask in the community - we're here to help!
+
+═══════════════════════════════════════════
+
+📖 **For the ultra-detailed guide with every feature explained, check out PLAYER_GUIDE.md in the bot files!**
+
+═══════════════════════════════════════════
+
+Happy collecting and battling! 🎮⚔️🎊
