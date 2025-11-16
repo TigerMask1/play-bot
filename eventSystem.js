@@ -348,9 +348,9 @@ async function announceEventStart(event) {
         { name: '🏆 Rewards', value: 'Top 3 and Top 5% get prizes!', inline: true }
       )
       .addFields(
-        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰 + 5 🎫 + 1 🟣 Legendary Crate', inline: true },
-        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰 + 3 🎫 + 1 🟢 Emerald Crate', inline: true },
-        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰 + 1 🎫 + 2 🟡 Gold Crates', inline: true },
+        { name: '🥇 1st Place', value: '500 💎 + 5,000 💰 + 5 🎫 + 1 <:emoji_6:1439554298693550102> Legendary Crate', inline: true },
+        { name: '🥈 2nd Place', value: '250 💎 + 2,500 💰 + 3 🎫 + 1 <:emoji_4:1439554205709766747> Emerald Crate', inline: true },
+        { name: '🥉 3rd Place', value: '150 💎 + 1,500 💰 + 1 🎫 + 2 <:emoji_2:1439429824862093445> Gold Crates', inline: true },
         { name: '🎖️ Top 5%', value: '75 💎 + 750 💰', inline: true }
       )
       .addFields({
