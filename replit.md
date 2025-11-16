@@ -22,14 +22,17 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Trading System:** Secure player-to-player trading with dual confirmation.
 - **Battle System:** Turn-based combat with energy management, 51 unique passive abilities, critical hits, status effects, and consumable items. Includes an AI battle system.
 - **Inventory:** MongoDB-compatible inventory for battle items.
-- **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking, automatic reward distribution, and manual/scheduled control.
+- **Event System:** Daily rotating competitive events (Trophy Hunt, Crate Master, Drop Catcher) with real-time tracking, automatic reward distribution, and manual/scheduled control. Event announcements broadcast to all servers (main server uses fixed channel, other servers use configured events channel).
+- **Giveaway System:** Daily giveaways with automatic prize distribution. Broadcasts to specific giveaway channel in main server and events channels in other servers.
+- **Lottery System:** Universal lottery system with ticket purchases using gems. Prize pool accumulates and broadcasts results to all servers via updates channels.
+- **Promotion System:** Automated promotional messages for non-main servers, posted to updates channels every 4 hours.
 - **Permission System:** Three-tier role-based access control:
   - **Super Admin:** Hardcoded bot owners with full access to all commands globally
   - **ZooAdmin Role:** Discord role (case insensitive) for server customization - allows server admins to configure channels, activate drops, customize emojis/GIFs
   - **Bot Admin (Legacy):** Database-stored admins for event management (being phased out)
 - **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
-- **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically.
+- **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically. Centralized emoji configuration in emojiConfig.js for easy customization.
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
 
