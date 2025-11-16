@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
-const { getUpdatesChannel } = require('./serverConfigManager.js');
+const { getEventsChannel, isMainServer } = require('./serverConfigManager.js');
 
 let giveawayData = {
   active: false,
@@ -140,10 +140,16 @@ async function broadcastToAllServers(embed) {
   
   try {
     for (const guild of activeClient.guilds.cache.values()) {
-      const updatesChannelId = getUpdatesChannel(guild.id);
+      let targetChannelId;
       
-      if (updatesChannelId) {
-        const channel = await activeClient.channels.fetch(updatesChannelId).catch(() => null);
+      if (isMainServer(guild.id)) {
+        targetChannelId = giveawayData.channelId;
+      } else {
+        targetChannelId = getEventsChannel(guild.id);
+      }
+      
+      if (targetChannelId) {
+        const channel = await activeClient.channels.fetch(targetChannelId).catch(() => null);
         if (channel) {
           await channel.send({ embeds: [embed] }).catch(err => {
             console.error(`Failed to send giveaway result to server ${guild.id}:`, err.message);
