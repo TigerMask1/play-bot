@@ -303,17 +303,17 @@ client.on('messageCreate', async (message) => {
       // 60% chance for bronze crate
       if (roll < 60) {
         data.users[userId].bronzeCrates = (data.users[userId].bronzeCrates || 0) + 1;
-        rewardMessage = `🎉 **Message Reward!** You got a 🟫 **Bronze Crate**! Use \`!opencrate bronze\` to open it!`;
+        rewardMessage = `🎉 **Message Reward!** You got a <:emoji_5:1439554263461134356> **Bronze Crate**! Use \`!opencrate bronze\` to open it!`;
       }
       // 25% chance for silver crate
       else if (roll < 85) {
         data.users[userId].silverCrates = (data.users[userId].silverCrates || 0) + 1;
-        rewardMessage = `🎉 **Message Reward!** You got a ⚪ **Silver Crate**! Use \`!opencrate silver\` to open it!`;
+        rewardMessage = `🎉 **Message Reward!** You got a <:emoji_7:1439554348890853386> **Silver Crate**! Use \`!opencrate silver\` to open it!`;
       }
       // 10% chance for emerald crate
       else if (roll < 95) {
         data.users[userId].emeraldCrates = (data.users[userId].emeraldCrates || 0) + 1;
-        rewardMessage = `🎉 **Message Reward!** You got a 🟢 **Emerald Crate**! Use \`!opencrate emerald\` to open it!`;
+        rewardMessage = `🎉 **Message Reward!** You got a <:emoji_4:1439554205709766747> **Emerald Crate**! Use \`!opencrate emerald\` to open it!`;
       }
       // 5% chance for gold crate
       else {
@@ -851,16 +851,16 @@ client.on('messageCreate', async (message) => {
           const crateEmbed = new EmbedBuilder()
             .setColor('#FFD700')
             .setTitle('<a:emoji_3:1439513584416591954> Available Crates')
-            .setDescription('**Free Crates** (from message rewards):\n🟫 Bronze Crate - Use `!opencrate bronze`\n⚪ Silver Crate - Use `!opencrate silver`\n\n**Premium Crates** (purchase with gems):')
+            .setDescription('**Free Crates** (from message rewards):\n<:emoji_5:1439554263461134356> Bronze Crate - Use `!opencrate bronze`\n<:emoji_7:1439554348890853386> Silver Crate - Use `!opencrate silver`\n\n**Premium Crates** (purchase with gems):')
             .addFields(
               { name: '<:emoji_2:1439429824862093445> Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins', inline: true },
-              { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins', inline: true },
-              { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins', inline: true },
-              { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins', inline: true }
+              { name: '<:emoji_4:1439554205709766747> Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins', inline: true },
+              { name: '<:emoji_6:1439554298693550102> Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins', inline: true },
+              { name: '<:emoji_8:1439554384555151370> Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins', inline: true }
             )
             .addFields({ 
               name: '<a:emoji_3:1439513584416591954> Your Crates', 
-              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n<:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
+              value: `<:emoji_5:1439554263461134356> Bronze: ${user.bronzeCrates || 0}\n<:emoji_7:1439554348890853386> Silver: ${user.silverCrates || 0}\n<:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n<:emoji_4:1439554205709766747> Emerald: ${user.emeraldCrates || 0}\n<:emoji_6:1439554298693550102> Legendary: ${user.legendaryCrates || 0}\n<:emoji_8:1439554384555151370> Tyrant: ${user.tyrantCrates || 0}`, 
               inline: false 
             })
             .setFooter({ text: 'Use: !crate <type> to buy | !opencrate <type> to open owned crates' });
