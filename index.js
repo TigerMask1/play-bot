@@ -850,7 +850,7 @@ client.on('messageCreate', async (message) => {
           const user = data.users[userId];
           const crateEmbed = new EmbedBuilder()
             .setColor('#FFD700')
-            .setTitle('🎁 Available Crates')
+            .setTitle('<a:emoji_3:1439513584416591954> Available Crates')
             .setDescription('**Free Crates** (from message rewards):\n🟫 Bronze Crate - Use `!opencrate bronze`\n⚪ Silver Crate - Use `!opencrate silver`\n\n**Premium Crates** (purchase with gems):')
             .addFields(
               { name: '<:emoji_2:1439429824862093445> Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins', inline: true },
@@ -859,7 +859,7 @@ client.on('messageCreate', async (message) => {
               { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins', inline: true }
             )
             .addFields({ 
-              name: '📦 Your Crates', 
+              name: '<a:emoji_3:1439513584416591954> Your Crates', 
               value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n<:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
               inline: false 
             })
