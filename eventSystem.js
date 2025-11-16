@@ -4,6 +4,7 @@ const dataManager = require('./dataManager');
 const { ObjectId } = require('mongodb');
 const { sendMailToAll, addMailToUser } = require('./mailSystem');
 const { addCageKeys, initializeKeys } = require('./keySystem');
+const { getEventsChannel, isMainServer } = require('./serverConfigManager');
 
 const EVENT_TYPES = ['trophy_hunt', 'crate_master', 'drop_catcher'];
 const EVENT_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -338,9 +339,6 @@ async function announceEventStart(event) {
   if (!botClient) return;
 
   try {
-    const channel = await botClient.channels.fetch(FIXED_CHANNEL_ID);
-    if (!channel) return;
-
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle(`${EVENT_DISPLAY_NAMES[event.eventType]} Has Started! 🎉`)
@@ -362,7 +360,25 @@ async function announceEventStart(event) {
       })
       .setTimestamp();
 
-    await channel.send({ content: '@everyone', embeds: [embed] });
+    for (const guild of botClient.guilds.cache.values()) {
+      let targetChannelId;
+      
+      if (isMainServer(guild.id)) {
+        targetChannelId = FIXED_CHANNEL_ID;
+      } else {
+        targetChannelId = getEventsChannel(guild.id);
+      }
+      
+      if (targetChannelId) {
+        const channel = await botClient.channels.fetch(targetChannelId).catch(() => null);
+        if (channel) {
+          await channel.send({ content: '@everyone', embeds: [embed] }).catch(err => {
+            console.error(`Failed to announce event start to server ${guild.id}:`, err.message);
+          });
+        }
+      }
+    }
+    console.log('✅ Event start announced to all servers');
   } catch (error) {
     console.error('Error announcing event start:', error);
   }
@@ -372,9 +388,6 @@ async function announceEventEnd(event, leaderboard) {
   if (!botClient) return;
 
   try {
-    const channel = await botClient.channels.fetch(FIXED_CHANNEL_ID);
-    if (!channel) return;
-
     const embed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle(`${EVENT_DISPLAY_NAMES[event.eventType]} Has Ended! 🏁`)
@@ -426,7 +439,25 @@ async function announceEventEnd(event, leaderboard) {
       inline: false
     });
 
-    await channel.send({ content: '@everyone', embeds: [embed] });
+    for (const guild of botClient.guilds.cache.values()) {
+      let targetChannelId;
+      
+      if (isMainServer(guild.id)) {
+        targetChannelId = FIXED_CHANNEL_ID;
+      } else {
+        targetChannelId = getEventsChannel(guild.id);
+      }
+      
+      if (targetChannelId) {
+        const channel = await botClient.channels.fetch(targetChannelId).catch(() => null);
+        if (channel) {
+          await channel.send({ content: '@everyone', embeds: [embed] }).catch(err => {
+            console.error(`Failed to announce event end to server ${guild.id}:`, err.message);
+          });
+        }
+      }
+    }
+    console.log('✅ Event end announced to all servers');
   } catch (error) {
     console.error('Error announcing event end:', error);
   }
