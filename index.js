@@ -860,7 +860,7 @@ client.on('messageCreate', async (message) => {
             )
             .addFields({ 
               name: '📦 Your Crates', 
-              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n🟡 Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
+              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n <:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
               inline: false 
             })
             .setFooter({ text: 'Use: !crate <type> to buy | !opencrate <type> to open owned crates' });
