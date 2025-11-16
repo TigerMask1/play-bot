@@ -3,6 +3,7 @@ const { saveDataImmediate } = require('./dataManager.js');
 const { calculateBaseHP, assignMovesToCharacter, calculateEnergyCost, calculateDamage, calculateCriticalHit } = require('./battleUtils.js');
 const { getCharacterAbility } = require('./characterAbilities.js');
 const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay, clearAllEffects } = require('./moveEffects.js');
+const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 
 const AI_CHARACTERS = ['Bali', 'Betsy', 'Bruce', 'Buck', 'Buddy', 'Caly', 'Dillo', 'Donna', 'Duke', 'Earl', 'Edna', 'Faye', 'Finn', 'Frank'];
 const STARTING_ENERGY = 50;
@@ -568,15 +569,41 @@ async function endAIBattle(battle, channel, data) {
     const rewardTrophies = battle.difficulty === 'easy' ? 1 : battle.difficulty === 'hard' ? 5 : 3;
     
     user.coins += rewardCoins;
-    user.trophies = (user.trophies || 0) + rewardTrophies;
+    const oldTrophies = user.trophies || 0;
+    user.trophies = Math.min(9999, oldTrophies + rewardTrophies);
+    const actualTrophyGain = user.trophies - oldTrophies;
     user.battlesWon = (user.battlesWon || 0) + 1;
+    
+    if (!user.questProgress) user.questProgress = {};
+    user.questProgress.battlesWon = (user.questProgress.battlesWon || 0) + 1;
+    user.questProgress.totalBattles = (user.questProgress.totalBattles || 0) + 1;
+    user.lastActivity = Date.now();
+    
+    const ptData = initializePersonalizedTaskData(user);
+    if (ptData.taskProgress.battlesWon !== undefined) {
+      const completedTask = checkTaskProgress(user, 'battlesWon', 1);
+      if (completedTask) {
+        await completePersonalizedTask(channel.client, battle.player1, data, completedTask);
+      }
+    }
+    if (ptData.taskProgress.totalBattles !== undefined) {
+      const completedTaskTotal = checkTaskProgress(user, 'totalBattles', 1);
+      if (completedTaskTotal) {
+        await completePersonalizedTask(channel.client, battle.player1, data, completedTaskTotal);
+      }
+    }
+    
+    if (actualTrophyGain > 0) {
+      const eventSystemLazy = require('./eventSystem.js');
+      await eventSystemLazy.recordProgress(battle.player1, user.username || 'Unknown', actualTrophyGain, 'trophy_hunt');
+    }
     
     await saveDataImmediate(data);
     
     const victoryEmbed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle('🏆 VICTORY!')
-      .setDescription(`${battle.player1Character.emoji} **${battle.player1Character.name}** defeated ${battle.player2Character.emoji} **${battle.player2Character.name}** (AI)!\n\n**Rewards:**\n💰 +${rewardCoins} Coins\n🏆 +${rewardTrophies} Trophies\n\n**Final Stats:**`)
+      .setDescription(`${battle.player1Character.emoji} **${battle.player1Character.name}** defeated ${battle.player2Character.emoji} **${battle.player2Character.name}** (AI)!\n\n**Rewards:**\n💰 +${rewardCoins} Coins\n🏆 +${actualTrophyGain} Trophies\n\n**Final Stats:**`)
       .addFields(
         { name: `Your ${battle.player1Character.emoji} ${battle.player1Character.name}`, value: `HP: ${battle.player1HP}/${battle.player1MaxHP}`, inline: true },
         { name: `AI ${battle.player2Character.emoji} ${battle.player2Character.name}`, value: `HP: 0/${battle.player2MaxHP}`, inline: true }
@@ -584,6 +611,20 @@ async function endAIBattle(battle, channel, data) {
     
     await channel.send({ embeds: [victoryEmbed] });
   } else {
+    const user = data.users[battle.player1];
+    if (!user.questProgress) user.questProgress = {};
+    user.questProgress.totalBattles = (user.questProgress.totalBattles || 0) + 1;
+    
+    const ptData = initializePersonalizedTaskData(user);
+    if (ptData.taskProgress.totalBattles !== undefined) {
+      const completedTaskTotal = checkTaskProgress(user, 'totalBattles', 1);
+      if (completedTaskTotal) {
+        await completePersonalizedTask(channel.client, battle.player1, data, completedTaskTotal);
+      }
+    }
+    
+    await saveDataImmediate(data);
+    
     const defeatEmbed = new EmbedBuilder()
       .setColor('#FF0000')
       .setTitle('💀 DEFEAT')

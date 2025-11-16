@@ -23,7 +23,7 @@ function getLotteryData() {
 
 function setLotteryData(data) {
   if (data) {
-    lotteryData = { ...lotteryData, ...data };
+    lotteryData = { ...data };
   }
 }
 

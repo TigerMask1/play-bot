@@ -533,7 +533,7 @@ async function getEventInfo(userId) {
   }
 }
 
-async function startEventManually() {
+async function startEventManually(eventType = null) {
   const activeEvent = await mongoManager.getCurrentEvent();
   
   if (activeEvent && activeEvent.status === 'active') {
@@ -543,12 +543,55 @@ async function startEventManually() {
     };
   }
   
-  await startNextEvent();
+  if (eventType && !EVENT_TYPES.includes(eventType)) {
+    return {
+      success: false,
+      message: `❌ Invalid event type! Valid types: trophy, drop, crate\n\nUsage: \`!startevent <type>\` or \`!startevent\` to start next in rotation.`
+    };
+  }
+  
+  if (eventType) {
+    await startSpecificEvent(eventType);
+  } else {
+    await startNextEvent();
+  }
   
   return {
     success: true,
     message: '✅ Event started manually! Check the events channel for details.'
   };
+}
+
+async function startSpecificEvent(eventType) {
+  const eventsCollection = await mongoManager.getCollection('events');
+  const lastEvent = await eventsCollection.findOne({}, { sort: { startAt: -1 } });
+  
+  let rotationIndex = 0;
+  if (lastEvent && lastEvent.rotationIndex !== undefined) {
+    rotationIndex = (lastEvent.rotationIndex + 1) % EVENT_TYPES.length;
+  }
+  
+  const startAt = new Date();
+  const endAt = new Date(startAt.getTime() + EVENT_DURATION_MS);
+  
+  const eventData = {
+    eventType,
+    status: 'active',
+    startAt,
+    endAt,
+    rotationIndex,
+    announcementChannelId: FIXED_CHANNEL_ID,
+    leaderboardSnapshot: null,
+    rewardsDistributed: false
+  };
+  
+  const eventId = await mongoManager.createEvent(eventData);
+  eventData._id = eventId;
+  
+  scheduleEventEnd(eventData, EVENT_DURATION_MS);
+  await announceEventStart(eventData);
+  
+  console.log(`🎉 Started specific event: ${EVENT_DISPLAY_NAMES[eventType]}`);
 }
 
 async function stopEventManually() {

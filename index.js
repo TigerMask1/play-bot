@@ -62,6 +62,8 @@ const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
+const { initializeGiveawaySystem, setGiveawayData } = require('./giveawaySystem.js');
+const { initializeLotterySystem, setLotteryData } = require('./lotterySystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
   PERSONALIZED_TASKS,
@@ -194,6 +196,14 @@ client.on('clientReady', async () => {
   await initializeBot();
   await loadServerConfigs();
   initializeClanData(data);
+  if (data.giveawayData) {
+    setGiveawayData(data.giveawayData);
+  }
+  if (data.lotteryData) {
+    setLotteryData(data.lotteryData);
+  }
+  initializeGiveawaySystem(client);
+  initializeLotterySystem(client);
   await eventSystem.init(client, data);
   await startDropSystem(client, data);
   startPromotionSystem(client);
@@ -2410,7 +2420,24 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const startResult = await eventSystem.startEventManually();
+        const eventTypeArg = args[0]?.toLowerCase();
+        let mappedEventType = null;
+        
+        if (eventTypeArg) {
+          const eventTypeMap = {
+            'trophy': 'trophy_hunt',
+            'drop': 'drop_catcher',
+            'crate': 'crate_master'
+          };
+          mappedEventType = eventTypeMap[eventTypeArg];
+          
+          if (!mappedEventType) {
+            await message.reply('❌ Invalid event type! Use one of: `trophy`, `drop`, or `crate`\n\nExample: `!startevent trophy` or just `!startevent` for next in rotation.');
+            return;
+          }
+        }
+        
+        const startResult = await eventSystem.startEventManually(mappedEventType);
         await message.reply(startResult.message);
         break;
 

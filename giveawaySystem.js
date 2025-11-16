@@ -26,7 +26,7 @@ function getGiveawayData() {
 
 function setGiveawayData(data) {
   if (data) {
-    giveawayData = { ...giveawayData, ...data };
+    giveawayData = { ...data };
   }
 }
 
