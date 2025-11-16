@@ -20,6 +20,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Crate System:** Multi-tiered crates (Gold, Emerald, Legendary, Tyrant, Bronze, Silver) offering characters, tokens, and coins, including a "pending tokens" system and interactive opening with customizable GIFs.
 - **Drop System:** Random token, coin, and gem drops every 20 seconds (main server) or 30 seconds (non-main servers), claimable by the first user, optimized to reduce API calls by leaving uncaught drops in chat. Includes a paid drop system for non-main servers (100 gems for 3 hours) with smart pausing:
   - **Smart Pausing:** Auto-pauses after 30 uncaught drops to avoid spam
+  - **Inactivity Pausing:** Auto-pauses drops after 15 minutes of no commands being used in a server. Resumes automatically when any command is used. The 3-hour paid timer continues running even when paused due to inactivity.
   - **Timer Persistence:** The 3-hour timer continues running even when drops are paused
   - **Drop Revival:** Anyone using `!c <code>` revives paused drops, even if they don't catch the drop or own the character
   - **Community Feature:** Players can help revive drops for their server even without being able to claim the reward
