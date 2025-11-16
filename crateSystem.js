@@ -27,7 +27,7 @@ const CRATE_TYPES = {
     tokens: 50,
     coins: 500,
     points: 3,
-    emoji: '🟡'
+    emoji: '\<:emoji_2:1439429824862093445>'
   },
   emerald: {
     cost: 250,
