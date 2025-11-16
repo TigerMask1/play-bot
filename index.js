@@ -318,7 +318,7 @@ client.on('messageCreate', async (message) => {
       // 5% chance for gold crate
       else {
         data.users[userId].goldCrates = (data.users[userId].goldCrates || 0) + 1;
-        rewardMessage = `🎉 **Message Reward!** You got a 🟡 **Gold Crate**! Use \`!opencrate gold\` to open it!`;
+        rewardMessage = `🎉 **Message Reward!** You got a <:emoji_2:1439429824862093445> **Gold Crate**! Use \`!opencrate gold\` to open it!`;
       }
       
       // CRITICAL: Use immediate save for crate rewards to ensure MongoDB persistence
@@ -853,14 +853,14 @@ client.on('messageCreate', async (message) => {
             .setTitle('🎁 Available Crates')
             .setDescription('**Free Crates** (from message rewards):\n🟫 Bronze Crate - Use `!opencrate bronze`\n⚪ Silver Crate - Use `!opencrate silver`\n\n**Premium Crates** (purchase with gems):')
             .addFields(
-              { name: '🥇 Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins', inline: true },
+              { name: '<:emoji_2:1439429824862093445> Gold Crate', value: '💎 100 gems\n1.5% character chance\n🎫 50 random character tokens\n💰 500 coins', inline: true },
               { name: '🟢 Emerald Crate', value: '💎 250 gems\n5% character chance\n🎫 130 random character tokens\n💰 1800 coins', inline: true },
               { name: '🔥 Legendary Crate', value: '💎 500 gems\n10% character chance\n🎫 200 random character tokens\n💰 2500 coins', inline: true },
               { name: '👑 Tyrant Crate', value: '💎 750 gems\n15% character chance\n🎫 300 random character tokens\n💰 3500 coins', inline: true }
             )
             .addFields({ 
               name: '📦 Your Crates', 
-              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n <:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
+              value: `🟫 Bronze: ${user.bronzeCrates || 0}\n⚪ Silver: ${user.silverCrates || 0}\n<:emoji_2:1439429824862093445> Gold: ${user.goldCrates || 0}\n🟢 Emerald: ${user.emeraldCrates || 0}\n🟣 Legendary: ${user.legendaryCrates || 0}\n🔴 Tyrant: ${user.tyrantCrates || 0}`, 
               inline: false 
             })
             .setFooter({ text: 'Use: !crate <type> to buy | !opencrate <type> to open owned crates' });
