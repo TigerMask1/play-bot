@@ -125,6 +125,7 @@ const {
 
 const PREFIX = '!';
 let data;
+let cachedWelcomeGuide = null;
 
 async function initializeBot() {
   await initializeEmojiAssets();
@@ -135,6 +136,13 @@ async function initializeBot() {
   
   await refreshAllCharacterEmojis(data.users);
   console.log('✅ Custom emojis applied to all characters');
+  
+  try {
+    cachedWelcomeGuide = await fs.promises.readFile('./NEW_PLAYER_WELCOME.txt', 'utf-8');
+    console.log('✅ Welcome guide cached successfully');
+  } catch (error) {
+    console.warn('⚠️ Could not load welcome guide:', error.message);
+  }
 }
 
 function generateST() {
@@ -1004,13 +1012,51 @@ client.on('messageCreate', async (message) => {
           embedDesc += `\n🎫 ${pendingTokens} Pending Tokens received!`;
         }
         
-        embedDesc += `\n\nUse \`!profile\` to view your stats!`;
+        embedDesc += `\n\n✉️ Check your DMs for a complete how-to-play guide!\n\nUse \`!profile\` to view your stats!`;
         
         const embed = new EmbedBuilder()
           .setColor('#00FF00')
           .setTitle('🎉 Character Selected!')
           .setDescription(embedDesc);
         await message.reply({ embeds: [embed] });
+        
+        // Send welcome guide to first-time players via DM
+        // Note: This code only runs for first-time starter selections due to early return guard above
+        try {
+          // Lazy-load guide if cache is empty (handles startup race or load failure)
+          if (!cachedWelcomeGuide) {
+            console.log('📖 Welcome guide cache empty, loading on-demand...');
+            cachedWelcomeGuide = await fs.promises.readFile('./NEW_PLAYER_WELCOME.txt', 'utf-8');
+          }
+          
+          const chunks = [];
+          const maxLength = 1900;
+          let currentChunk = '';
+          
+          const lines = cachedWelcomeGuide.split('\n');
+          for (const line of lines) {
+            if ((currentChunk + line + '\n').length > maxLength) {
+              chunks.push(currentChunk);
+              currentChunk = line + '\n';
+            } else {
+              currentChunk += line + '\n';
+            }
+          }
+          if (currentChunk) chunks.push(currentChunk);
+          
+          for (const chunk of chunks) {
+            await message.author.send(chunk);
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          console.log(`📬 Sent welcome guide to new player: ${message.author.tag}`);
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            console.error('❌ NEW_PLAYER_WELCOME.txt not found! Cannot send welcome guide.');
+          } else {
+            console.log(`⚠️ Could not send DM to ${message.author.tag}: ${error.message}`);
+          }
+        }
         break;
         
       case 'profile':
