@@ -1,0 +1,60 @@
+⚔️ **BATTLE SYSTEM GUIDE - Everything You Need to Know!**
+
+**The battle system has been updated!** Many players are confused about how battles work. Here's a quick guide:
+
+**🎮 Starting a Battle:**
+• `!b @player` - Challenge someone
+• `!b ai` - Practice vs AI (Main server)
+
+**⚡ ENERGY SYSTEM (Most Important!):**
+• Start with 100 energy, regenerate 20/turn
+• Every move costs energy
+• DON'T spam moves - manage your energy!
+
+**🎯 Your 3 Moves:**
+1. **Basic Attack** (5-15⚡) - Use when low energy
+2. **Special Move** (30-60⚡) - Your unique powerful move
+3. **Tier Move** (varies) - Secondary attack/utility
+
+**Check moves:** `!i <character name>`
+
+**💫 Passive Abilities:**
+Every character has a special power (always active):
+• 🦁 Royal Authority: +20 starting energy
+• 🐕 Pack Leader: Heal 5% HP/turn
+• 🦔 Armored Shell: -15% damage taken
+• And 48 more unique abilities!
+
+**🔥 Status Effects:**
+• Burn/Poison: Damage over time
+• Freeze/Stun/Paralyze: Skip turns
+• Regeneration: Heal over time
+
+**💥 Critical Hits:** 15% chance for 1.5x damage!
+
+**🛡️ Battle Items:**
+Buy from `!shop` and use in battle:
+• Healing Potion, Energy Drink, Boosts, etc.
+
+**📊 Rewards:**
+• Win: +15🏆 trophies
+• Lose: -5🏆 trophies
+
+**🎯 Beginner Tips:**
+1. `!select <character>` - Pick highest ST character
+2. `!i <character>` - Learn your moves FIRST
+3. Don't use special move turn 1!
+4. Watch energy - use basic attacks when low
+5. Practice vs AI before challenging players
+
+**💬 Common Issues:**
+❓ "Why can't I use my move?" → Not enough energy!
+❓ "What's ST?" → Higher ST = More HP + More damage
+❓ "How do I heal?" → Healing moves OR items from !shop
+
+**📖 Full Guide Available:**
+Type `!guide` for the complete battle system guide!
+
+**Ready to battle?** Select your character and start fighting! ⚔️🏆
+
+Questions? The community is here to help! Good luck! 🎉

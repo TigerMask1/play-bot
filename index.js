@@ -45,7 +45,7 @@ const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
 const { openCrate, buyCrate } = require('./crateSystem.js');
-const { startDropSystem, stopDropSystem, stopDropsForServer, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops } = require('./dropSystem.js');
+const { startDropSystem, stopDropSystem, stopDropsForServer, payForDrops, areDropsActive, getDropsTimeRemaining, resetUncaughtDrops, recordServerActivity } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
@@ -339,6 +339,10 @@ client.on('messageCreate', async (message) => {
   
   const serverId = message.guild?.id;
   const isAdmin = isSuperAdmin(userId) || isBotAdmin(userId, serverId);
+  
+  if (serverId) {
+    await recordServerActivity(serverId);
+  }
   
   try {
     switch(command) {

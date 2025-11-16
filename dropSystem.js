@@ -6,6 +6,7 @@ const { isMainServer, getServerConfig, getDropInterval, isServerSetup, saveServe
 let dropIntervals = new Map();
 let activeClient = null;
 let activeData = null;
+let inactivityTimers = new Map();
 
 const MAIN_SERVER_ID = '1430516117851340893';
 const MAIN_DROP_CHANNEL = '1430525383635107850';
@@ -14,6 +15,7 @@ const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 
 const DROP_DURATION = 3 * 3600000; // 3 hours in milliseconds
 const DROP_COST = 100; // gems
 const MAX_UNCAUGHT_DROPS = 10;
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 // ======================================================
 //  DROP PAYMENT & STATUS FUNCTIONS
@@ -37,7 +39,50 @@ function areDropsPaused(serverId) {
   if (isMainServer(serverId)) return false;
   
   const config = getServerConfig(serverId);
-  return config && config.dropsPaused === true;
+  return config && (config.dropsPaused === true || config.inactivityPaused === true);
+}
+
+async function recordServerActivity(serverId) {
+  if (isMainServer(serverId)) return;
+  
+  const config = getServerConfig(serverId);
+  if (!config) return;
+  
+  const wasInactive = config.inactivityPaused === true;
+  
+  if (wasInactive) {
+    config.inactivityPaused = false;
+    await saveServerConfig(serverId, config);
+    console.log(`🔄 Server ${serverId}: Activity detected! Drops RESUMED from inactivity pause.`);
+    
+    if ((areDropsActive(serverId) || hasInfiniteDrops(serverId)) && !dropIntervals.has(serverId)) {
+      startDropsForServer(serverId);
+    }
+  }
+  
+  if (inactivityTimers.has(serverId)) {
+    clearTimeout(inactivityTimers.get(serverId));
+  }
+  
+  const timeoutId = setTimeout(async () => {
+    const currentConfig = getServerConfig(serverId);
+    if (!currentConfig) return;
+    
+    if (!areDropsActive(serverId) && !hasInfiniteDrops(serverId)) {
+      inactivityTimers.delete(serverId);
+      return;
+    }
+    
+    currentConfig.inactivityPaused = true;
+    currentConfig.lastCommandAt = Date.now();
+    await saveServerConfig(serverId, currentConfig);
+    console.log(`😴 Server ${serverId}: No activity for 15 minutes. Drops PAUSED due to inactivity.`);
+  }, INACTIVITY_TIMEOUT);
+  
+  inactivityTimers.set(serverId, timeoutId);
+  
+  config.lastCommandAt = Date.now();
+  await saveServerConfig(serverId, config);
 }
 
 async function payForDrops(serverId, userId, data) {
@@ -70,6 +115,7 @@ async function payForDrops(serverId, userId, data) {
   config.dropsPaidUntil = expiryTime;
   config.uncaughtDropCount = 0;
   config.dropsPaused = false;
+  config.inactivityPaused = false;
   
   await saveServerConfig(serverId, config);
   await saveDataImmediate(data);
@@ -78,6 +124,9 @@ async function payForDrops(serverId, userId, data) {
   
   // Restart drops for this server to begin immediately
   startDropsForServer(serverId);
+  
+  // Start inactivity tracking
+  await recordServerActivity(serverId);
   
   const expiryDate = new Date(expiryTime);
   return {
@@ -144,6 +193,9 @@ async function resetUncaughtDrops(serverId) {
   if (wasPaused && areDropsActive(serverId)) {
     startDropsForServer(serverId);
   }
+  
+  // Record activity to reset inactivity timer
+  await recordServerActivity(serverId);
 }
 
 async function notifyDropsExpired(serverId) {
@@ -391,5 +443,6 @@ module.exports = {
   areDropsPaused,
   getDropsTimeRemaining,
   resetUncaughtDrops,
-  incrementUncaughtDrops
+  incrementUncaughtDrops,
+  recordServerActivity
 };
