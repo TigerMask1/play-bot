@@ -52,6 +52,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically.
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
+- **New Player Onboarding:** Automated welcome guide sent via DM to first-time players when they select their starter character. The guide covers battle system, economy, drops, crates, events, and all essential commands.
 
 **System Design Choices:**
 - **Modularity & Scalability:** Core functionalities are separated into dedicated files, designed with MongoDB integration for production.
