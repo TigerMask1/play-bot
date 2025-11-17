@@ -103,6 +103,9 @@ const {
   getActiveSession, 
   clearSession 
 } = require('./chestInteractionManager.js');
+const { uploadEmote, getEmote, getAllEmotes, grantEmoteToUser, setUserEmote, getUserEmotes, deleteEmote, initializeEmoteData } = require('./emoteSystem.js');
+const { setCharacterNickname, resetCharacterNickname, getDisplayName, getShortDisplayName, initializeNicknameData } = require('./nicknameSystem.js');
+const { loadSeasonData, saveSeasonData, initializeBattlePassData, addXP, calculateCurrentTier, getBattlePassProgress, claimTierRewards, claimAllAvailableRewards, getXPSource, startNewSeason, getCurrentSeason, createProgressBar, BATTLE_PASS_TIERS, XP_SOURCES } = require('./battlePassSystem.js');
 const { 
   coinDuel, 
   diceClash, 
@@ -1766,6 +1769,103 @@ client.on('messageCreate', async (message) => {
           data.users[userId].inventory = {};
         }
         await openShop(message, data);
+        break;
+        
+      case 'battlepass':
+      case 'bp':
+        const bpProgress = await getBattlePassProgress(userId, data);
+        
+        if (!bpProgress) {
+          await message.reply('❌ You need to start first! Use `!start`');
+          return;
+        }
+        
+        const currentSeason = await getCurrentSeason(data);
+        const bpEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`⚡ Battle Pass - Season ${currentSeason.number}`)
+          .setDescription(`**Current Tier:** ${bpProgress.currentTier}/${bpProgress.maxTier}\n**Total XP:** ${bpProgress.currentXP}`)
+          .addFields({
+            name: '📊 Progress to Next Tier',
+            value: bpProgress.xpForNextTier 
+              ? `${bpProgress.xpProgress}/${bpProgress.xpForNextTier} XP\n${createProgressBar(bpProgress.xpProgress, bpProgress.xpForNextTier)}`
+              : 'Max tier reached!',
+            inline: false
+          });
+        
+        if (bpProgress.unclaimedTiers && bpProgress.unclaimedTiers.length > 0) {
+          bpEmbed.addFields({
+            name: '🎁 Unclaimed Rewards',
+            value: `You have **${bpProgress.unclaimedTiers.length}** tier(s) to claim!\nUse \`!claimpass\` to claim them!`,
+            inline: false
+          });
+        }
+        
+        await message.reply({ embeds: [bpEmbed] });
+        break;
+        
+      case 'claimpass':
+        const bpClaimResult = await claimAllAvailableRewards(userId, data);
+        
+        if (!bpClaimResult.success) {
+          await message.reply(bpClaimResult.message);
+          return;
+        }
+        
+        await message.reply(bpClaimResult.message);
+        if (bpClaimResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'setemote':
+        const emoteSelection = args[0];
+        
+        if (!emoteSelection) {
+          await message.reply('❌ Usage: `!setemote <emote_name>` or `!setemote none` to clear\n\nUse `!emotes` to see your collection!');
+          return;
+        }
+        
+        const setEmoteResult = await setUserEmote(userId, emoteSelection, data);
+        await message.reply(setEmoteResult.message);
+        
+        if (setEmoteResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'setnickname':
+      case 'nick':
+        const charForNickname = args[0];
+        const nickname = args.slice(1).join(' ');
+        
+        if (!charForNickname || !nickname) {
+          await message.reply('❌ Usage: `!setnickname <character> <nickname>`\nExample: `!setnickname Nix Shadow Hunter`\n\nSet a custom nickname for your character!');
+          return;
+        }
+        
+        const setNicknameResult = setCharacterNickname(userId, charForNickname, nickname, data);
+        await message.reply(setNicknameResult.message);
+        
+        if (setNicknameResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'resetnickname':
+        const charForReset = args[0];
+        
+        if (!charForReset) {
+          await message.reply('❌ Usage: `!resetnickname <character>`\n\nRemove a character\'s custom nickname!');
+          return;
+        }
+        
+        const resetNicknameResult = resetCharacterNickname(userId, charForReset, data);
+        await message.reply(resetNicknameResult.message);
+        
+        if (resetNicknameResult.success) {
+          await saveDataImmediate(data);
+        }
         break;
         
       case 'i':
