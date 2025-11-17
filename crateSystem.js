@@ -127,66 +127,44 @@ async function openCrate(data, userId, crateType, client = null) {
     };
   }
   
-  if (USE_MONGODB && mongoManager) {
-    const decrementResult = await mongoManager.decrementCrate(userId, crateType);
-    
-    if (!decrementResult.success) {
-      return {
-        success: false,
-        message: `You don't have any ${crateType} crates to open!`
-      };
+  const rewards = {
+    coins: crate.coins,
+    questProgress: {
+      cratesOpened: 1
     }
-    
-    user[crateKey] = decrementResult.newCrateCount;
-  } else {
-    user[crateKey] = userCrates - 1;
-  }
-  
-  user.coins += crate.coins;
-  
-  if (!user.questProgress) user.questProgress = {};
-  user.questProgress.cratesOpened = (user.questProgress.cratesOpened || 0) + 1;
-  user.lastActivity = Date.now();
-  
-  if (client) {
-    const ptData = initializePersonalizedTaskData(user);
-    if (ptData.taskProgress.cratesOpened !== undefined) {
-      const completedTask = checkTaskProgress(user, 'cratesOpened', 1);
-      if (completedTask) {
-        await completePersonalizedTask(client, userId, data, completedTask);
-      }
-    }
-  }
+  };
   
   if (crateType === 'tyrant') {
-    user.questProgress.tyrantCratesOpened = (user.questProgress.tyrantCratesOpened || 0) + 1;
+    rewards.questProgress.tyrantCratesOpened = 1;
   }
-  
-  await eventSystem.recordProgress(userId, user.username, crate.points, 'crate_master');
-  
-  let rewards = `💰 ${crate.coins} coins`;
   
   if (!user.pendingTokens) {
     user.pendingTokens = 0;
   }
   
+  let characterTokenUpdate = null;
+  let pendingTokensToApply = user.pendingTokens;
+  
   if (user.characters.length > 0) {
-    const randomOwnedChar = user.characters[Math.floor(Math.random() * user.characters.length)];
-    randomOwnedChar.tokens += crate.tokens;
-    
-    if (user.pendingTokens > 0) {
-      randomOwnedChar.tokens += user.pendingTokens;
-      rewards += `\n🎫 ${crate.tokens + user.pendingTokens} ${randomOwnedChar.name} tokens (including ${user.pendingTokens} pending!)`;
-      user.pendingTokens = 0;
-    } else {
-      rewards += `\n🎫 ${crate.tokens} ${randomOwnedChar.name} tokens`;
-    }
+    const randomCharIndex = Math.floor(Math.random() * user.characters.length);
+    const tokensToAdd = crate.tokens + pendingTokensToApply;
+    characterTokenUpdate = {
+      index: randomCharIndex,
+      tokens: tokensToAdd,
+      characterName: user.characters[randomCharIndex].name
+    };
+    pendingTokensToApply = 0;
   } else {
-    user.pendingTokens += crate.tokens;
-    rewards += `\n🎫 ${crate.tokens} tokens saved (Total pending: ${user.pendingTokens})`;
+    pendingTokensToApply += crate.tokens;
+  }
+  
+  rewards.pendingTokens = pendingTokensToApply;
+  if (characterTokenUpdate) {
+    rewards.characterTokenUpdate = characterTokenUpdate;
   }
   
   const roll = Math.random() * 100;
+  let newCharacter = null;
   
   if (roll < crate.charChance) {
     const crateChars = CHARACTERS.filter(c => c.obtainable === 'crate');
@@ -198,15 +176,15 @@ async function openCrate(data, userId, crateType, client = null) {
       const newST = generateST();
       
       let startingTokens = 0;
-      if (user.characters.length === 0 && user.pendingTokens > 0) {
-        startingTokens = user.pendingTokens;
-        user.pendingTokens = 0;
+      if (user.characters.length === 0 && pendingTokensToApply > 0) {
+        startingTokens = pendingTokensToApply;
+        rewards.pendingTokens = 0;
       }
       
       const newMoves = assignMovesToCharacter(randomChar.name, newST);
       const newHP = calculateBaseHP(newST);
       
-      const newCharacter = {
+      newCharacter = {
         name: randomChar.name,
         emoji: getEmojiForCharacter(randomChar.name),
         level: 1,
@@ -218,23 +196,92 @@ async function openCrate(data, userId, crateType, client = null) {
         ownedSkins: ['default']
       };
       
-      user.characters.push(newCharacter);
-      
-      user.questProgress.charsFromCrates = (user.questProgress.charsFromCrates || 0) + 1;
-      
-      rewards += `\n\n🎉 **NEW CHARACTER!** ${randomChar.emoji} ${randomChar.name}\n**ST:** ${newST}%`;
-      if (startingTokens > 0) {
-        rewards += `\n🎁 Received ${startingTokens} pending tokens!`;
-      }
+      rewards.newCharacter = newCharacter;
+      rewards.questProgress.charsFromCrates = 1;
     } else {
-      user.gems += 50;
-      rewards += `\n\n✨ Bonus: 50 gems (all characters owned!)`;
+      rewards.gems = 50;
     }
+  }
+  
+  if (USE_MONGODB && mongoManager) {
+    const atomicResult = await mongoManager.openCrateAtomic(userId, crateType, rewards);
+    
+    if (!atomicResult.success) {
+      return {
+        success: false,
+        message: `You don't have any ${crateType} crates to open!`
+      };
+    }
+    
+    data.users[userId] = atomicResult.userData;
+    user = data.users[userId];
+  } else {
+    user[crateKey] = userCrates - 1;
+    user.coins += rewards.coins;
+    
+    if (!user.questProgress) user.questProgress = {};
+    user.questProgress.cratesOpened = (user.questProgress.cratesOpened || 0) + 1;
+    if (crateType === 'tyrant') {
+      user.questProgress.tyrantCratesOpened = (user.questProgress.tyrantCratesOpened || 0) + 1;
+    }
+    if (newCharacter) {
+      user.characters.push(newCharacter);
+      user.questProgress.charsFromCrates = (user.questProgress.charsFromCrates || 0) + 1;
+    }
+    
+    user.pendingTokens = rewards.pendingTokens;
+    
+    if (characterTokenUpdate) {
+      user.characters[characterTokenUpdate.index].tokens += characterTokenUpdate.tokens;
+    }
+    
+    if (rewards.gems) {
+      user.gems += rewards.gems;
+    }
+    
+    user.lastActivity = Date.now();
+  }
+  
+  if (client) {
+    const ptData = initializePersonalizedTaskData(user);
+    if (ptData.taskProgress.cratesOpened !== undefined) {
+      const completedTask = checkTaskProgress(user, 'cratesOpened', 1);
+      if (completedTask) {
+        await completePersonalizedTask(client, userId, data, completedTask);
+      }
+    }
+  }
+  
+  await eventSystem.recordProgress(userId, user.username, crate.points, 'crate_master');
+  
+  let rewardMessage = `💰 ${crate.coins} coins`;
+  
+  if (characterTokenUpdate) {
+    const totalTokens = characterTokenUpdate.tokens;
+    const baseTokens = crate.tokens;
+    const hadPending = totalTokens > baseTokens;
+    
+    if (hadPending) {
+      rewardMessage += `\n🎫 ${totalTokens} ${characterTokenUpdate.characterName} tokens (including ${totalTokens - baseTokens} pending!)`;
+    } else {
+      rewardMessage += `\n🎫 ${totalTokens} ${characterTokenUpdate.characterName} tokens`;
+    }
+  } else if (!newCharacter || newCharacter.tokens === 0) {
+    rewardMessage += `\n🎫 ${crate.tokens} tokens saved (Total pending: ${rewards.pendingTokens})`;
+  }
+  
+  if (newCharacter) {
+    rewardMessage += `\n\n🎉 **NEW CHARACTER!** ${newCharacter.emoji} ${newCharacter.name}\n**ST:** ${newCharacter.st}%`;
+    if (newCharacter.tokens > 0) {
+      rewardMessage += `\n🎁 Received ${newCharacter.tokens} pending tokens!`;
+    }
+  } else if (rewards.gems) {
+    rewardMessage += `\n\n✨ Bonus: ${rewards.gems} gems (all characters owned!)`;
   }
   
   return {
     success: true,
-    message: rewards
+    message: rewardMessage
   };
 }
 
