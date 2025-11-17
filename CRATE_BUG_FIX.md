@@ -1,43 +1,82 @@
 # Crate Duplication Bug Fix
 
 ## Problem Identified
-Every time the bot restarted, users were getting 1 legendary crate (and potentially other crates) added back to their account, even after opening them.
+Every time the bot restarted, users were getting crates (especially legendary crates) added back to their account, even after opening them. This affected ALL crate types: bronze, silver, gold, emerald, legendary, and tyrant.
 
-## Root Cause
-The bug was in `mongoManager.js` in the `stripUnnecessaryFields()` function:
+## Root Causes
+There were TWO separate issues causing this bug:
 
-1. When a user opened a crate, the crate count went to 0 in memory
-2. Before saving to MongoDB, `stripUnnecessaryFields()` deleted all fields with value 0
-3. MongoDB's `$set` operator only updates fields that are present in the update object
-4. **Critical Issue**: Fields that were deleted from the update object remained unchanged in MongoDB
-5. On next load, the old crate count (e.g., `legendaryCrates: 1`) was loaded from MongoDB
-6. User got their crate back!
+### Issue #1: stripUnnecessaryFields Bug (Fixed)
+In `mongoManager.js`, the `stripUnnecessaryFields()` function deleted all numeric fields with value 0 before saving. MongoDB's `$set` operator only updates fields present in the update object, so deleted fields remained unchanged in MongoDB.
 
-## Solution
-**File Modified**: `mongoManager.js` (lines 118-126)
+### Issue #2: In-Memory Modification Without Atomic Persistence (Primary Issue)
+The crate opening logic modified counts in memory first, then relied on batched saves. This created race conditions where:
+- Crate was opened (decremented in memory)
+- Batched save might not execute before bot restart
+- On reload, old count was restored from MongoDB
 
-**Change**: Removed deletion of numeric counters from `stripUnnecessaryFields()`:
-- ✅ Crate counts (bronze, silver, gold, emerald, legendary, tyrant) now persist as 0
-- ✅ Other numeric fields (shards, stBoosters, pendingTokens, messageCount) also fixed
-- ✅ Empty arrays and objects still get cleaned up (mailbox, completedQuests, inventory)
+## Solution: Atomic MongoDB Operations
+**Files Modified**: `mongoManager.js`, `crateSystem.js`
+
+### Changes Made:
+
+1. **mongoManager.js** - New function `decrementCrate(userId, crateType)`:
+   - Uses MongoDB's atomic `findOneAndUpdate` with `$inc: { [crateKey]: -1 }`
+   - Only decrements if count > 0 (using `$gt: 0` filter)
+   - Returns the updated crate count
+   - Changes are **immediately persisted** in MongoDB
+
+2. **crateSystem.js** - Modified `openCrate()` function:
+   - When USE_MONGODB is true, calls `decrementCrate()` atomically
+   - **Critical**: Returns immediately if decrement fails (prevents reward exploit)
+   - On success, updates only the crate count in memory
+   - Proceeds with reward processing
+   - Saves all rewards via `saveDataImmediate()`
+
+3. **mongoManager.js** - Fixed `stripUnnecessaryFields()`:
+   - Removed deletion of numeric counters (crates, shards, boosters, tokens, messageCount)
+   - Kept cleanup for empty arrays/objects only
+
+## How It Works Now
+
+### Before (Broken):
+```
+1. Check in-memory count → has 1 crate
+2. Decrement in memory → now 0
+3. Add rewards
+4. Schedule batched save (might not execute)
+5. Bot restarts
+6. Load from MongoDB → still shows 1 crate ❌
+```
+
+### After (Fixed):
+```
+1. Check in-memory count → has 1 crate
+2. Atomically decrement in MongoDB → immediate DB write ✅
+3. If decrement fails → return error, no rewards
+4. If succeeds → update memory, add rewards
+5. Save rewards immediately
+6. Bot restarts
+7. Load from MongoDB → shows 0 crates ✅
+```
 
 ## Impact
-- **Going Forward**: All crate operations will now persist correctly
-- **Existing Data**: Any inflated crate counts will self-correct as users open their crates
-- **No Manual Cleanup Needed**: The fix prevents future issues and existing issues resolve naturally during gameplay
+- ✅ **Crate decrement is atomic and immediate** - prevents all duplication scenarios
+- ✅ **Early return on failure** - prevents reward exploitation
+- ✅ **Race condition eliminated** - MongoDB write happens before rewards
+- ✅ **Works with bot restarts** - count is already persisted in DB
 
 ## Testing
-The fix ensures that when a user:
-1. Opens a crate → count goes to 0
-2. Data is saved → 0 is written to MongoDB (not deleted)
-3. Bot restarts → 0 is loaded from MongoDB
-4. User correctly has 0 crates
+To verify the fix:
+1. User opens a legendary crate
+2. MongoDB is immediately updated (crate count decremented)
+3. Even if bot crashes before `saveDataImmediate`, the crate is gone
+4. Bot restart loads correct count from MongoDB
+5. No crate duplication occurs
 
-## Other Affected Counters
-This fix also prevents similar issues with:
-- Shards
-- ST Boosters  
-- Pending Tokens
-- Message Count
-
-All numeric counters now persist correctly across restarts.
+## Technical Details
+- Uses MongoDB `findOneAndUpdate` for atomic operations
+- Filter ensures only users with crates > 0 can decrement
+- `returnDocument: 'after'` returns the updated count
+- Preserves user object structure and all fields
+- Compatible with both MongoDB and JSON storage modes
