@@ -206,6 +206,65 @@ async function deleteUser(userId) {
   }
 }
 
+async function decrementCrate(userId, crateType) {
+  try {
+    const usersCollection = await getCollection('users');
+    const crateKey = `${crateType}Crates`;
+    
+    const result = await usersCollection.findOneAndUpdate(
+      { 
+        userId,
+        [crateKey]: { $gt: 0 }
+      },
+      { 
+        $inc: { [crateKey]: -1 }
+      },
+      { 
+        returnDocument: 'after'
+      }
+    );
+    
+    if (!result.value) {
+      return {
+        success: false,
+        message: `No ${crateType} crates available to decrement`
+      };
+    }
+    
+    delete result.value._id;
+    
+    return {
+      success: true,
+      userData: result.value,
+      newCrateCount: result.value[crateKey]
+    };
+  } catch (error) {
+    console.error('Error decrementing crate in MongoDB:', error);
+    return {
+      success: false,
+      message: 'Database error while opening crate'
+    };
+  }
+}
+
+async function getUserData(userId) {
+  try {
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ userId });
+    
+    if (!user) {
+      return null;
+    }
+    
+    delete user._id;
+    delete user.userId;
+    return user;
+  } catch (error) {
+    console.error('Error getting user data from MongoDB:', error);
+    return null;
+  }
+}
+
 async function clearAllData() {
   try {
     const usersCollection = await getCollection('users');
@@ -521,6 +580,8 @@ module.exports = {
   loadData,
   saveData,
   deleteUser,
+  decrementCrate,
+  getUserData,
   clearAllData,
   getCollection,
   getCurrentEvent,

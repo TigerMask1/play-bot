@@ -4,6 +4,12 @@ const eventSystem = require('./eventSystem.js');
 const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 const { getEmojiForCharacter } = require('./emojiAssetManager.js');
 
+const USE_MONGODB = process.env.USE_MONGODB === 'true';
+let mongoManager = null;
+if (USE_MONGODB) {
+  mongoManager = require('./mongoManager.js');
+}
+
 const CRATE_TYPES = {
   bronze: {
     cost: 0,
@@ -102,7 +108,7 @@ async function buyCrate(data, userId, crateType) {
 
 async function openCrate(data, userId, crateType, client = null) {
   const crate = CRATE_TYPES[crateType];
-  const user = data.users[userId];
+  let user = data.users[userId];
   
   if (!crate) {
     return {
@@ -121,7 +127,20 @@ async function openCrate(data, userId, crateType, client = null) {
     };
   }
   
-  user[crateKey] = userCrates - 1;
+  if (USE_MONGODB && mongoManager) {
+    const decrementResult = await mongoManager.decrementCrate(userId, crateType);
+    
+    if (!decrementResult.success) {
+      return {
+        success: false,
+        message: `You don't have any ${crateType} crates to open!`
+      };
+    }
+    
+    user[crateKey] = decrementResult.newCrateCount;
+  } else {
+    user[crateKey] = userCrates - 1;
+  }
   
   user.coins += crate.coins;
   
