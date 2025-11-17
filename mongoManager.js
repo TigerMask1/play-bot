@@ -247,6 +247,79 @@ async function decrementCrate(userId, crateType) {
   }
 }
 
+async function openCrateAtomic(userId, crateType, rewards) {
+  try {
+    const usersCollection = await getCollection('users');
+    const crateKey = `${crateType}Crates`;
+    
+    const updateOps = {
+      $inc: {
+        [crateKey]: -1,
+        coins: rewards.coins || 0
+      },
+      $set: {
+        lastActivity: Date.now()
+      }
+    };
+    
+    if (rewards.questProgress) {
+      for (const [key, value] of Object.entries(rewards.questProgress)) {
+        updateOps.$inc[`questProgress.${key}`] = value;
+      }
+    }
+    
+    if (rewards.pendingTokens !== undefined) {
+      updateOps.$set.pendingTokens = rewards.pendingTokens;
+    }
+    
+    if (rewards.newCharacter) {
+      updateOps.$push = { characters: rewards.newCharacter };
+    }
+    
+    if (rewards.characterTokenUpdate) {
+      const charIndex = rewards.characterTokenUpdate.index;
+      updateOps.$inc[`characters.${charIndex}.tokens`] = rewards.characterTokenUpdate.tokens;
+    }
+    
+    if (rewards.gems) {
+      updateOps.$inc.gems = rewards.gems;
+    }
+    
+    const result = await usersCollection.findOneAndUpdate(
+      { 
+        userId,
+        [crateKey]: { $gt: 0 }
+      },
+      updateOps,
+      { 
+        returnDocument: 'after'
+      }
+    );
+    
+    if (!result.value) {
+      return {
+        success: false,
+        message: `No ${crateType} crates available to open`
+      };
+    }
+    
+    delete result.value._id;
+    delete result.value.userId;
+    
+    return {
+      success: true,
+      userData: result.value,
+      newCrateCount: result.value[crateKey]
+    };
+  } catch (error) {
+    console.error('Error opening crate atomically in MongoDB:', error);
+    return {
+      success: false,
+      message: 'Database error while opening crate'
+    };
+  }
+}
+
 async function getUserData(userId) {
   try {
     const usersCollection = await getCollection('users');
@@ -581,6 +654,7 @@ module.exports = {
   saveData,
   deleteUser,
   decrementCrate,
+  openCrateAtomic,
   getUserData,
   clearAllData,
   getCollection,
