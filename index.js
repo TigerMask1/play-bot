@@ -995,6 +995,8 @@ client.on('messageCreate', async (message) => {
           charToLevel.level += 1;
           data.users[userId].lastActivity = Date.now();
           
+          const levelUpXP = addXP(data.users[userId], XP_REWARDS.LEVEL_UP, 'Character Level Up');
+          
           const ptData = initializePersonalizedTaskData(data.users[userId]);
           if (ptData.taskProgress.levelsGained !== undefined) {
             const completedTask = checkTaskProgress(data.users[userId], 'levelsGained', 1);
@@ -1008,7 +1010,7 @@ client.on('messageCreate', async (message) => {
           const lvlEmbed = new EmbedBuilder()
             .setColor('#00FF00')
             .setTitle('⬆️ LEVEL UP!')
-            .setDescription(`<@${userId}> leveled up **${charToLevel.name} ${charToLevel.emoji}**!\n\n**Level ${currentCharLevel} → ${currentCharLevel + 1}**\n\n**Cost:**\n🎫 ${requirements.tokens} tokens\n💰 ${requirements.coins} coins`);
+            .setDescription(`<@${userId}> leveled up **${charToLevel.name} ${charToLevel.emoji}**!\n\n**Level ${currentCharLevel} → ${currentCharLevel + 1}**\n\n**Cost:**\n🎫 ${requirements.tokens} tokens\n💰 ${requirements.coins} coins\n\n⚡ +${XP_REWARDS.LEVEL_UP} Battle Pass XP!`);
           await message.reply({ embeds: [lvlEmbed] });
         } else {
           const missingTokens = Math.max(0, requirements.tokens - charToLevel.tokens);
