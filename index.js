@@ -101,6 +101,9 @@ const {
   getActiveSession, 
   clearSession 
 } = require('./chestInteractionManager.js');
+const { uploadEmote, getEmote, getAllEmotes, grantEmoteToUser, setUserEmote, getUserEmotes, deleteEmote, initializeEmoteData } = require('./emoteSystem.js');
+const { setCharacterNickname, resetCharacterNickname, getDisplayName, getShortDisplayName, initializeNicknameData } = require('./nicknameSystem.js');
+const { loadSeasonData, saveSeasonData, initializeBattlePassData, addXP, calculateCurrentTier, getBattlePassProgress, claimTierRewards, claimAllAvailableRewards, getXPSource, startNewSeason, getCurrentSeason, createProgressBar, BATTLE_PASS_TIERS, XP_SOURCES } = require('./battlePassSystem.js');
 const { 
   initializeGiveawaySystem,
   joinGiveaway,
@@ -1122,6 +1125,10 @@ client.on('messageCreate', async (message) => {
           }
         }
         
+        if (user.selectedEmote) {
+          profileEmbed.addFields({ name: '🎨 Profile Emote', value: user.selectedEmote, inline: true });
+        }
+        
         if (user.pendingTokens > 0) {
           profileEmbed.addFields({ name: '🎫 Pending Tokens', value: `${user.pendingTokens}`, inline: true });
         }
@@ -1130,8 +1137,9 @@ client.on('messageCreate', async (message) => {
           pageChars.forEach(char => {
             const req = getLevelRequirements(char.level);
             const progress = createLevelProgressBar(char.tokens, req.tokens);
+            const displayName = getDisplayName(char);
             profileEmbed.addFields({
-              name: `${char.emoji} ${char.name} - Lvl ${char.level} | ST: ${char.st}%`,
+              name: `${char.emoji} ${displayName} - Lvl ${char.level} | ST: ${char.st}%`,
               value: `Tokens: ${char.tokens}/${req.tokens} | Coins: ${req.coins}\n${progress}`,
               inline: false
             });
@@ -2585,12 +2593,23 @@ client.on('messageCreate', async (message) => {
         data.users[userId].coins += coinReward;
         data.users[userId].gems += gemReward;
         data.users[userId].lastDailyClaim = now.toISOString();
+        
+        const dailyXPResult = await addXP(userId, getXPSource('DAILY_CLAIM'), 'DAILY_CLAIM', data);
+        
         await saveDataImmediate(data);
+        
+        let xpMessage = '';
+        if (dailyXPResult.success) {
+          xpMessage = `\n⚡ +${dailyXPResult.xpGained} XP`;
+          if (dailyXPResult.tierUp) {
+            xpMessage += ` | 🎉 Battle Pass Tier ${dailyXPResult.currentTier}!`;
+          }
+        }
         
         const dailyEmbed = new EmbedBuilder()
           .setColor('#FFD700')
           .setTitle('🎁 Daily Reward Claimed!')
-          .setDescription(`<@${userId}> claimed their daily rewards!\n\n**Rewards:**\n🏆 ${trophyReward} Trophies\n💰 ${coinReward} Coins\n💎 ${gemReward} Gems\n\nCome back tomorrow for more!`);
+          .setDescription(`<@${userId}> claimed their daily rewards!\n\n**Rewards:**\n🏆 ${trophyReward} Trophies\n💰 ${coinReward} Coins\n💎 ${gemReward} Gems${xpMessage}\n\nCome back tomorrow for more!`);
         
         await message.reply({ embeds: [dailyEmbed] });
         break;
@@ -3199,6 +3218,293 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [permEmbed] });
         break;
         
+      case 'uploademote':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const emoteAttachment = message.attachments.first();
+        if (!emoteAttachment) {
+          await message.reply('❌ Please attach an image! Usage: `!uploademote <name>` (attach image)');
+          return;
+        }
+        
+        const newEmoteName = args[0];
+        if (!newEmoteName) {
+          await message.reply('❌ Please provide an emote name! Usage: `!uploademote <name>` (attach image)');
+          return;
+        }
+        
+        try {
+          const response = await fetch(emoteAttachment.url);
+          const buffer = await response.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString('base64');
+          const imageData = `data:${emoteAttachment.contentType};base64,${base64}`;
+          
+          const uploadResult = await uploadEmote(newEmoteName, imageData, userId);
+          await message.reply(uploadResult.message);
+          
+          if (uploadResult.success) {
+            await saveDataImmediate(data);
+          }
+        } catch (error) {
+          console.error('Error uploading emote:', error);
+          await message.reply('❌ Failed to process image attachment!');
+        }
+        break;
+        
+      case 'grantemote':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const emoteTargetUser = message.mentions.users.first();
+        const emoteToGrant = args[1];
+        
+        if (!emoteTargetUser || !emoteToGrant) {
+          await message.reply('❌ Usage: `!grantemote @user <emote_name>`');
+          return;
+        }
+        
+        const grantResult = await grantEmoteToUser(emoteTargetUser.id, emoteToGrant, data);
+        await message.reply(grantResult.message);
+        
+        if (grantResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'setemote':
+        const emoteSelection = args[0];
+        
+        if (!emoteSelection) {
+          await message.reply('❌ Usage: `!setemote <emote_name>` or `!setemote none` to clear\n\nUse `!emotes` to see your collection!');
+          return;
+        }
+        
+        const setEmoteResult = await setUserEmote(userId, emoteSelection, data);
+        await message.reply(setEmoteResult.message);
+        
+        if (setEmoteResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'emotes':
+      case 'myemotes':
+        const userEmoteData = await getUserEmotes(userId, data);
+        
+        if (!userEmoteData.success) {
+          await message.reply('❌ You need to start first! Use `!start`');
+          return;
+        }
+        
+        const emotesEmbed = new EmbedBuilder()
+          .setColor('#FF69B4')
+          .setTitle(`${message.author.username}'s Emote Collection`);
+        
+        if (userEmoteData.ownedEmotes.length === 0) {
+          emotesEmbed.setDescription('You don\'t own any emotes yet!\n\nEmotes are special profile decorations granted by admins for achievements and events!');
+        } else {
+          let emotesList = userEmoteData.ownedEmotes.map((emote, index) => {
+            const isSelected = emote === userEmoteData.selectedEmote;
+            return `${index + 1}. **${emote}** ${isSelected ? '✅ (Active)' : ''}`;
+          }).join('\n');
+          
+          emotesEmbed.setDescription(`**Your Emotes:**\n${emotesList}\n\nUse \`!setemote <name>\` to change your active emote!`);
+        }
+        
+        if (userEmoteData.selectedEmote) {
+          emotesEmbed.addFields({ name: '🎨 Active Emote', value: userEmoteData.selectedEmote, inline: true });
+        }
+        
+        await message.reply({ embeds: [emotesEmbed] });
+        break;
+        
+      case 'deleteemote':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const emoteToDelete = args[0];
+        if (!emoteToDelete) {
+          await message.reply('❌ Usage: `!deleteemote <emote_name>`');
+          return;
+        }
+        
+        const deleteResult = await deleteEmote(emoteToDelete, data);
+        await message.reply(deleteResult.message);
+        
+        if (deleteResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'setnickname':
+      case 'nick':
+        const charForNickname = args[0];
+        const nickname = args.slice(1).join(' ');
+        
+        if (!charForNickname || !nickname) {
+          await message.reply('❌ Usage: `!setnickname <character> <nickname>`\nExample: `!setnickname Nix Shadow Hunter`\n\nSet a custom nickname for your character!');
+          return;
+        }
+        
+        const setNicknameResult = setCharacterNickname(userId, charForNickname, nickname, data);
+        await message.reply(setNicknameResult.message);
+        
+        if (setNicknameResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'resetnickname':
+      case 'clearnick':
+        const charForReset = args[0];
+        
+        if (!charForReset) {
+          await message.reply('❌ Usage: `!resetnickname <character>`\nExample: `!resetnickname Nix`\n\nRemove a character\'s custom nickname.');
+          return;
+        }
+        
+        const resetNicknameResult = resetCharacterNickname(userId, charForReset, data);
+        await message.reply(resetNicknameResult.message);
+        
+        if (resetNicknameResult.success) {
+          await saveDataImmediate(data);
+        }
+        break;
+        
+      case 'battlepass':
+      case 'bp':
+        const bpProgress = await getBattlePassProgress(userId, data);
+        
+        if (!bpProgress) {
+          await message.reply('❌ You need to start first! Use `!start`');
+          return;
+        }
+        
+        const currentSeason = await getCurrentSeason(data);
+        const bpEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`⚡ Battle Pass - Season ${currentSeason.number}`)
+          .setDescription(`**Current Tier:** ${bpProgress.currentTier}/${bpProgress.maxTier}\n**Total XP:** ${bpProgress.currentXP}`)
+          .addFields({
+            name: '📊 Progress to Next Tier',
+            value: bpProgress.xpForNextTier 
+              ? `${bpProgress.xpProgress}/${bpProgress.xpForNextTier} XP\n${createProgressBar(bpProgress.xpProgress, bpProgress.xpForNextTier)}`
+              : 'Max tier reached!',
+            inline: false
+          });
+        
+        if (bpProgress.unclaimedTiers.length > 0) {
+          bpEmbed.addFields({
+            name: '🎁 Unclaimed Rewards',
+            value: `${bpProgress.unclaimedTiers.length} tier${bpProgress.unclaimedTiers.length > 1 ? 's' : ''} ready to claim!\nUse \`!bpclaim\` or \`!bpclaim all\` to claim your rewards!`,
+            inline: false
+          });
+        }
+        
+        const nextTier = bpProgress.currentTier + 1;
+        if (nextTier <= BATTLE_PASS_TIERS.length) {
+          const nextTierData = BATTLE_PASS_TIERS.find(t => t.tier === nextTier);
+          if (nextTierData) {
+            const rewardPreview = [];
+            if (nextTierData.rewards.coins) rewardPreview.push(`💰 ${nextTierData.rewards.coins} Coins`);
+            if (nextTierData.rewards.gems) rewardPreview.push(`💎 ${nextTierData.rewards.gems} Gems`);
+            if (nextTierData.rewards.shards) rewardPreview.push(`🔷 ${nextTierData.rewards.shards} Shards`);
+            
+            bpEmbed.addFields({
+              name: `🔮 Next Tier Rewards (Tier ${nextTier})`,
+              value: rewardPreview.join('\n') || 'Special rewards!',
+              inline: false
+            });
+          }
+        }
+        
+        bpEmbed.setFooter({ text: 'Earn XP from battles, drops, crates, quests, and daily rewards!' });
+        
+        await message.reply({ embeds: [bpEmbed] });
+        break;
+        
+      case 'bpclaim':
+        const tierArg = args[0];
+        
+        if (tierArg === 'all') {
+          const claimAllResult = await claimAllAvailableRewards(userId, data);
+          
+          if (!claimAllResult.success) {
+            await message.reply(claimAllResult.message);
+            return;
+          }
+          
+          await saveDataImmediate(data);
+          
+          const claimAllEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('🎁 Battle Pass Rewards Claimed!')
+            .setDescription(`${claimAllResult.message}\n\n**Rewards:**\n${claimAllResult.rewards.join('\n')}`);
+          
+          await message.reply({ embeds: [claimAllEmbed] });
+        } else {
+          const specificTier = parseInt(tierArg);
+          
+          if (!specificTier || specificTier < 1 || specificTier > BATTLE_PASS_TIERS.length) {
+            await message.reply(`❌ Usage: \`!bpclaim <tier>\` or \`!bpclaim all\`\nExample: \`!bpclaim 5\` or \`!bpclaim all\`\n\nClaim rewards from Battle Pass tiers!`);
+            return;
+          }
+          
+          const claimResult = await claimTierRewards(userId, specificTier, data);
+          
+          if (!claimResult.success) {
+            await message.reply(claimResult.message);
+            return;
+          }
+          
+          await saveDataImmediate(data);
+          
+          const claimEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle(`🎁 Tier ${specificTier} Rewards Claimed!`)
+            .setDescription(`**Rewards:**\n${claimResult.rewards.join('\n')}`);
+          
+          await message.reply({ embeds: [claimEmbed] });
+        }
+        break;
+        
+      case 'bpseason':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const seasonAction = args[0];
+        const seasonNum = parseInt(args[1]);
+        
+        if (seasonAction === 'start' && seasonNum) {
+          const seasonResult = await startNewSeason(seasonNum, data);
+          await saveDataImmediate(data);
+          await message.reply(seasonResult.message);
+        } else if (seasonAction === 'info') {
+          const season = await getCurrentSeason(data);
+          const seasonEmbed = new EmbedBuilder()
+            .setColor('#9B59B6')
+            .setTitle('⚡ Battle Pass Season Info')
+            .addFields(
+              { name: '🔢 Season Number', value: `${season.number}`, inline: true },
+              { name: '📅 Started', value: season.startDate.toLocaleDateString(), inline: true },
+              { name: '✅ Status', value: season.active ? 'Active' : 'Inactive', inline: true }
+            );
+          
+          await message.reply({ embeds: [seasonEmbed] });
+        } else {
+          await message.reply('❌ Usage: `!bpseason start <number>` or `!bpseason info`');
+        }
+        break;
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -3206,7 +3512,7 @@ client.on('messageCreate', async (message) => {
           .setDescription('Use `!overview` to see all game systems\n\n**📚 Command Categories:**')
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <character>` - Choose starter character' },
-            { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!setnickname <char> <nick>` - Set character nickname\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
             { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop' },
             { name: '🎁 Drops & Rewards', value: '`!c <code>` - Catch drops\n`!paydrops` - Activate drops (100 gems/3h)\n`!dropstatus` - Check drop timer\n`!daily` - Daily rewards' },
             { name: '📦 Crates & Shop', value: '`!crate [type]` - Open crates\n`!pickcrate <type>` - Choose crate to open\n`!opencrate` - Open selected crate\n`!buycrate <type>` - Buy crates' },
@@ -3215,11 +3521,13 @@ client.on('messageCreate', async (message) => {
             { name: '🔷 ST Boosters', value: '`!shards` - View shard info\n`!craft` - Craft booster (8 shards)\n`!boost <character>` - Reroll character ST' },
             { name: '📬 Mail & News', value: '`!mail [page]` - View mailbox\n`!claimmail <#>` - Claim mail rewards\n`!clearmail` - Clear claimed mail\n`!news` - Latest bot news' },
             { name: '🏆 Leaderboards & Rankings', value: '`!leaderboard <type>` - Top 10 rankings\nTypes: coins, gems, battles, collection, trophies' },
+            { name: '⚡ Battle Pass', value: '`!battlepass` or `!bp` - View battle pass\n`!bpclaim <tier>` - Claim tier rewards\n`!bpclaim all` - Claim all available' },
+            { name: '🎨 Profile Emotes', value: '`!emotes` - View your emote collection\n`!setemote <name>` - Set active emote\n`!setemote none` - Clear emote' },
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
             { name: '🔧 Server Setup (ZooAdmin)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel` - Set drop channel\n`!seteventschannel #channel` - Set events channel\n`!setupdateschannel #channel` - Set updates channel\n`!setemoji <char> <emoji>` - Custom emojis\n`!setchestgif <type> <url>` - Custom GIFs\n`!permissions` - View permission info' },
-            { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!setinfinitedrops <on/off>` - Set infinite drops for server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
+            { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!setinfinitedrops <on/off>` - Set infinite drops for server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!uploademote <name>` - Upload emote (attach image)\n`!grantemote @user <name>` - Grant emote to user\n`!bpseason start <num>` - Start new BP season\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
           )
           .setFooter({ text: '💡 Tip: Most commands have shorter aliases! Try !b, !t, !c' });

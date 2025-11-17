@@ -50,6 +50,24 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, bot channels, server infinite drops override, and bot update broadcasting.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically.
+- **Battle Pass System:** Comprehensive progression system with 30 tiers, XP earning from various activities, seasonal resets, and valuable rewards. Features:
+  - **XP Sources:** Battles, drops, crates, quests, daily claims, events, and level-ups
+  - **Tier Progression:** Automatic tier advancement as XP is earned (9,570 XP for tier 30)
+  - **Reward System:** Coins, gems, shards, and crates at each tier
+  - **Claim System:** Individual tier claims or bulk claiming
+  - **Season Management:** Persistent season data across bot restarts, admin-controlled season resets
+  - **Balanced Pacing:** Achievable progression for active players (25-50 XP per battle)
+- **Profile Emote System:** Custom profile decorations granted by admins for achievements and events. Features:
+  - **MongoDB Storage:** Emotes stored with CDN-ready base64 encoding
+  - **Size Validation:** 5MB maximum per emote for performance
+  - **Collection System:** Users can own multiple emotes and switch between them
+  - **Automatic Cleanup:** Orphaned emote references removed when emotes are deleted
+  - **Admin Controls:** Upload, grant, and manage emotes with super admin privileges
+- **Character Nickname System:** Players can set custom names for their characters while preserving original identities. Features:
+  - **Dual Display:** Shows both nickname and original name (e.g., "Shadow Hunter (Nix)")
+  - **Per-Character:** Each character can have its own unique nickname (1-32 characters)
+  - **Profile Integration:** Nicknames display in profiles, battles, and character lists
+  - **Easy Management:** Simple commands to set and reset nicknames
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
 - **New Player Onboarding:** Automated welcome guide sent via DM to first-time players when they select their starter character. The guide covers battle system, economy, drops, crates, events, and all essential commands.

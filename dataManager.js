@@ -129,6 +129,26 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.ownedEmotes === undefined) {
+      user.ownedEmotes = [];
+      needsSave = true;
+    }
+    
+    if (user.selectedEmote === undefined) {
+      user.selectedEmote = null;
+      needsSave = true;
+    }
+    
+    if (user.battlePass === undefined) {
+      user.battlePass = {
+        xp: 0,
+        currentTier: 1,
+        claimedTiers: [],
+        seasonNumber: 1
+      };
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {
@@ -153,6 +173,11 @@ function backfillUserData(data) {
         
         if (!char.ownedSkins) {
           char.ownedSkins = ['default'];
+          needsSave = true;
+        }
+        
+        if (char.nickname === undefined) {
+          char.nickname = null;
           needsSave = true;
         }
         
