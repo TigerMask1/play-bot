@@ -6,6 +6,7 @@ const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay,
 const { getUserBattleItems, useItem } = require('./itemsSystem.js');
 const eventSystem = require('./eventSystem.js');
 const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
+const { addXP, XP_REWARDS } = require('./battlePassSystem.js');
 
 const activeBattles = new Map();
 const battleInvites = new Map();
@@ -1051,6 +1052,9 @@ async function endBattle(battle, channel, data, reason, winner = null) {
     
     data.users[winner].trophies = Math.min(9999, (data.users[winner].trophies || 200) + 5);
     data.users[loser].trophies = Math.max(0, (data.users[loser].trophies || 200) - 7);
+    
+    const winnerXP = addXP(data.users[winner], XP_REWARDS.BATTLE_WIN, 'Battle Win');
+    const loserXP = addXP(data.users[loser], XP_REWARDS.BATTLE_LOSS, 'Battle Loss');
     
     if (!data.users[winner].questProgress) data.users[winner].questProgress = {};
     data.users[winner].questProgress.battlesWon = (data.users[winner].questProgress.battlesWon || 0) + 1;

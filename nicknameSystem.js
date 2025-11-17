@@ -16,10 +16,6 @@ function setCharacterNickname(userId, characterName, nickname, data) {
     return { success: false, message: '❌ Nickname must be between 1-32 characters!' };
   }
 
-  if (trimmedNickname.length > 100) {
-    return { success: false, message: '❌ Nickname is too long! Maximum 32 characters.' };
-  }
-
   character.nickname = trimmedNickname;
 
   return {
@@ -57,27 +53,19 @@ function resetCharacterNickname(userId, characterName, data) {
 }
 
 function getDisplayName(character) {
-  if (character.nickname) {
+  if (character && character.nickname) {
     return `${character.nickname} (${character.name})`;
   }
-  return character.name;
+  return character ? character.name : 'Unknown';
 }
 
 function getShortDisplayName(character) {
-  return character.nickname || character.name;
-}
-
-function initializeNicknameData(character) {
-  if (!character.nickname) {
-    character.nickname = null;
-  }
-  return character;
+  return character && character.nickname ? character.nickname : (character ? character.name : 'Unknown');
 }
 
 module.exports = {
   setCharacterNickname,
   resetCharacterNickname,
   getDisplayName,
-  getShortDisplayName,
-  initializeNicknameData
+  getShortDisplayName
 };

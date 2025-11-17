@@ -103,9 +103,9 @@ const {
   getActiveSession, 
   clearSession 
 } = require('./chestInteractionManager.js');
-const { uploadEmote, getEmote, getAllEmotes, grantEmoteToUser, setUserEmote, getUserEmotes, deleteEmote, initializeEmoteData } = require('./emoteSystem.js');
-const { setCharacterNickname, resetCharacterNickname, getDisplayName, getShortDisplayName, initializeNicknameData } = require('./nicknameSystem.js');
-const { loadSeasonData, saveSeasonData, initializeBattlePassData, addXP, calculateCurrentTier, getBattlePassProgress, claimTierRewards, claimAllAvailableRewards, getXPSource, startNewSeason, getCurrentSeason, createProgressBar, BATTLE_PASS_TIERS, XP_SOURCES } = require('./battlePassSystem.js');
+const { initializeEmoteData, grantEmoteToUser, setUserEmote, getUserEmotes, removeEmoteFromUser, getEmoteDisplay } = require('./emoteSystem.js');
+const { setCharacterNickname, resetCharacterNickname, getDisplayName, getShortDisplayName } = require('./nicknameSystem.js');
+const { BATTLE_PASS_TIERS, XP_REWARDS, createUnicodeProgressBar, initializeBattlePass, calculateCurrentTier, addXP, getProgressInfo, getUnclaimedRewards, claimRewards } = require('./battlePassSystem.js');
 const { 
   coinDuel, 
   diceClash, 
@@ -778,15 +778,21 @@ client.on('messageCreate', async (message) => {
         const endIdx = startIdx + charsPerPage;
         const pageChars = user.characters.slice(startIdx, endIdx);
         
+        const emoteDisplay = getEmoteDisplay(user);
+        const profileTitle = emoteDisplay ? `${emoteDisplay}${targetUser.username}'s Profile` : `${targetUser.username}'s Profile`;
+        
+        const bpInfo = getProgressInfo(user);
+        
         const profileEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
-          .setTitle(`${targetUser.username}'s Profile`)
+          .setTitle(profileTitle)
           .addFields(
             { name: '💰 Coins', value: `${user.coins}`, inline: true },
             { name: '💎 Gems', value: `${user.gems}`, inline: true },
             { name: '🏆 Trophies', value: `${user.trophies || 200}`, inline: true },
             { name: '🎮 Characters', value: `${user.characters.length}/51`, inline: true },
-            { name: '💬 Messages', value: `${user.messageCount || 0}`, inline: true }
+            { name: '💬 Messages', value: `${user.messageCount || 0}`, inline: true },
+            { name: '⚡ Battle Pass', value: `Tier ${bpInfo.currentTier}/30`, inline: true }
           );
         
         if (user.selectedCharacter) {
@@ -828,8 +834,9 @@ client.on('messageCreate', async (message) => {
           pageChars.forEach(char => {
             const req = getLevelRequirements(char.level);
             const progress = createLevelProgressBar(char.tokens, req.tokens);
+            const displayName = getDisplayName(char);
             profileEmbed.addFields({
-              name: `${char.emoji} ${char.name} - Lvl ${char.level} | ST: ${char.st}%`,
+              name: `${char.emoji} ${displayName} - Lvl ${char.level} | ST: ${char.st}%`,
               value: `Tokens: ${char.tokens}/${req.tokens} | Coins: ${req.coins}\n${progress}`,
               inline: false
             });
@@ -1773,49 +1780,65 @@ client.on('messageCreate', async (message) => {
         
       case 'battlepass':
       case 'bp':
-        const bpProgress = await getBattlePassProgress(userId, data);
-        
-        if (!bpProgress) {
+        if (!data.users[userId]) {
           await message.reply('❌ You need to start first! Use `!start`');
           return;
         }
         
-        const currentSeason = await getCurrentSeason(data);
+        const bpProgress = getProgressInfo(data.users[userId]);
+        const unclaimed = getUnclaimedRewards(data.users[userId]);
+        
         const bpEmbed = new EmbedBuilder()
           .setColor('#FFD700')
-          .setTitle(`⚡ Battle Pass - Season ${currentSeason.number}`)
-          .setDescription(`**Current Tier:** ${bpProgress.currentTier}/${bpProgress.maxTier}\n**Total XP:** ${bpProgress.currentXP}`)
+          .setTitle('⚡ Battle Pass')
+          .setDescription(`**Current Tier:** ${bpProgress.currentTier}/30\n**Total XP:** ${bpProgress.totalXP.toLocaleString()}`)
           .addFields({
             name: '📊 Progress to Next Tier',
-            value: bpProgress.xpForNextTier 
-              ? `${bpProgress.xpProgress}/${bpProgress.xpForNextTier} XP\n${createProgressBar(bpProgress.xpProgress, bpProgress.xpForNextTier)}`
-              : 'Max tier reached!',
+            value: bpProgress.maxTier 
+              ? '✅ MAX TIER REACHED!'
+              : `${bpProgress.progressInTier}/${bpProgress.xpNeededForNext} XP\n${bpProgress.progressBar}`,
             inline: false
           });
         
-        if (bpProgress.unclaimedTiers && bpProgress.unclaimedTiers.length > 0) {
+        if (unclaimed.length > 0) {
           bpEmbed.addFields({
             name: '🎁 Unclaimed Rewards',
-            value: `You have **${bpProgress.unclaimedTiers.length}** tier(s) to claim!\nUse \`!claimpass\` to claim them!`,
+            value: `You have **${unclaimed.length}** tier${unclaimed.length > 1 ? 's' : ''} to claim!\nUse \`!claimpass\` to claim them!`,
             inline: false
           });
         }
+        
+        const xpGuide = [
+          `Battle Win: ${XP_REWARDS.BATTLE_WIN} XP`,
+          `Drop Catch: ${XP_REWARDS.DROP_CATCH} XP`,
+          `Crate Open: ${XP_REWARDS.CRATE_OPEN} XP`,
+          `Quest Complete: ${XP_REWARDS.QUEST_COMPLETE} XP`,
+          `Daily Claim: ${XP_REWARDS.DAILY_CLAIM} XP`
+        ].join(' • ');
+        
+        bpEmbed.setFooter({ text: xpGuide });
         
         await message.reply({ embeds: [bpEmbed] });
         break;
         
       case 'claimpass':
-        const bpClaimResult = await claimAllAvailableRewards(userId, data);
-        
-        if (!bpClaimResult.success) {
-          await message.reply(bpClaimResult.message);
+        if (!data.users[userId]) {
+          await message.reply('❌ You need to start first! Use `!start`');
           return;
         }
+        
+        const bpClaimResult = claimRewards(data.users[userId], data);
         
         await message.reply(bpClaimResult.message);
         if (bpClaimResult.success) {
           await saveDataImmediate(data);
         }
+        break;
+        
+      case 'emotes':
+      case 'myemotes':
+        const emotesResult = getUserEmotes(userId, data);
+        await message.reply(emotesResult.message);
         break;
         
       case 'setemote':
@@ -1826,7 +1849,7 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const setEmoteResult = await setUserEmote(userId, emoteSelection, data);
+        const setEmoteResult = setUserEmote(userId, emoteSelection, data);
         await message.reply(setEmoteResult.message);
         
         if (setEmoteResult.success) {
