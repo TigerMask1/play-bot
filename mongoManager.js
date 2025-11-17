@@ -115,16 +115,6 @@ async function loadData() {
 function stripUnnecessaryFields(userData) {
   const cleaned = { ...userData };
   
-  if (cleaned.bronzeCrates === 0) delete cleaned.bronzeCrates;
-  if (cleaned.silverCrates === 0) delete cleaned.silverCrates;
-  if (cleaned.goldCrates === 0) delete cleaned.goldCrates;
-  if (cleaned.emeraldCrates === 0) delete cleaned.emeraldCrates;
-  if (cleaned.legendaryCrates === 0) delete cleaned.legendaryCrates;
-  if (cleaned.tyrantCrates === 0) delete cleaned.tyrantCrates;
-  if (cleaned.shards === 0) delete cleaned.shards;
-  if (cleaned.stBoosters === 0) delete cleaned.stBoosters;
-  if (cleaned.pendingTokens === 0) delete cleaned.pendingTokens;
-  if (cleaned.messageCount === 0) delete cleaned.messageCount;
   if (Array.isArray(cleaned.mailbox) && cleaned.mailbox.length === 0) delete cleaned.mailbox;
   if (Array.isArray(cleaned.completedQuests) && cleaned.completedQuests.length === 0) delete cleaned.completedQuests;
   if (cleaned.inventory && Object.keys(cleaned.inventory).length === 0) delete cleaned.inventory;
