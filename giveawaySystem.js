@@ -14,9 +14,9 @@ let activeGiveaway = {
   participants: [],
   endTime: null,
   prizes: {
-    gems: 500,
-    coins: 5000,
-    crates: { legendary: 1 }
+    gems: 5000,
+    coins: 10000,
+    crates: { legendary: 2 }
   },
   autoSchedule: {
     enabled: false,
@@ -41,9 +41,9 @@ async function setGiveawayData(data) {
       participants: data.giveaway.participants || [],
       endTime: data.giveaway.endTime || null,
       prizes: data.giveaway.prizes || {
-        gems: 500,
-        coins: 5000,
-        crates: { legendary: 1 }
+        gems: 5000,
+        coins: 10000,
+        crates: { legendary: 2 }
       },
       autoSchedule: data.giveaway.autoSchedule || {
         enabled: false,
@@ -202,9 +202,9 @@ async function startGiveaway(channelId, durationMinutes) {
     participants: [],
     endTime: Date.now() + (durationMinutes * 60 * 1000),
     prizes: {
-      gems: 500,
-      coins: 5000,
-      crates: { legendary: 1 }
+      gems: 5000,
+      coins: 10000,
+      crates: { legendary: 2 }
     }
   };
 
