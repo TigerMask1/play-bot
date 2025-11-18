@@ -1,5 +1,18 @@
 # Bot Updates & Bug Fixes
 
+## v1.0.5 - Lottery & Giveaway Systems Bug Check & Prize Fix
+
+**🔍 Comprehensive Bug Check Completed:**
+✅ **Lottery System** - All functionality verified: Prize pool distribution (50%/30%/20%), currency deduction, auto-scheduling, winner selection
+✅ **Giveaway System** - Fixed prize mismatch bug, verified button entry, auto-scheduling, random winner selection
+
+**🐛 Fixed:** Giveaway default prizes corrected to match documentation (was: 500 gems/5000 coins/1 crate → now: 5000 gems/10000 coins/2 crates)
+
+**🎰 Lottery Commands:** `!lottery` (info) • `!lottery join <tickets>` (buy) • `!autolottery enable/disable <fee> <coins/gems>` (admin) • `!startlottery <3h/6h/24h> <fee> <coins/gems>` (admin) • `!stoplottery` (admin)
+**🎉 Giveaway Commands:** `!giveaway` (status) • `!autogiveaway enable/disable` (admin) • `!startgiveaway <mins>` (admin) • `!endgiveaway` (admin)
+
+---
+
 ## November 18, 2025 - Giveaway System Completely Simplified
 
 ### 🎉 NEW: Simplified Giveaway System with Button Entry
