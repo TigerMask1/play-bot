@@ -2057,6 +2057,189 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [uploadEmbed] });
         break;
         
+      case 'grantitem':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const grantItemUser = message.mentions.users.first();
+        const grantItemId = args[1]?.toLowerCase();
+        const grantItemAmount = parseInt(args[2]);
+        
+        if (!grantItemUser || !grantItemId || !grantItemAmount || grantItemAmount <= 0) {
+          await message.reply('Usage: `!grantitem @user <item_id> <amount>`\nExample: `!grantitem @user health_potion 10`\n\nUse `!listitems` to see all available item IDs.');
+          return;
+        }
+        
+        if (!data.users[grantItemUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { getItem } = require('./itemsSystem.js');
+        const grantItemData = getItem(grantItemId);
+        
+        if (!grantItemData) {
+          await message.reply(`❌ Invalid item ID: **${grantItemId}**\n\nUse \`!listitems\` to see all available items.`);
+          return;
+        }
+        
+        if (!data.users[grantItemUser.id].inventory) {
+          data.users[grantItemUser.id].inventory = {};
+        }
+        
+        if (!data.users[grantItemUser.id].inventory[grantItemId]) {
+          data.users[grantItemUser.id].inventory[grantItemId] = 0;
+        }
+        
+        data.users[grantItemUser.id].inventory[grantItemId] += grantItemAmount;
+        await saveDataImmediate(data);
+        
+        await message.reply(`✅ Granted **${grantItemAmount}x ${grantItemData.emoji} ${grantItemData.name}** to <@${grantItemUser.id}>!\nThey now have **${data.users[grantItemUser.id].inventory[grantItemId]}** total.`);
+        break;
+        
+      case 'removeitem':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const removeItemUser = message.mentions.users.first();
+        const removeItemId = args[1]?.toLowerCase();
+        const removeItemAmount = parseInt(args[2]);
+        
+        if (!removeItemUser || !removeItemId || !removeItemAmount || removeItemAmount <= 0) {
+          await message.reply('Usage: `!removeitem @user <item_id> <amount>`\nExample: `!removeitem @user health_potion 5`');
+          return;
+        }
+        
+        if (!data.users[removeItemUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { getItem: getRemoveItem } = require('./itemsSystem.js');
+        const removeItemData = getRemoveItem(removeItemId);
+        
+        if (!removeItemData) {
+          await message.reply(`❌ Invalid item ID: **${removeItemId}**`);
+          return;
+        }
+        
+        if (!data.users[removeItemUser.id].inventory || !data.users[removeItemUser.id].inventory[removeItemId] || data.users[removeItemUser.id].inventory[removeItemId] <= 0) {
+          await message.reply(`❌ <@${removeItemUser.id}> doesn't have any **${removeItemData.emoji} ${removeItemData.name}**!`);
+          return;
+        }
+        
+        const currentAmount = data.users[removeItemUser.id].inventory[removeItemId];
+        const amountToRemove = Math.min(removeItemAmount, currentAmount);
+        data.users[removeItemUser.id].inventory[removeItemId] -= amountToRemove;
+        await saveDataImmediate(data);
+        
+        await message.reply(`✅ Removed **${amountToRemove}x ${removeItemData.emoji} ${removeItemData.name}** from <@${removeItemUser.id}>!\nThey now have **${data.users[removeItemUser.id].inventory[removeItemId]}** remaining.`);
+        break;
+        
+      case 'viewinventory':
+      case 'checkinventory':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const viewInvUser = message.mentions.users.first();
+        
+        if (!viewInvUser) {
+          await message.reply('Usage: `!viewinventory @user`\nExample: `!viewinventory @user`');
+          return;
+        }
+        
+        if (!data.users[viewInvUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { getItem: getViewItem } = require('./itemsSystem.js');
+        const userInventory = data.users[viewInvUser.id].inventory || {};
+        
+        const inventoryItems = [];
+        for (const [itemId, count] of Object.entries(userInventory)) {
+          if (count > 0) {
+            const itemInfo = getViewItem(itemId);
+            if (itemInfo) {
+              inventoryItems.push(`${itemInfo.emoji} **${itemInfo.name}**: ${count}`);
+            }
+          }
+        }
+        
+        const inventoryEmbed = new EmbedBuilder()
+          .setColor('#4CAF50')
+          .setTitle(`📦 ${viewInvUser.username}'s Battle Item Inventory`)
+          .setDescription(inventoryItems.length > 0 ? inventoryItems.join('\n') : '🔸 No items in inventory')
+          .setFooter({ text: `Total item types: ${inventoryItems.length}` });
+        
+        await message.reply({ embeds: [inventoryEmbed] });
+        break;
+        
+      case 'clearinventory':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const clearInvUser = message.mentions.users.first();
+        
+        if (!clearInvUser) {
+          await message.reply('Usage: `!clearinventory @user`\nExample: `!clearinventory @user`\n\n⚠️ **Warning:** This will remove ALL battle items from the user!');
+          return;
+        }
+        
+        if (!data.users[clearInvUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const itemCount = data.users[clearInvUser.id].inventory ? Object.keys(data.users[clearInvUser.id].inventory).length : 0;
+        data.users[clearInvUser.id].inventory = {};
+        await saveDataImmediate(data);
+        
+        await message.reply(`✅ Cleared inventory for <@${clearInvUser.id}>!\nRemoved **${itemCount}** item type(s).`);
+        break;
+        
+      case 'listitems':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const { getAllShopItems, getItemsByCategory } = require('./itemsSystem.js');
+        
+        const healingItems = getItemsByCategory('healing');
+        const energyItems = getItemsByCategory('energy');
+        const buffItems = getItemsByCategory('buff');
+        const specialItems = getItemsByCategory('special');
+        
+        const formatItemList = (items) => {
+          return items.map(item => 
+            `\`${item.id}\` - ${item.emoji} **${item.name}** (${item.cost.coins > 0 ? item.cost.coins + ' coins' : ''}${item.cost.gems > 0 ? item.cost.gems + ' gems' : ''})`
+          ).join('\n');
+        };
+        
+        const listItemsEmbed = new EmbedBuilder()
+          .setColor('#FF9800')
+          .setTitle('🛠️ All Battle Items')
+          .setDescription('Use these item IDs with admin commands like `!grantitem`')
+          .addFields(
+            { name: '💊 Healing Items', value: healingItems.length > 0 ? formatItemList(healingItems) : 'None', inline: false },
+            { name: '⚡ Energy Items', value: energyItems.length > 0 ? formatItemList(energyItems) : 'None', inline: false },
+            { name: '💪 Buff Items', value: buffItems.length > 0 ? formatItemList(buffItems) : 'None', inline: false },
+            { name: '✨ Special Items', value: specialItems.length > 0 ? formatItemList(specialItems) : 'None', inline: false }
+          )
+          .setFooter({ text: 'Battle Items Admin Reference' });
+        
+        await message.reply({ embeds: [listItemsEmbed] });
+        break;
+        
       case 'equipskin':
         const equipCharName = args[0];
         const equipSkinName = args[1];

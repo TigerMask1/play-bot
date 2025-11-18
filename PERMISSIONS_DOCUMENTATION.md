@@ -46,6 +46,14 @@ All other users can access standard gameplay commands.
 - `!deleteskin <character> <skin_name>` - Delete a skin permanently
 - `!uploadskin <character> <skin_name>` - Upload/update a skin image
 
+#### Battle Items Management
+- `!grantitem @user <item_id> <amount>` - Grant battle items to a user
+- `!removeitem @user <item_id> <amount>` - Remove battle items from a user
+- `!viewinventory @user` / `!checkinventory @user` - View a user's battle item inventory
+- `!clearinventory @user` - Clear all battle items from a user's inventory
+- `!listitems` - List all available battle items with their IDs
+  - **Note:** See BATTLE_ITEMS_ADMIN_GUIDE.md for detailed usage and examples
+
 #### Server Management
 - `!servers` / `!serverlist` - List all servers the bot is in
 - `!removeserver <server_id>` / `!leaveserver <server_id>` - Remove bot from a server
