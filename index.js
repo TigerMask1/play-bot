@@ -1848,33 +1848,68 @@ client.on('messageCreate', async (message) => {
         
       case 'setprofilepic':
       case 'setpfp':
-        const profileCharName = args[0];
+        const firstArg = args[0];
         
-        if (!profileCharName) {
-          await message.reply('Usage: `!setprofilepic <character>`\nExample: `!setprofilepic Nix`\n\nSet which character appears as your profile picture!');
+        if (!firstArg) {
+          await message.reply('**Usage:**\n`!setpfp <character>` - Set a character as your profile picture\n`!setpfp pfp <number>` - Set a custom PFP from your collection\n\nExamples:\n`!setpfp Nix`\n`!setpfp pfp 1`');
           return;
         }
         
-        const ownedChar = data.users[userId].characters.find(c => 
-          c.name.toLowerCase() === profileCharName.toLowerCase()
-        );
-        
-        if (!ownedChar) {
-          await message.reply('❌ You don\'t own this character! You can only use characters you own as your profile picture.');
-          return;
+        if (firstArg.toLowerCase() === 'pfp') {
+          const pfpNumber = parseInt(args[1]);
+          
+          if (!pfpNumber || pfpNumber < 1) {
+            await message.reply('❌ Please provide a valid PFP number!\nUse `!myprofile` to see your PFP collection.');
+            return;
+          }
+          
+          const pfpData = getUserPfps(userId, data);
+          
+          if (!pfpData || pfpData.ownedPfps.length === 0) {
+            await message.reply('❌ You don\'t have any custom PFPs yet!\nUse `!uploadpfp <name>` with an attached image to add one.');
+            return;
+          }
+          
+          if (pfpNumber > pfpData.ownedPfps.length) {
+            await message.reply(`❌ You only have ${pfpData.ownedPfps.length} PFP(s)!\nUse \`!myprofile\` to see your collection.`);
+            return;
+          }
+          
+          const selectedPfp = pfpData.ownedPfps[pfpNumber - 1];
+          const result = await equipPfp(userId, selectedPfp.id, data);
+          
+          const pfpSetEmbed = new EmbedBuilder()
+            .setColor('#FF69B4')
+            .setTitle('🖼️ Profile Picture Updated!')
+            .setDescription(`${result.message}\n\nYour profile will now display **${selectedPfp.name}**!\n\nUse \`!profile\` to see your updated profile.`)
+            .setThumbnail(selectedPfp.url);
+          
+          await message.reply({ embeds: [pfpSetEmbed] });
+        } else {
+          const ownedChar = data.users[userId].characters.find(c => 
+            c.name.toLowerCase() === firstArg.toLowerCase()
+          );
+          
+          if (!ownedChar) {
+            await message.reply('❌ You don\'t own this character! You can only use characters you own as your profile picture.');
+            return;
+          }
+          
+          const pfpData = initializePfpData(data.users[userId]);
+          pfpData.equippedPfp = null;
+          
+          data.users[userId].profileDisplayCharacter = ownedChar.name;
+          await saveDataImmediate(data);
+          
+          const profilePicUrl = await getSkinUrl(ownedChar.name, ownedChar.currentSkin || 'default');
+          const pfpEmbed = new EmbedBuilder()
+            .setColor('#FF69B4')
+            .setTitle('🖼️ Profile Picture Updated!')
+            .setDescription(`Your profile will now display **${ownedChar.emoji} ${ownedChar.name}** with the **${ownedChar.currentSkin || 'default'}** skin!\n\nUse \`!profile\` to see your updated profile.`)
+            .setThumbnail(profilePicUrl);
+          
+          await message.reply({ embeds: [pfpEmbed] });
         }
-        
-        data.users[userId].profileDisplayCharacter = ownedChar.name;
-        await saveDataImmediate(data);
-        
-        const profilePicUrl = await getSkinUrl(ownedChar.name, ownedChar.currentSkin || 'default');
-        const pfpEmbed = new EmbedBuilder()
-          .setColor('#FF69B4')
-          .setTitle('🖼️ Profile Picture Updated!')
-          .setDescription(`Your profile will now display **${ownedChar.emoji} ${ownedChar.name}** with the **${ownedChar.currentSkin || 'default'}** skin!\n\nUse \`!profile\` to see your updated profile.`)
-          .setThumbnail(profilePicUrl);
-        
-        await message.reply({ embeds: [pfpEmbed] });
         break;
         
       case 'b':
