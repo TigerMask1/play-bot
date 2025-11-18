@@ -350,6 +350,9 @@ async function performLotteryDraw(serverId) {
     
     let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    
     for (let i = 0; i < winners.length; i++) {
       const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
       if (!winner) continue;
@@ -358,33 +361,33 @@ async function performLotteryDraw(serverId) {
       const place = ['🥇 1st', '🥈 2nd', '🥉 3rd'][i];
       const share = ['50%', '30%', '20%'][i];
       
-      if (USE_MONGODB && mongoManager) {
-        const resources = {};
-        if (lottery.currency === 'gems') {
-          resources.gems = prize;
-        } else {
-          resources.coins = prize;
-        }
-        await mongoManager.incrementUserResources(winners[i].userId, resources);
+      if (!data.users[winners[i].userId]) {
+        data.users[winners[i].userId] = {
+          coins: 0,
+          gems: 0,
+          characters: [],
+          selectedCharacter: null,
+          pendingTokens: 0,
+          started: false,
+          trophies: 200,
+          messageCount: 0,
+          lastDailyClaim: null,
+          mailbox: []
+        };
+      }
+      
+      const userData = data.users[winners[i].userId];
+      
+      if (lottery.currency === 'gems') {
+        userData.gems = (userData.gems || 0) + prize;
       } else {
-        const { loadData } = require('./dataManager.js');
-        const data = await loadData();
-        
-        if (!data.users[winners[i].userId]) {
-          data.users[winners[i].userId] = { coins: 0, gems: 0, characters: [], crates: {} };
-        }
-        
-        if (lottery.currency === 'gems') {
-          data.users[winners[i].userId].gems = (data.users[winners[i].userId].gems || 0) + prize;
-        } else {
-          data.users[winners[i].userId].coins = (data.users[winners[i].userId].coins || 0) + prize;
-        }
-        
-        await saveDataImmediate(data);
+        userData.coins = (userData.coins || 0) + prize;
       }
       
       resultDescription += `${place} Place (${share}): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
     }
+    
+    await saveDataImmediate(data);
     
     resultDescription += `**Statistics:**\n` +
       `👥 Total Participants: ${uniqueParticipants.length}\n` +

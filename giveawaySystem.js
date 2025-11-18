@@ -389,30 +389,35 @@ async function endGiveaway() {
   try {
     const winner = await activeClient.users.fetch(winnerId);
     
-    if (USE_MONGODB && mongoManager) {
-      await mongoManager.incrementUserResources(winnerId, {
-        gems: activeGiveaway.prizes.gems,
-        coins: activeGiveaway.prizes.coins,
-        crates: { legendary: activeGiveaway.prizes.crates.legendary }
-      });
-    } else {
-      const { loadData } = require('./dataManager.js');
-      const data = await loadData();
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
 
-      if (!data.users[winnerId]) {
-        data.users[winnerId] = { coins: 0, gems: 0, characters: [], crates: {} };
-      }
-
-      if (!data.users[winnerId].crates) {
-        data.users[winnerId].crates = {};
-      }
-
-      data.users[winnerId].gems = (data.users[winnerId].gems || 0) + activeGiveaway.prizes.gems;
-      data.users[winnerId].coins = (data.users[winnerId].coins || 0) + activeGiveaway.prizes.coins;
-      data.users[winnerId].crates.legendary = (data.users[winnerId].crates.legendary || 0) + activeGiveaway.prizes.crates.legendary;
-      
-      await saveDataImmediate(data);
+    if (!data.users[winnerId]) {
+      data.users[winnerId] = {
+        coins: 0,
+        gems: 0,
+        characters: [],
+        selectedCharacter: null,
+        pendingTokens: 0,
+        started: false,
+        trophies: 200,
+        messageCount: 0,
+        lastDailyClaim: null,
+        mailbox: []
+      };
     }
+
+    const userData = data.users[winnerId];
+    
+    if (!userData.legendaryCrates) {
+      userData.legendaryCrates = 0;
+    }
+
+    userData.gems = (userData.gems || 0) + activeGiveaway.prizes.gems;
+    userData.coins = (userData.coins || 0) + activeGiveaway.prizes.coins;
+    userData.legendaryCrates = (userData.legendaryCrates || 0) + activeGiveaway.prizes.crates.legendary;
+    
+    await saveDataImmediate(data);
 
     const winnerEmbed = new EmbedBuilder()
       .setColor('#00FF00')
