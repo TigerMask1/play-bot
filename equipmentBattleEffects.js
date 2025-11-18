@@ -2,13 +2,13 @@
 const { getEquipmentItem } = require('./equipmentConfig.js');
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
-// Prepare equipment state for battle
+// Prepare equipment state for battle (CHARACTER-SPECIFIC SYSTEM)
 function prepareBattleEquipment(battle, playerSlot, user, character) {
-  if (!character.equipment) {
-    return null;
-  }
+  // ON-DEMAND MIGRATION: Ensure equipment is migrated before battle
+  const { migrateUserEquipment } = require('./equipmentSystem.js');
+  migrateUserEquipment(user);
   
-  if (!user.itemCollection) {
+  if (!character.equipment || !character.equipment.slots || !character.equipment.collection) {
     return null;
   }
   
@@ -55,12 +55,12 @@ function prepareBattleEquipment(battle, playerSlot, user, character) {
     energySmashUsed: false
   };
   
-  // Load equipped items and their levels
-  for (const [slot, itemId] of Object.entries(character.equipment)) {
-    if (itemId && user.itemCollection[itemId]) {
+  // Load equipped items and their levels from CHARACTER-SPECIFIC storage
+  for (const [slot, itemId] of Object.entries(character.equipment.slots)) {
+    if (itemId && character.equipment.collection[itemId]) {
       const item = getEquipmentItem(itemId);
       if (item) {
-        const level = user.itemCollection[itemId].level;
+        const level = character.equipment.collection[itemId].level;
         equipped[slot] = {
           ...item,
           level

@@ -9,22 +9,92 @@ const {
 } = require('./equipmentConfig.js');
 const { createLevelProgressBar } = require('./progressBar.js');
 
-// Initialize item collection for a user
-function initializeItemCollection(user) {
-  if (!user.itemCollection) {
-    user.itemCollection = {};
+// Migrate user's old equipment collection to character-specific storage
+// IDEMPOTENT: Safe to call multiple times
+function migrateUserEquipment(user) {
+  if (!user.itemCollection || Object.keys(user.itemCollection).length === 0) {
+    return false; // Nothing to migrate
   }
-  return user.itemCollection;
+  
+  if (!user.characters || user.characters.length === 0) {
+    return false; // No characters to migrate to (will retry when they get characters)
+  }
+  
+  let migrated = false;
+  
+  // Distribute ALL existing equipment to ALL owned characters
+  // This ensures no user loses their equipment during migration
+  for (const character of user.characters) {
+    initializeCharacterEquipment(character);
+    
+    // Copy all items from user.itemCollection to this character's collection
+    for (const [itemId, itemData] of Object.entries(user.itemCollection)) {
+      if (!character.equipment.collection[itemId]) {
+        character.equipment.collection[itemId] = {
+          tier: itemData.tier,
+          copies: itemData.copies,
+          level: itemData.level,
+          firstObtained: itemData.firstObtained || Date.now()
+        };
+        migrated = true;
+      }
+    }
+    
+    // Migrate equipped items slots
+    if (!character.equipment.slots) {
+      character.equipment.slots = {
+        silver: character.equipment.silver || null,
+        gold: character.equipment.gold || null,
+        legendary: character.equipment.legendary || null
+      };
+      
+      // Clean up old slot references
+      delete character.equipment.silver;
+      delete character.equipment.gold;
+      delete character.equipment.legendary;
+      migrated = true;
+    }
+  }
+  
+  // KEEP user.itemCollection as backup - don't delete it yet
+  // Mark as migrated so we know migration happened
+  if (migrated) {
+    user.equipmentMigrated = true;
+  }
+  
+  return migrated;
 }
 
-// Initialize equipment for a character
+// Initialize equipment for a character (CHARACTER-SPECIFIC SYSTEM)
 function initializeCharacterEquipment(character) {
   if (!character.equipment) {
     character.equipment = {
-      silver: null,
-      gold: null,
-      legendary: null
+      collection: {}, // Character-specific equipment inventory
+      slots: {        // Equipped items
+        silver: null,
+        gold: null,
+        legendary: null
+      }
     };
+  }
+  
+  // Ensure old structure compatibility - migrate slots if needed
+  if (!character.equipment.collection) {
+    character.equipment.collection = {};
+  }
+  
+  if (!character.equipment.slots) {
+    const oldEquipment = { ...character.equipment };
+    character.equipment.slots = {
+      silver: oldEquipment.silver || null,
+      gold: oldEquipment.gold || null,
+      legendary: oldEquipment.legendary || null
+    };
+    
+    // Clean up old slot references
+    delete character.equipment.silver;
+    delete character.equipment.gold;
+    delete character.equipment.legendary;
   }
   
   // Ensure character has a unique ID
@@ -35,8 +105,8 @@ function initializeCharacterEquipment(character) {
   return character.equipment;
 }
 
-// Grant an item to a user (called when found in crate)
-function grantItem(user, itemId) {
+// Grant an item to a CHARACTER (called when found in crate or admin grant)
+function grantItem(character, itemId) {
   const item = getEquipmentItem(itemId);
   if (!item) {
     return {
@@ -45,11 +115,11 @@ function grantItem(user, itemId) {
     };
   }
   
-  initializeItemCollection(user);
+  initializeCharacterEquipment(character);
   
-  // Initialize item if not owned
-  if (!user.itemCollection[itemId]) {
-    user.itemCollection[itemId] = {
+  // Initialize item if not owned by this character
+  if (!character.equipment.collection[itemId]) {
+    character.equipment.collection[itemId] = {
       tier: item.tier,
       copies: 0,
       level: 1,
@@ -57,14 +127,14 @@ function grantItem(user, itemId) {
     };
   }
   
-  // Add copy
-  user.itemCollection[itemId].copies += 1;
-  const newCopies = user.itemCollection[itemId].copies;
+  // Add copy to this character
+  character.equipment.collection[itemId].copies += 1;
+  const newCopies = character.equipment.collection[itemId].copies;
   
   // Calculate new level
-  const oldLevel = user.itemCollection[itemId].level;
+  const oldLevel = character.equipment.collection[itemId].level;
   const newLevel = calculateItemLevel(item.tier, newCopies);
-  user.itemCollection[itemId].level = newLevel;
+  character.equipment.collection[itemId].level = newLevel;
   
   const leveledUp = newLevel > oldLevel;
   
@@ -75,26 +145,18 @@ function grantItem(user, itemId) {
     copies: newCopies,
     level: newLevel,
     leveledUp,
-    oldLevel
+    oldLevel,
+    character
   };
 }
 
-// Equip an item to a character
+// Equip an item to a character (from their CHARACTER-SPECIFIC collection)
 function equipItem(user, characterName, itemId) {
   const item = getEquipmentItem(itemId);
   if (!item) {
     return {
       success: false,
       message: `❌ Invalid item!`
-    };
-  }
-  
-  // Check if user owns the item
-  initializeItemCollection(user);
-  if (!user.itemCollection[itemId] || user.itemCollection[itemId].copies === 0) {
-    return {
-      success: false,
-      message: `❌ You don't own **${item.emoji} ${item.name}**!`
     };
   }
   
@@ -110,11 +172,19 @@ function equipItem(user, characterName, itemId) {
   // Initialize equipment
   initializeCharacterEquipment(character);
   
+  // Check if THIS CHARACTER owns the item
+  if (!character.equipment.collection[itemId] || character.equipment.collection[itemId].copies === 0) {
+    return {
+      success: false,
+      message: `❌ ${character.emoji} **${character.name}** doesn't own **${item.emoji} ${item.name}**!\nEquipment is character-specific and cannot be shared.`
+    };
+  }
+  
   // Get tier slot
   const slot = item.tier;
   
   // Check if already equipped
-  if (character.equipment[slot] === itemId) {
+  if (character.equipment.slots[slot] === itemId) {
     return {
       success: false,
       message: `❌ **${item.emoji} ${item.name}** is already equipped to ${character.emoji} ${character.name}!`
@@ -122,12 +192,12 @@ function equipItem(user, characterName, itemId) {
   }
   
   // Get previously equipped item
-  const previousItem = character.equipment[slot] ? getEquipmentItem(character.equipment[slot]) : null;
+  const previousItem = character.equipment.slots[slot] ? getEquipmentItem(character.equipment.slots[slot]) : null;
   
   // Equip the item
-  character.equipment[slot] = itemId;
+  character.equipment.slots[slot] = itemId;
   
-  const level = user.itemCollection[itemId].level;
+  const level = character.equipment.collection[itemId].level;
   
   return {
     success: true,
@@ -164,18 +234,18 @@ function unequipItem(user, characterName, tier) {
   const slot = tier.toLowerCase();
   
   // Check if something is equipped
-  if (!character.equipment[slot]) {
+  if (!character.equipment.slots[slot]) {
     return {
       success: false,
       message: `❌ No ${getTierEmoji(slot)} **${slot}** item equipped on ${character.emoji} ${character.name}!`
     };
   }
   
-  const itemId = character.equipment[slot];
+  const itemId = character.equipment.slots[slot];
   const item = getEquipmentItem(itemId);
   
   // Unequip
-  character.equipment[slot] = null;
+  character.equipment.slots[slot] = null;
   
   return {
     success: true,
@@ -185,13 +255,13 @@ function unequipItem(user, characterName, tier) {
   };
 }
 
-// Get all items owned by a user
-function getUserItems(user) {
-  initializeItemCollection(user);
+// Get all items owned by a CHARACTER
+function getCharacterItems(character) {
+  initializeCharacterEquipment(character);
   
   const items = [];
   
-  for (const [itemId, data] of Object.entries(user.itemCollection)) {
+  for (const [itemId, data] of Object.entries(character.equipment.collection)) {
     const item = getEquipmentItem(itemId);
     if (item && data.copies > 0) {
       items.push({
@@ -217,7 +287,6 @@ function getUserItems(user) {
 
 // Get equipped items for a character
 function getCharacterEquipment(user, character) {
-  initializeItemCollection(user);
   initializeCharacterEquipment(character);
   
   const equipped = {
@@ -226,14 +295,14 @@ function getCharacterEquipment(user, character) {
     legendary: null
   };
   
-  for (const [slot, itemId] of Object.entries(character.equipment)) {
-    if (itemId && user.itemCollection[itemId]) {
+  for (const [slot, itemId] of Object.entries(character.equipment.slots)) {
+    if (itemId && character.equipment.collection[itemId]) {
       const item = getEquipmentItem(itemId);
       if (item) {
         equipped[slot] = {
           ...item,
-          level: user.itemCollection[itemId].level,
-          copies: user.itemCollection[itemId].copies
+          level: character.equipment.collection[itemId].level,
+          copies: character.equipment.collection[itemId].copies
         };
       }
     }
@@ -295,15 +364,15 @@ function formatCharacterEquipment(user, character) {
   return display;
 }
 
-// Format all items inventory
-function formatItemsInventory(user) {
-  const items = getUserItems(user);
+// Format character-specific items inventory
+function formatCharacterInventory(character) {
+  const items = getCharacterItems(character);
   
   if (items.length === 0) {
-    return `📦 **Your Item Collection**\n\nYou don't have any items yet!\nOpen crates to find equipment items.`;
+    return `📦 **${character.emoji} ${character.name}'s Equipment**\n\nThis character doesn't have any equipment yet!\nOpen crates to find equipment for your characters.`;
   }
   
-  let display = `📦 **Your Item Collection** (${items.length} unique items)\n\n`;
+  let display = `📦 **${character.emoji} ${character.name}'s Equipment** (${items.length} unique items)\n\n`;
   
   const byTier = {
     legendary: [],
@@ -333,20 +402,20 @@ function formatItemsInventory(user) {
     }
   }
   
-  display += `\n💡 Use \`!equip <character> <item>\` to equip items to your characters!`;
+  display += `\n💡 Use \`!equip ${character.name} <item>\` to equip items!`;
   
   return display;
 }
 
 module.exports = {
-  initializeItemCollection,
+  migrateUserEquipment,
   initializeCharacterEquipment,
   grantItem,
   equipItem,
   unequipItem,
-  getUserItems,
+  getCharacterItems,
   getCharacterEquipment,
   formatItemDisplay,
   formatCharacterEquipment,
-  formatItemsInventory
+  formatCharacterInventory
 };

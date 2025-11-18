@@ -249,14 +249,18 @@ async function openCrate(data, userId, crateType, client = null) {
           selectedItem = itemPool.items[Math.floor(Math.random() * itemPool.items.length)];
         }
         
-        if (selectedItem) {
-          const result = grantItem(user, selectedItem);
+        if (selectedItem && user.characters.length > 0) {
+          // ASSIGN EQUIPMENT TO RANDOM OWNED CHARACTER (CHARACTER-SPECIFIC)
+          const randomCharIndex = Math.floor(Math.random() * user.characters.length);
+          const randomChar = user.characters[randomCharIndex];
+          
+          const result = grantItem(randomChar, selectedItem);
           
           if (result.success) {
-            rewards += `\n\n⚔️ **EQUIPMENT FOUND!** ${result.item.emoji} ${result.item.name}`;
+            rewards += `\n\n⚔️ **EQUIPMENT FOUND!** ${result.item.emoji} ${result.item.name} (${randomChar.emoji} **${randomChar.name}**)`;
             
             if (result.leveledUp) {
-              rewards += ` \n🎊 **Level Up!** ${result.oldLevel} → ${result.level}`;
+              rewards += `\n🎊 **Level Up!** ${result.oldLevel} → ${result.level}`;
             } else {
               rewards += ` (Lv.${result.level})`;
             }

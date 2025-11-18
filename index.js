@@ -156,6 +156,20 @@ async function initializeBot() {
   
   await refreshAllCharacterEmojis(data.users);
   console.log('✅ Custom emojis applied to all characters');
+  
+  // Migrate all users from old equipment system to character-specific system
+  const { migrateUserEquipment } = require('./equipmentSystem.js');
+  let migratedCount = 0;
+  for (const userId in data.users) {
+    if (data.users[userId].itemCollection && Object.keys(data.users[userId].itemCollection).length > 0) {
+      migrateUserEquipment(data.users[userId]);
+      migratedCount++;
+    }
+  }
+  if (migratedCount > 0) {
+    await saveDataImmediate(data);
+    console.log(`✅ Migrated equipment for ${migratedCount} users to character-specific system`);
+  }
 }
 
 function generateST() {
@@ -1444,11 +1458,42 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const itemsDisplay = formatItemsInventory(data.users[userId]);
+        const { formatCharacterInventory: formatItemsInv, initializeCharacterEquipment: initItemsEquip, migrateUserEquipment: migrateItems } = require('./equipmentSystem.js');
+        
+        // ON-DEMAND MIGRATION: Ensure equipment is migrated
+        if (migrateItems(data.users[userId])) {
+          await saveDataImmediate(data);
+        }
+        
+        const itemsCharName = args[0];
+        
+        if (!itemsCharName) {
+          // Show all characters with their equipment counts
+          const allCharsEquip = data.users[userId].characters.map(char => {
+            initItemsEquip(char);
+            const charItems = Object.keys(char.equipment.collection || {}).length;
+            return `${char.emoji} **${char.name}** - ${charItems} equipment type(s)`;
+          }).join('\n');
+          
+          await message.reply(`📦 **Your Equipment Collection**\n\n**CHARACTER-SPECIFIC:** Equipment is bound to individual characters.\n\n${allCharsEquip || '*No characters owned*'}\n\nℹ️ Use \`!items <character>\` to see a specific character's equipment.\nExample: \`!items Nix\``);
+          return;
+        }
+        
+        // Find the character
+        const itemsChar = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === itemsCharName.toLowerCase()
+        );
+        
+        if (!itemsChar) {
+          await message.reply(`❌ You don't own a character named **${itemsCharName}**!`);
+          return;
+        }
+        
+        const itemsDisplay = formatItemsInv(itemsChar);
         
         const itemsEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
-          .setTitle('⚔️ Equipment Collection')
+          .setTitle(`⚔️ ${itemsChar.emoji} ${itemsChar.name}'s Equipment`)
           .setDescription(itemsDisplay);
         
         await message.reply({ embeds: [itemsEmbed] });
@@ -1458,6 +1503,12 @@ client.on('messageCreate', async (message) => {
         if (!data.users[userId].started) {
           await message.reply('❌ You must start first! Use `!start` to begin.');
           return;
+        }
+        
+        // ON-DEMAND MIGRATION: Ensure equipment is migrated
+        const { migrateUserEquipment: migrateEquip } = require('./equipmentSystem.js');
+        if (migrateEquip(data.users[userId])) {
+          await saveDataImmediate(data);
         }
         
         const equipmentCharName = args[0];
@@ -2270,11 +2321,12 @@ client.on('messageCreate', async (message) => {
         }
         
         const grantEquipUser = message.mentions.users.first();
-        const grantEquipId = args[1]?.toLowerCase();
-        const grantEquipCopies = parseInt(args[2]) || 1;
+        const grantEquipCharName = args[1]; // Character name
+        const grantEquipId = args[2]?.toLowerCase();
+        const grantEquipCopies = parseInt(args[3]) || 1;
         
-        if (!grantEquipUser || !grantEquipId || grantEquipCopies <= 0) {
-          await message.reply('Usage: `!grantequipment @user <equipment_id> <copies>`\nExample: `!grantequipment @user med_drop 5`\n\nUse `!listequipment` to see all available equipment IDs.');
+        if (!grantEquipUser || !grantEquipCharName || !grantEquipId || grantEquipCopies <= 0) {
+          await message.reply('Usage: `!grantequipment @user <character> <equipment_id> <copies>`\nExample: `!grantequipment @user Nix med_drop 5`\n\n**CHARACTER-SPECIFIC:** Equipment is bound to the character that receives it and cannot be transferred.\n\nUse `!listequipment` to see all available equipment IDs.');
           return;
         }
         
@@ -2283,22 +2335,35 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const { grantItem } = require('./equipmentSystem.js');
-        const { getEquipmentItem } = require('./equipmentConfig.js');
-        const grantEquipData = getEquipmentItem(grantEquipId);
+        // Find the character
+        const grantEquipChar = data.users[grantEquipUser.id].characters.find(c => 
+          c.name.toLowerCase() === grantEquipCharName.toLowerCase()
+        );
+        
+        if (!grantEquipChar) {
+          await message.reply(`❌ <@${grantEquipUser.id}> doesn't own a character named **${grantEquipCharName}**!`);
+          return;
+        }
+        
+        const { grantItem: grantCharItem } = require('./equipmentSystem.js');
+        const { getEquipmentItem: getGrantEquip } = require('./equipmentConfig.js');
+        const grantEquipData = getGrantEquip(grantEquipId);
         
         if (!grantEquipData) {
           await message.reply(`❌ Invalid equipment ID: **${grantEquipId}**\n\nUse \`!listequipment\` to see all available equipment.`);
           return;
         }
         
+        const { initializeCharacterEquipment: initGrantEquip } = require('./equipmentSystem.js');
+        initGrantEquip(grantEquipChar);
+        
         let totalGranted = 0;
         let finalLevel = 1;
         let levelUps = 0;
-        const startingLevel = data.users[grantEquipUser.id].itemCollection?.[grantEquipId]?.level || 1;
+        const startingLevel = grantEquipChar.equipment.collection?.[grantEquipId]?.level || 1;
         
         for (let i = 0; i < grantEquipCopies; i++) {
-          const result = grantItem(data.users[grantEquipUser.id], grantEquipId);
+          const result = grantCharItem(grantEquipChar, grantEquipId);
           if (result.success) {
             totalGranted++;
             if (result.leveledUp) levelUps++;
@@ -2309,7 +2374,7 @@ client.on('messageCreate', async (message) => {
         await saveDataImmediate(data);
         
         const levelUpText = levelUps > 0 ? `\n🎉 Leveled up **${levelUps}** time(s)! (Lv.${startingLevel} → Lv.${finalLevel})` : '';
-        await message.reply(`✅ Granted **${totalGranted}x ${grantEquipData.emoji} ${grantEquipData.name}** (${grantEquipData.tier}) to <@${grantEquipUser.id}>!${levelUpText}\nThey now have **${data.users[grantEquipUser.id].itemCollection[grantEquipId].copies}** copies at Lv.${finalLevel}.`);
+        await message.reply(`✅ Granted **${totalGranted}x ${grantEquipData.emoji} ${grantEquipData.name}** (${grantEquipData.tier}) to ${grantEquipChar.emoji} **${grantEquipChar.name}** (<@${grantEquipUser.id}>)!${levelUpText}\nThey now have **${grantEquipChar.equipment.collection[grantEquipId].copies}** copies at Lv.${finalLevel}.`);
         break;
         
       case 'removeequipment':
@@ -2320,11 +2385,12 @@ client.on('messageCreate', async (message) => {
         }
         
         const removeEquipUser = message.mentions.users.first();
-        const removeEquipId = args[1]?.toLowerCase();
-        const removeEquipCopies = parseInt(args[2]) || 1;
+        const removeEquipCharName = args[1]; // Character name
+        const removeEquipId = args[2]?.toLowerCase();
+        const removeEquipCopies = parseInt(args[3]) || 1;
         
-        if (!removeEquipUser || !removeEquipId || removeEquipCopies <= 0) {
-          await message.reply('Usage: `!removeequipment @user <equipment_id> <copies>`\nExample: `!removeequipment @user med_drop 3`');
+        if (!removeEquipUser || !removeEquipCharName || !removeEquipId || removeEquipCopies <= 0) {
+          await message.reply('Usage: `!removeequipment @user <character> <equipment_id> <copies>`\nExample: `!removeequipment @user Nix med_drop 3`');
           return;
         }
         
@@ -2333,7 +2399,18 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const { getEquipmentItem: getRemoveEquip, calculateItemLevel } = require('./equipmentConfig.js');
+        // Find the character
+        const removeEquipChar = data.users[removeEquipUser.id].characters.find(c => 
+          c.name.toLowerCase() === removeEquipCharName.toLowerCase()
+        );
+        
+        if (!removeEquipChar) {
+          await message.reply(`❌ <@${removeEquipUser.id}> doesn't own a character named **${removeEquipCharName}**!`);
+          return;
+        }
+        
+        const { getEquipmentItem: getRemoveEquip, calculateItemLevel: calcRemoveLevel } = require('./equipmentConfig.js');
+        const { initializeCharacterEquipment: initRemoveEquip } = require('./equipmentSystem.js');
         const removeEquipData = getRemoveEquip(removeEquipId);
         
         if (!removeEquipData) {
@@ -2341,28 +2418,26 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!data.users[removeEquipUser.id].itemCollection) {
-          data.users[removeEquipUser.id].itemCollection = {};
-        }
+        initRemoveEquip(removeEquipChar);
         
-        if (!data.users[removeEquipUser.id].itemCollection[removeEquipId] || data.users[removeEquipUser.id].itemCollection[removeEquipId].copies <= 0) {
-          await message.reply(`❌ <@${removeEquipUser.id}> doesn't have any **${removeEquipData.emoji} ${removeEquipData.name}**!`);
+        if (!removeEquipChar.equipment.collection[removeEquipId] || removeEquipChar.equipment.collection[removeEquipId].copies <= 0) {
+          await message.reply(`❌ ${removeEquipChar.emoji} **${removeEquipChar.name}** doesn't have any **${removeEquipData.emoji} ${removeEquipData.name}**!`);
           return;
         }
         
-        const currentEquipCopies = data.users[removeEquipUser.id].itemCollection[removeEquipId].copies;
-        const oldEquipLevel = data.users[removeEquipUser.id].itemCollection[removeEquipId].level;
+        const currentEquipCopies = removeEquipChar.equipment.collection[removeEquipId].copies;
+        const oldEquipLevel = removeEquipChar.equipment.collection[removeEquipId].level;
         const copiesToRemove = Math.min(removeEquipCopies, currentEquipCopies);
         
-        data.users[removeEquipUser.id].itemCollection[removeEquipId].copies -= copiesToRemove;
-        const newEquipCopies = data.users[removeEquipUser.id].itemCollection[removeEquipId].copies;
-        const newEquipLevel = calculateItemLevel(removeEquipData.tier, newEquipCopies);
-        data.users[removeEquipUser.id].itemCollection[removeEquipId].level = newEquipLevel;
+        removeEquipChar.equipment.collection[removeEquipId].copies -= copiesToRemove;
+        const newEquipCopies = removeEquipChar.equipment.collection[removeEquipId].copies;
+        const newEquipLevel = calcRemoveLevel(removeEquipData.tier, newEquipCopies);
+        removeEquipChar.equipment.collection[removeEquipId].level = newEquipLevel;
         
         await saveDataImmediate(data);
         
         const levelDownText = newEquipLevel < oldEquipLevel ? `\n⚠️ Level decreased: Lv.${oldEquipLevel} → Lv.${newEquipLevel}` : '';
-        await message.reply(`✅ Removed **${copiesToRemove}x ${removeEquipData.emoji} ${removeEquipData.name}** from <@${removeEquipUser.id}>!${levelDownText}\nThey now have **${newEquipCopies}** copies at Lv.${newEquipLevel}.`);
+        await message.reply(`✅ Removed **${copiesToRemove}x ${removeEquipData.emoji} ${removeEquipData.name}** from ${removeEquipChar.emoji} **${removeEquipChar.name}** (<@${removeEquipUser.id}>)!${levelDownText}\nThey now have **${newEquipCopies}** copies at Lv.${newEquipLevel}.`);
         break;
         
       case 'viewequipment':
@@ -2384,42 +2459,38 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const { getUserItems } = require('./equipmentSystem.js');
-        const userEquipmentItems = getUserItems(data.users[viewEquipUser.id]);
-        
-        if (userEquipmentItems.length === 0) {
-          await message.reply(`📦 <@${viewEquipUser.id}> has no equipment items.`);
-          return;
-        }
-        
-        const silverEquip = userEquipmentItems.filter(item => item.tier === 'silver');
-        const goldEquip = userEquipmentItems.filter(item => item.tier === 'gold');
-        const legendaryEquip = userEquipmentItems.filter(item => item.tier === 'legendary');
-        
-        const formatEquipList = (items) => {
-          return items.map(item => 
-            `${item.emoji} **${item.name}** - Lv.${item.level} (${item.copies} copies)`
-          ).join('\n');
-        };
-        
+        const { getCharacterItems: getViewCharItems, initializeCharacterEquipment: initViewEquip } = require('./equipmentSystem.js');
         const viewEquipEmbed = new EmbedBuilder()
           .setColor('#9C27B0')
           .setTitle(`⚔️ ${viewEquipUser.username}'s Equipment Collection`)
-          .setDescription('Equipment items enhance character abilities in battle');
+          .setDescription('**CHARACTER-SPECIFIC:** Equipment is bound to individual characters and cannot be transferred.\n\n');
         
-        if (silverEquip.length > 0) {
-          viewEquipEmbed.addFields({ name: '⚪ Silver Equipment', value: formatEquipList(silverEquip), inline: false });
+        let hasAnyEquipment = false;
+        
+        for (const char of data.users[viewEquipUser.id].characters) {
+          initViewEquip(char);
+          const charItems = getViewCharItems(char);
+          
+          if (charItems.length > 0) {
+            hasAnyEquipment = true;
+            const itemsDisplay = charItems.map(item => 
+              `  ${item.emoji} **${item.name}** - Lv.${item.level} (${item.copies} copies)`
+            ).join('\n');
+            
+            viewEquipEmbed.addFields({ 
+              name: `${char.emoji} ${char.name}`, 
+              value: itemsDisplay, 
+              inline: false 
+            });
+          }
         }
         
-        if (goldEquip.length > 0) {
-          viewEquipEmbed.addFields({ name: '🥇 Gold Equipment', value: formatEquipList(goldEquip), inline: false });
+        if (!hasAnyEquipment) {
+          await message.reply(`📦 <@${viewEquipUser.id}> has no equipment items on any character.`);
+          return;
         }
         
-        if (legendaryEquip.length > 0) {
-          viewEquipEmbed.addFields({ name: '🔥 Legendary Equipment', value: formatEquipList(legendaryEquip), inline: false });
-        }
-        
-        viewEquipEmbed.setFooter({ text: `Total equipment types: ${userEquipmentItems.length}` });
+        viewEquipEmbed.setFooter({ text: `Equipment is character-specific and cannot be shared` });
         
         await message.reply({ embeds: [viewEquipEmbed] });
         break;
@@ -2433,7 +2504,7 @@ client.on('messageCreate', async (message) => {
         const clearEquipUser = message.mentions.users.first();
         
         if (!clearEquipUser) {
-          await message.reply('Usage: `!clearequipment @user`\nExample: `!clearequipment @user`\n\n⚠️ **Warning:** This will remove ALL equipment items from the user!');
+          await message.reply('Usage: `!clearequipment @user`\nExample: `!clearequipment @user`\n\n⚠️ **Warning:** This will remove ALL equipment items from ALL characters!');
           return;
         }
         
@@ -2442,18 +2513,24 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const equipItemCount = data.users[clearEquipUser.id].itemCollection ? Object.keys(data.users[clearEquipUser.id].itemCollection).length : 0;
-        data.users[clearEquipUser.id].itemCollection = {};
+        const { initializeCharacterEquipment: initClearEquip } = require('./equipmentSystem.js');
+        let totalCleared = 0;
         
         data.users[clearEquipUser.id].characters.forEach(char => {
-          if (char.equipment) {
-            char.equipment = { silver: null, gold: null, legendary: null };
-          }
+          initClearEquip(char);
+          const charEquipCount = Object.keys(char.equipment.collection || {}).length;
+          totalCleared += charEquipCount;
+          
+          // Clear character's equipment
+          char.equipment = {
+            collection: {},
+            slots: { silver: null, gold: null, legendary: null }
+          };
         });
         
         await saveDataImmediate(data);
         
-        await message.reply(`✅ Cleared equipment collection for <@${clearEquipUser.id}>!\nRemoved **${equipItemCount}** equipment type(s) and unequipped all items from characters.`);
+        await message.reply(`✅ Cleared equipment from all characters for <@${clearEquipUser.id}>!\nRemoved **${totalCleared}** equipment type(s) across all characters.`);
         break;
         
       case 'listequipment':
