@@ -1,442 +1,292 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
-const { getEventsChannel, isMainServer } = require('./serverConfigManager.js');
 
-let giveawayData = {
+let activeGiveaway = {
   active: false,
   channelId: null,
-  drawTime: '04:00',
+  messageId: null,
   participants: [],
-  lastDrawDate: null,
-  prizeConfig: {
+  endTime: null,
+  prizes: {
     gems: 5000,
-    shards: 500,
-    tyrantCrates: 1,
-    legendaryCrates: 2
-  },
-  winnersHistory: [],
-  manualGiveaway: {
-    active: false,
-    endTime: null
+    coins: 10000,
+    crates: { legendary: 2 }
   }
 };
 
-let giveawayInterval = null;
 let activeClient = null;
 
 function getGiveawayData() {
-  return giveawayData;
+  return activeGiveaway;
 }
 
 function setGiveawayData(data) {
-  if (data) {
-    giveawayData = { ...data };
-    if (!giveawayData.manualGiveaway) {
-      giveawayData.manualGiveaway = { active: false, endTime: null };
-    }
-    if (!giveawayData.prizeConfig) {
-      giveawayData.prizeConfig = {
+  if (data && data.giveaway) {
+    activeGiveaway = {
+      active: data.giveaway.active || false,
+      channelId: data.giveaway.channelId || null,
+      messageId: data.giveaway.messageId || null,
+      participants: data.giveaway.participants || [],
+      endTime: data.giveaway.endTime || null,
+      prizes: data.giveaway.prizes || {
         gems: 5000,
-        shards: 500,
-        tyrantCrates: 1,
-        legendaryCrates: 2
-      };
-    } else {
-      giveawayData.prizeConfig.gems = giveawayData.prizeConfig.gems ?? 5000;
-      giveawayData.prizeConfig.shards = giveawayData.prizeConfig.shards ?? 500;
-      giveawayData.prizeConfig.tyrantCrates = giveawayData.prizeConfig.tyrantCrates ?? 1;
-      giveawayData.prizeConfig.legendaryCrates = giveawayData.prizeConfig.legendaryCrates ?? 2;
-    }
-    if (!giveawayData.winnersHistory) {
-      giveawayData.winnersHistory = [];
-    }
-  }
-}
-
-function startGiveawayScheduler() {
-  if (giveawayInterval) {
-    clearInterval(giveawayInterval);
-  }
-  
-  giveawayInterval = setInterval(async () => {
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    const currentDate = now.toISOString().split('T')[0];
-    
-    if (giveawayData.manualGiveaway.active && giveawayData.manualGiveaway.endTime && Date.now() >= giveawayData.manualGiveaway.endTime) {
-      console.log('⏰ Manual giveaway ended, performing draw...');
-      giveawayData.lastDrawDate = currentDate;
-      await performDailyDraw();
-    }
-    
-    if (currentTime === giveawayData.drawTime && giveawayData.lastDrawDate !== currentDate && !giveawayData.manualGiveaway.active) {
-      giveawayData.lastDrawDate = currentDate;
-      const { loadData } = require('./dataManager.js');
-      const data = await loadData();
-      data.giveawayData = giveawayData;
-      await saveDataImmediate(data);
-      
-      await performDailyDraw();
-    }
-  }, 60000);
-  
-  console.log(`⏰ Giveaway scheduler started - Draw time: ${giveawayData.drawTime} UTC (9:30 IST)`);
-}
-
-async function performDailyDraw() {
-  if (!activeClient || (!giveawayData.active && !giveawayData.manualGiveaway.active)) {
-    console.log('⚠️ Giveaway draw skipped - not active');
-    return;
-  }
-  
-  if (giveawayData.participants.length === 0) {
-    console.log('⚠️ Giveaway draw skipped - no participants');
-    giveawayData.participants = [];
-    if (giveawayData.manualGiveaway.active) {
-      giveawayData.manualGiveaway = { active: false, endTime: null };
-    }
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    data.giveawayData = giveawayData;
-    await saveDataImmediate(data);
-    return;
-  }
-  
-  try {
-    const winnerIndex = Math.floor(Math.random() * giveawayData.participants.length);
-    const winnerId = giveawayData.participants[winnerIndex];
-    
-    const winner = await activeClient.users.fetch(winnerId).catch(() => null);
-    if (!winner) {
-      giveawayData.participants = [];
-      const { loadData } = require('./dataManager.js');
-      const data = await loadData();
-      data.giveawayData = giveawayData;
-      await saveDataImmediate(data);
-      return;
-    }
-    
-    const prizes = [];
-    const prizeType = Math.floor(Math.random() * 4);
-    
-    let prizeDescription = `**Winner:** ${winner.tag}\n\n**Prizes:**\n`;
-    
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    
-    if (!data.users[winnerId]) {
-      data.users[winnerId] = { coins: 0, gems: 0, characters: [], crates: {} };
-    }
-    
-    if (!data.users[winnerId].crates) {
-      data.users[winnerId].crates = {};
-    }
-    
-    switch(prizeType) {
-      case 0:
-        prizeDescription += `🔥 1x Tyrant Crate\n💎 ${giveawayData.prizeConfig.gems.toLocaleString()} Gems\n`;
-        data.users[winnerId].crates['tyrant'] = (data.users[winnerId].crates['tyrant'] || 0) + 1;
-        data.users[winnerId].gems = (data.users[winnerId].gems || 0) + giveawayData.prizeConfig.gems;
-        break;
-      case 1:
-        prizeDescription += `📦 2x Legendary Crates\n💎 ${giveawayData.prizeConfig.gems.toLocaleString()} Gems\n`;
-        data.users[winnerId].crates['legendary'] = (data.users[winnerId].crates['legendary'] || 0) + 2;
-        data.users[winnerId].gems = (data.users[winnerId].gems || 0) + giveawayData.prizeConfig.gems;
-        break;
-      case 2:
-        const gemPrize = giveawayData.prizeConfig.gems * 3;
-        prizeDescription += `💎 ${gemPrize.toLocaleString()} Gems\n`;
-        data.users[winnerId].gems = (data.users[winnerId].gems || 0) + gemPrize;
-        break;
-      case 3:
-        prizeDescription += `✨ ${giveawayData.prizeConfig.shards.toLocaleString()} Shards\n💎 ${giveawayData.prizeConfig.gems.toLocaleString()} Gems\n`;
-        data.users[winnerId].shards = (data.users[winnerId].shards || 0) + giveawayData.prizeConfig.shards;
-        data.users[winnerId].gems = (data.users[winnerId].gems || 0) + giveawayData.prizeConfig.gems;
-        break;
-    }
-    
-    prizeDescription += `\nCongratulations! 🎊`;
-    
-    const winnerEmbed = new EmbedBuilder()
-      .setColor('#FFD700')
-      .setTitle('🎉 DAILY GIVEAWAY WINNER! 🎉')
-      .setDescription(prizeDescription)
-      .setFooter({ text: 'Join tomorrow for another chance to win!' })
-      .setTimestamp();
-    
-    const participantCount = giveawayData.participants.length;
-    
-    giveawayData.winnersHistory.unshift({
-      userId: winnerId,
-      username: winner.tag,
-      date: new Date().toISOString(),
-      participants: participantCount
-    });
-    
-    if (giveawayData.winnersHistory.length > 30) {
-      giveawayData.winnersHistory = giveawayData.winnersHistory.slice(0, 30);
-    }
-    
-    giveawayData.participants = [];
-    
-    if (giveawayData.manualGiveaway.active) {
-      giveawayData.manualGiveaway = { active: false, endTime: null };
-    }
-    
-    data.giveawayData = giveawayData;
-    await saveDataImmediate(data);
-    
-    const mainChannel = await activeClient.channels.fetch(giveawayData.channelId).catch(() => null);
-    if (mainChannel) {
-      await mainChannel.send({ embeds: [winnerEmbed] }).catch(err => {
-        console.error('Failed to send winner announcement to main server:', err.message);
-      });
-    }
-    
-    await broadcastToAllServers(winnerEmbed);
-    
-    console.log(`✅ Giveaway winner: ${winner.tag} (${participantCount} participants)`);
-    
-  } catch (error) {
-    console.error('❌ Error performing giveaway draw:', error);
-    if (giveawayData.manualGiveaway.active) {
-      giveawayData.manualGiveaway = { active: false, endTime: null };
-    }
-  }
-}
-
-async function broadcastToAllServers(embed) {
-  if (!activeClient) return;
-  
-  try {
-    for (const guild of activeClient.guilds.cache.values()) {
-      if (!isMainServer(guild.id)) {
-        const targetChannelId = getEventsChannel(guild.id);
-        
-        if (targetChannelId) {
-          const channel = await activeClient.channels.fetch(targetChannelId).catch(() => null);
-          if (channel) {
-            await channel.send({ embeds: [embed] }).catch(err => {
-              console.error(`Failed to send giveaway result to server ${guild.id}:`, err.message);
-            });
-          }
-        }
+        coins: 10000,
+        crates: { legendary: 2 }
       }
-    }
-    console.log('✅ Giveaway results broadcasted to non-main servers');
-  } catch (error) {
-    console.error('❌ Error broadcasting giveaway results:', error);
-  }
-}
-
-async function broadcastGiveawayStart() {
-  if (!activeClient) return;
-  
-  const mainServerEmbed = new EmbedBuilder()
-    .setColor('#00D9FF')
-    .setTitle('🎉 GIVEAWAY IS NOW ACTIVE!')
-    .setDescription(
-      `A new giveaway has started!\n\n` +
-      `**Possible Prizes:**\n` +
-      `🔥 Tyrant Crate + Gems\n` +
-      `📦 2x Legendary Crates + Gems\n` +
-      `💎 ${(giveawayData.prizeConfig.gems * 3).toLocaleString()} Gems\n` +
-      `✨ ${giveawayData.prizeConfig.shards.toLocaleString()} Shards + Gems\n\n` +
-      `Use \`!joingiveaway\` to enter!`
-    )
-    .setFooter({ text: 'Winners will be announced when the giveaway ends!' })
-    .setTimestamp();
-  
-  const otherServerEmbed = new EmbedBuilder()
-    .setColor('#00D9FF')
-    .setTitle('🎉 GIVEAWAY ALERT!')
-    .setDescription(
-      `A new giveaway has started in the main server!\n\n` +
-      `**Possible Prizes:**\n` +
-      `🔥 Tyrant Crate + Gems\n` +
-      `📦 2x Legendary Crates + Gems\n` +
-      `💎 ${(giveawayData.prizeConfig.gems * 3).toLocaleString()} Gems\n` +
-      `✨ ${giveawayData.prizeConfig.shards.toLocaleString()} Shards + Gems\n\n` +
-      `**⚠️ Join the main server to participate!**\n` +
-      `Giveaways are exclusive to the main server!`
-    )
-    .setFooter({ text: 'Contact server admins for the main server invite!' })
-    .setTimestamp();
-  
-  try {
-    for (const guild of activeClient.guilds.cache.values()) {
-      if (isMainServer(guild.id)) {
-        if (giveawayData.channelId) {
-          const channel = await activeClient.channels.fetch(giveawayData.channelId).catch(() => null);
-          if (channel) {
-            await channel.send({ embeds: [mainServerEmbed] }).catch(err => {
-              console.error(`Failed to send giveaway start to main server:`, err.message);
-            });
-          }
-        }
-      } else {
-        const eventsChannelId = getEventsChannel(guild.id);
-        if (eventsChannelId) {
-          const channel = await activeClient.channels.fetch(eventsChannelId).catch(() => null);
-          if (channel) {
-            await channel.send({ embeds: [otherServerEmbed] }).catch(err => {
-              console.error(`Failed to send giveaway alert to server ${guild.id}:`, err.message);
-            });
-          }
-        }
-      }
-    }
-    console.log('✅ Giveaway notifications broadcasted to all servers');
-  } catch (error) {
-    console.error('❌ Error broadcasting giveaway start:', error);
+    };
   }
 }
 
 function initializeGiveawaySystem(client) {
   activeClient = client;
-  if (giveawayData.active) {
-    startGiveawayScheduler();
-  }
-  console.log('✅ Giveaway system initialized');
+  console.log('✅ Simplified giveaway system initialized');
 }
 
-async function startGiveaway(channelId) {
-  giveawayData.active = true;
-  giveawayData.channelId = channelId;
-  startGiveawayScheduler();
-  
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.giveawayData = giveawayData;
-  await saveDataImmediate(data);
-  
-  await broadcastGiveawayStart();
-}
+async function startGiveaway(channelId, durationMinutes) {
+  if (activeGiveaway.active) {
+    return { success: false, message: '❌ A giveaway is already running! Use `!endgiveaway` to end it first.' };
+  }
 
-async function stopGiveaway() {
-  giveawayData.active = false;
-  if (giveawayInterval) {
-    clearInterval(giveawayInterval);
-    giveawayInterval = null;
-  }
-  
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.giveawayData = giveawayData;
-  await saveDataImmediate(data);
-}
-
-async function startManualGiveaway(durationMinutes) {
-  if (giveawayData.manualGiveaway.active) {
-    return { success: false, message: '❌ A manual giveaway is already active!' };
-  }
-  
-  const now = new Date();
-  const drawTime = new Date(now.getTime() + durationMinutes * 60000);
-  
-  const scheduledDrawTime = `${giveawayData.drawTime.split(':')[0]}:${giveawayData.drawTime.split(':')[1]}`;
-  const [schedHour, schedMin] = scheduledDrawTime.split(':').map(Number);
-  const scheduledTime = new Date(now);
-  scheduledTime.setUTCHours(schedHour, schedMin, 0, 0);
-  
-  if (scheduledTime <= now) {
-    scheduledTime.setDate(scheduledTime.getDate() + 1);
-  }
-  
-  if (drawTime.getTime() >= scheduledTime.getTime() - 30 * 60000) {
-    giveawayData.manualGiveaway.endTime = scheduledTime.getTime() - 5 * 60000;
-  } else {
-    giveawayData.manualGiveaway.endTime = drawTime.getTime();
-  }
-  
-  giveawayData.manualGiveaway.active = true;
-  
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.giveawayData = giveawayData;
-  await saveDataImmediate(data);
-  
-  await broadcastGiveawayStart();
-  
-  return { 
-    success: true, 
-    message: `✅ Manual giveaway started!\n⏰ Draw time: <t:${Math.floor(giveawayData.manualGiveaway.endTime / 1000)}:F>\n📢 All servers have been notified!` 
-  };
-}
-
-async function stopManualGiveaway() {
-  if (!giveawayData.manualGiveaway.active) {
-    return { success: false, message: '❌ No manual giveaway is currently active!' };
-  }
-  
-  await performDailyDraw();
-  giveawayData.manualGiveaway = { active: false, endTime: null };
-  
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.giveawayData = giveawayData;
-  await saveDataImmediate(data);
-  
-  return { success: true, message: '✅ Manual giveaway ended and winner announced!' };
-}
-
-async function getGiveawayInfo() {
-  if (!giveawayData.active) {
-    return { success: false, message: '❌ Giveaway system is not active!' };
-  }
-  
-  const isManual = giveawayData.manualGiveaway.active;
-  let timeInfo = '';
-  
-  if (isManual) {
-    timeInfo = `⏰ Manual giveaway ends: <t:${Math.floor(giveawayData.manualGiveaway.endTime / 1000)}:R>`;
-  } else {
-    const now = new Date();
-    const [hour, min] = giveawayData.drawTime.split(':').map(Number);
-    const nextDraw = new Date();
-    nextDraw.setUTCHours(hour, min, 0, 0);
-    if (nextDraw <= now) {
-      nextDraw.setDate(nextDraw.getDate() + 1);
+  activeGiveaway = {
+    active: true,
+    channelId: channelId,
+    messageId: null,
+    participants: [],
+    endTime: Date.now() + (durationMinutes * 60 * 1000),
+    prizes: {
+      gems: 5000,
+      coins: 10000,
+      crates: { legendary: 2 }
     }
-    timeInfo = `⏰ Next daily draw: <t:${Math.floor(nextDraw.getTime() / 1000)}:F> (9:30 IST)`;
-  }
-  
-  return {
-    success: true,
-    message: `**🎉 Giveaway Status**\n\n` +
-      `${timeInfo}\n` +
-      `👥 Current participants: ${giveawayData.participants.length}\n` +
-      `📢 Type: ${isManual ? 'Manual' : 'Daily Scheduled'}\n\n` +
-      `Use \`!joingiveaway\` to enter!`
   };
+
+  const { loadData } = require('./dataManager.js');
+  const data = await loadData();
+  if (!data.giveaway) {
+    data.giveaway = {};
+  }
+  data.giveaway = activeGiveaway;
+  await saveDataImmediate(data);
+
+  const giveawayEmbed = new EmbedBuilder()
+    .setColor('#FFD700')
+    .setTitle('🎉 GIVEAWAY STARTED!')
+    .setDescription(
+      `**Duration:** ${durationMinutes} minutes\n` +
+      `**Ends:** <t:${Math.floor(activeGiveaway.endTime / 1000)}:R>\n\n` +
+      `**Prizes:**\n` +
+      `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
+      `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
+      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+      `**Click the button below to enter!**\n` +
+      `👥 Participants: 0`
+    )
+    .setFooter({ text: 'Good luck everyone!' })
+    .setTimestamp();
+
+  const button = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('join_giveaway')
+        .setLabel('🎁 Join Giveaway')
+        .setStyle(ButtonStyle.Success)
+    );
+
+  try {
+    const channel = await activeClient.channels.fetch(channelId);
+    const message = await channel.send({ embeds: [giveawayEmbed], components: [button] });
+    
+    activeGiveaway.messageId = message.id;
+    data.giveaway.messageId = message.id;
+    await saveDataImmediate(data);
+
+    setTimeout(async () => {
+      if (activeGiveaway.active && activeGiveaway.endTime <= Date.now() + 1000) {
+        await endGiveaway();
+      }
+    }, durationMinutes * 60 * 1000);
+
+    return { 
+      success: true, 
+      message: `✅ Giveaway started! It will end <t:${Math.floor(activeGiveaway.endTime / 1000)}:R>` 
+    };
+  } catch (error) {
+    console.error('Error starting giveaway:', error);
+    activeGiveaway.active = false;
+    return { success: false, message: '❌ Failed to start giveaway. Check the channel ID.' };
+  }
 }
 
-async function joinGiveaway(userId, guildId) {
-  if (!guildId || !isMainServer(guildId)) {
-    return { success: false, message: '❌ Giveaways can only be joined from the main server! Join the main server to participate!' };
+async function handleButtonJoin(interaction) {
+  if (!activeGiveaway.active) {
+    return await interaction.reply({ 
+      content: '❌ This giveaway has ended!', 
+      ephemeral: true 
+    });
   }
-  
-  if (!giveawayData.active && !giveawayData.manualGiveaway.active) {
-    return { success: false, message: '❌ The giveaway is not currently active!' };
+
+  const userId = interaction.user.id;
+
+  if (activeGiveaway.participants.includes(userId)) {
+    return await interaction.reply({ 
+      content: '✅ You are already entered in this giveaway!', 
+      ephemeral: true 
+    });
   }
-  
-  if (giveawayData.participants.includes(userId)) {
-    return { success: false, message: '❌ You have already joined this giveaway!' };
+
+  activeGiveaway.participants.push(userId);
+
+  const { loadData } = require('./dataManager.js');
+  const data = await loadData();
+  data.giveaway = activeGiveaway;
+  await saveDataImmediate(data);
+
+  const updatedEmbed = new EmbedBuilder()
+    .setColor('#FFD700')
+    .setTitle('🎉 GIVEAWAY STARTED!')
+    .setDescription(
+      `**Duration:** Ends <t:${Math.floor(activeGiveaway.endTime / 1000)}:R>\n\n` +
+      `**Prizes:**\n` +
+      `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
+      `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
+      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+      `**Click the button below to enter!**\n` +
+      `👥 Participants: ${activeGiveaway.participants.length}`
+    )
+    .setFooter({ text: 'Good luck everyone!' })
+    .setTimestamp();
+
+  try {
+    await interaction.update({ embeds: [updatedEmbed] });
+  } catch (error) {
+    console.error('Error updating giveaway message:', error);
   }
-  
-  giveawayData.participants.push(userId);
-  return { success: true, message: `✅ You have been entered into the giveaway!\n👥 Total participants: ${giveawayData.participants.length}` };
+
+  return await interaction.followUp({ 
+    content: '🎉 You have successfully joined the giveaway! Good luck!', 
+    ephemeral: true 
+  });
+}
+
+async function endGiveaway() {
+  if (!activeGiveaway.active) {
+    return { success: false, message: '❌ No giveaway is currently active!' };
+  }
+
+  if (activeGiveaway.participants.length === 0) {
+    activeGiveaway.active = false;
+    
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+
+    try {
+      if (activeGiveaway.channelId && activeGiveaway.messageId) {
+        const channel = await activeClient.channels.fetch(activeGiveaway.channelId);
+        const message = await channel.messages.fetch(activeGiveaway.messageId);
+        
+        const noParticipantsEmbed = new EmbedBuilder()
+          .setColor('#FFA500')
+          .setTitle('🎉 GIVEAWAY ENDED')
+          .setDescription('No one participated in this giveaway. Better luck next time!')
+          .setTimestamp();
+
+        await message.edit({ embeds: [noParticipantsEmbed], components: [] });
+      }
+    } catch (error) {
+      console.error('Error updating giveaway message:', error);
+    }
+
+    return { success: true, message: '⚠️ Giveaway ended with no participants.' };
+  }
+
+  const winnerIndex = Math.floor(Math.random() * activeGiveaway.participants.length);
+  const winnerId = activeGiveaway.participants[winnerIndex];
+
+  try {
+    const winner = await activeClient.users.fetch(winnerId);
+    
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+
+    if (!data.users[winnerId]) {
+      data.users[winnerId] = { coins: 0, gems: 0, characters: [], crates: {} };
+    }
+
+    if (!data.users[winnerId].crates) {
+      data.users[winnerId].crates = {};
+    }
+
+    data.users[winnerId].gems = (data.users[winnerId].gems || 0) + activeGiveaway.prizes.gems;
+    data.users[winnerId].coins = (data.users[winnerId].coins || 0) + activeGiveaway.prizes.coins;
+    data.users[winnerId].crates.legendary = (data.users[winnerId].crates.legendary || 0) + activeGiveaway.prizes.crates.legendary;
+
+    const winnerEmbed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('🎊 GIVEAWAY WINNER!')
+      .setDescription(
+        `**Winner:** ${winner.tag}\n\n` +
+        `**Prizes Won:**\n` +
+        `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
+        `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
+        `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+        `Congratulations! 🎉\n` +
+        `Total Participants: ${activeGiveaway.participants.length}`
+      )
+      .setFooter({ text: 'Thanks everyone for participating!' })
+      .setTimestamp();
+
+    if (activeGiveaway.channelId && activeGiveaway.messageId) {
+      const channel = await activeClient.channels.fetch(activeGiveaway.channelId);
+      const message = await channel.messages.fetch(activeGiveaway.messageId);
+      await message.edit({ embeds: [winnerEmbed], components: [] });
+    }
+
+    activeGiveaway.active = false;
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+
+    return { 
+      success: true, 
+      message: `🎉 Giveaway ended! Winner: ${winner.tag}`,
+      winner: winner.tag
+    };
+  } catch (error) {
+    console.error('Error ending giveaway:', error);
+    activeGiveaway.active = false;
+    
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+
+    return { success: false, message: '❌ Error ending giveaway.' };
+  }
+}
+
+function getGiveawayStatus() {
+  if (!activeGiveaway.active) {
+    return { active: false, message: '❌ No giveaway is currently active!' };
+  }
+
+  const timeLeft = activeGiveaway.endTime - Date.now();
+  const minutesLeft = Math.floor(timeLeft / 60000);
+
+  return {
+    active: true,
+    participants: activeGiveaway.participants.length,
+    timeLeft: minutesLeft,
+    endTime: activeGiveaway.endTime
+  };
 }
 
 module.exports = {
   initializeGiveawaySystem,
   startGiveaway,
-  stopGiveaway,
-  startManualGiveaway,
-  stopManualGiveaway,
-  performDailyDraw,
-  joinGiveaway,
-  getGiveawayInfo,
+  endGiveaway,
+  handleButtonJoin,
+  getGiveawayStatus,
   getGiveawayData,
   setGiveawayData
 };

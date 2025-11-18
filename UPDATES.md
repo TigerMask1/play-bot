@@ -1,5 +1,48 @@
 # Bot Updates & Bug Fixes
 
+## November 18, 2025 - Giveaway System Completely Simplified
+
+### 🎉 NEW: Simplified Giveaway System with Button Entry
+
+**Complete rewrite of the giveaway system for simplicity and ease of use!**
+
+#### What Changed:
+- **Removed complex dual-mode system** (automated daily + manual giveaways causing state conflicts)
+- **Simple manual giveaways only** - admins start when they want
+- **Button-based entry** - users click a button to join (no more `!joingiveaway` command)
+- **Real-time participant count** - button updates the message automatically
+- **Auto-end on timer** - giveaway ends automatically after duration
+- **Single state management** - no more confusion between active/manual states
+
+#### How It Works Now:
+
+**For Admins:**
+1. `!startgiveaway <minutes>` - Start a giveaway in current channel
+2. Bot posts giveaway message with a green "Join Giveaway" button
+3. `!endgiveaway` - End early if needed
+4. `!giveaway` - Check status (participants, time left)
+
+**For Users:**
+1. Click the "🎁 Join Giveaway" button on the giveaway message
+2. Bot confirms entry via ephemeral message (only you see it)
+3. Participant count updates in real-time
+4. Winner announced automatically when time expires
+
+#### Fixed Issues:
+- ❌ **Old Problem**: "Manual giveaway already active" but `!giveaway` says "no giveaway active"
+- ✅ **Fixed**: Single, clear state - either a giveaway is running or it's not
+- ❌ **Old Problem**: Complex scheduling with conflicting daily/manual modes
+- ✅ **Fixed**: Simple manual giveaways only, started by admins on-demand
+- ❌ **Old Problem**: Users had to type commands to enter
+- ✅ **Fixed**: Just click a button!
+
+#### Default Prizes:
+- 💎 5,000 Gems
+- 💰 10,000 Coins  
+- 📦 2x Legendary Crates
+
+---
+
 ## November 18, 2025 - Critical Bug Fixes
 
 ### 🐛 Fixed: Giveaway & Lottery System Errors

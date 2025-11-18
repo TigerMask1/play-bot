@@ -262,7 +262,10 @@ client.on('interactionCreate', async (interaction) => {
   if (!data) return;
   
   try {
-    if (interaction.customId.startsWith('diceclash_')) {
+    if (interaction.customId === 'join_giveaway') {
+      const { handleButtonJoin } = require('./giveawaySystem.js');
+      await handleButtonJoin(interaction);
+    } else if (interaction.customId.startsWith('diceclash_')) {
       await handleDiceClashButton(interaction, data);
     } else if (interaction.customId.startsWith('door_')) {
       await handleDoorButton(interaction, data);
@@ -3426,7 +3429,7 @@ client.on('messageCreate', async (message) => {
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
-            { name: '🎉 Giveaways (Main Server)', value: '`!giveaway` - View giveaway info\n`!joingiveaway` - Enter giveaway\n`!startgiveaway <mins>` - Start manual giveaway (Bot Admin)\n`!stopgiveaway` - End giveaway early (Bot Admin)' },
+            { name: '🎉 Giveaways **[SIMPLIFIED]**', value: '`!giveaway` - View active giveaway\n`!startgiveaway <mins>` - Start giveaway (Bot Admin)\n`!endgiveaway` - End giveaway (Bot Admin)\n\nUsers join by clicking the button!' },
             { name: '🎰 Lottery (All Servers)', value: '`!lottery` - View lottery info\n`!lottery join <tickets>` - Buy lottery tickets\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Start lottery (Bot Admin)\n`!stoplottery` - End lottery early (Bot Admin)' },
             { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
@@ -3482,41 +3485,34 @@ client.on('messageCreate', async (message) => {
         
       case 'giveaway':
       case 'giveawayinfo':
-        const { getGiveawayInfo } = require('./giveawaySystem.js');
-        const giveawayInfo = await getGiveawayInfo();
+        const { getGiveawayStatus } = require('./giveawaySystem.js');
+        const giveawayStatus = getGiveawayStatus();
         
-        if (giveawayInfo.success) {
-          const giveawayInfoEmbed = new EmbedBuilder()
-            .setColor('#FFD700')
-            .setTitle('🎉 Giveaway Information')
-            .setDescription(giveawayInfo.message);
-          
-          await message.reply({ embeds: [giveawayInfoEmbed] });
-        } else {
-          await message.reply(giveawayInfo.message);
-        }
-        break;
-        
-      case 'joingiveaway':
-      case 'entergiveaway':
-        const { joinGiveaway } = require('./giveawaySystem.js');
-        const giveawayJoinResult = await joinGiveaway(userId, serverId);
-        
-        if (giveawayJoinResult.success) {
-          await saveDataImmediate(data);
+        if (!giveawayStatus.active) {
+          await message.reply('❌ No giveaway is currently active!');
+          break;
         }
         
-        await message.reply(giveawayJoinResult.message);
+        const giveawayStatusEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle('🎉 Active Giveaway')
+          .setDescription(
+            `**Participants:** ${giveawayStatus.participants}\n` +
+            `**Ends:** <t:${Math.floor(giveawayStatus.endTime / 1000)}:R>\n\n` +
+            `**Prizes:**\n` +
+            `💎 5,000 Gems\n` +
+            `💰 10,000 Coins\n` +
+            `📦 2x Legendary Crates\n\n` +
+            `Click the button in the giveaway message to join!`
+          )
+          .setTimestamp();
+        
+        await message.reply({ embeds: [giveawayStatusEmbed] });
         break;
         
       case 'startgiveaway':
         if (!isAdmin) {
           await message.reply('❌ Only Super Admins and Bot Admins can start giveaways!');
-          return;
-        }
-        
-        if (!serverId || !isMainServer(serverId)) {
-          await message.reply('❌ Giveaways can only be started in the main server!');
           return;
         }
         
@@ -3526,28 +3522,24 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const { startManualGiveaway } = require('./giveawaySystem.js');
-        const giveawayStartResult = await startManualGiveaway(durationArg);
+        const { startGiveaway } = require('./giveawaySystem.js');
+        const giveawayStartResult = await startGiveaway(message.channel.id, durationArg);
         
-        await message.reply(giveawayStartResult.message);
+        if (!giveawayStartResult.success) {
+          await message.reply(giveawayStartResult.message);
+        }
         break;
         
-      case 'stopgiveaway':
       case 'endgiveaway':
         if (!isAdmin) {
-          await message.reply('❌ Only Super Admins and Bot Admins can stop giveaways!');
+          await message.reply('❌ Only Super Admins and Bot Admins can end giveaways!');
           return;
         }
         
-        if (!serverId || !isMainServer(serverId)) {
-          await message.reply('❌ Giveaways can only be managed from the main server!');
-          return;
-        }
+        const { endGiveaway } = require('./giveawaySystem.js');
+        const endGiveawayResult = await endGiveaway();
         
-        const { stopManualGiveaway } = require('./giveawaySystem.js');
-        const stopGiveawayResult = await stopManualGiveaway();
-        
-        await message.reply(stopGiveawayResult.message);
+        await message.reply(endGiveawayResult.message);
         break;
         
       case 'lottery':
