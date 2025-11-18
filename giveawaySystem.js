@@ -34,6 +34,22 @@ function setGiveawayData(data) {
     if (!giveawayData.manualGiveaway) {
       giveawayData.manualGiveaway = { active: false, endTime: null };
     }
+    if (!giveawayData.prizeConfig) {
+      giveawayData.prizeConfig = {
+        gems: 5000,
+        shards: 500,
+        tyrantCrates: 1,
+        legendaryCrates: 2
+      };
+    } else {
+      giveawayData.prizeConfig.gems = giveawayData.prizeConfig.gems ?? 5000;
+      giveawayData.prizeConfig.shards = giveawayData.prizeConfig.shards ?? 500;
+      giveawayData.prizeConfig.tyrantCrates = giveawayData.prizeConfig.tyrantCrates ?? 1;
+      giveawayData.prizeConfig.legendaryCrates = giveawayData.prizeConfig.legendaryCrates ?? 2;
+    }
+    if (!giveawayData.winnersHistory) {
+      giveawayData.winnersHistory = [];
+    }
   }
 }
 

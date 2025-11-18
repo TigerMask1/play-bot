@@ -13,6 +13,23 @@ function getLotteryData() {
 function setLotteryData(data) {
   if (data) {
     activeLotteries = { ...data };
+    for (const serverId in activeLotteries) {
+      const lottery = activeLotteries[serverId];
+      if (lottery) {
+        if (!lottery.participants) {
+          lottery.participants = [];
+        }
+        if (!lottery.winnersHistory) {
+          lottery.winnersHistory = [];
+        }
+        if (lottery.prizePool === undefined) {
+          lottery.prizePool = 0;
+        }
+        if (lottery.active === undefined) {
+          lottery.active = false;
+        }
+      }
+    }
   }
 }
 
