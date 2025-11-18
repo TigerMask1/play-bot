@@ -30,8 +30,9 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
   - **Super Admin:** Hardcoded bot owners with full access to all commands globally
   - **ZooAdmin Role:** Discord role (case insensitive) for server customization - allows server admins to configure channels, activate drops, customize emojis/GIFs
   - **Bot Admin (Legacy):** Database-stored admins for event management (being phased out)
-- **Admin Tools:** Commands for managing resources, characters, skins, battle items, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
-  - **Battle Items Admin Commands:** Super Admin commands for granting, removing, viewing, and managing battle item inventories (!grantitem, !removeitem, !viewinventory, !clearinventory, !listitems). Detailed guide available in BATTLE_ITEMS_ADMIN_GUIDE.md.
+- **Admin Tools:** Commands for managing resources, characters, skins, consumable battle items, equipment items, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
+  - **Battle Items Admin Commands:** Super Admin commands for granting, removing, viewing, and managing consumable battle item inventories (!grantitem, !removeitem, !viewinventory, !clearinventory, !listitems). Detailed guide available in BATTLE_ITEMS_ADMIN_GUIDE.md.
+  - **Equipment Admin Commands:** Super Admin commands for managing equipment items (!grantequipment, !removeequipment, !viewequipment, !clearequipment, !listequipment). Equipment items are tier-based (silver, gold, legendary) collectibles that level up. Detailed guide available in EQUIPMENT_ADMIN_GUIDE.md.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically. Centralized emoji configuration in emojiConfig.js for easy customization.
 - **Profile Picture (PFP) System:** Custom profile image system allowing users to upload and manage multiple profile pictures stored via Discord CDN URLs. Users can switch between character images and custom PFPs for their profile display using !setpfp command. Supports both character selection (!setpfp <character>) and custom PFP selection (!setpfp pfp <number>).

@@ -46,13 +46,21 @@ All other users can access standard gameplay commands.
 - `!deleteskin <character> <skin_name>` - Delete a skin permanently
 - `!uploadskin <character> <skin_name>` - Upload/update a skin image
 
-#### Battle Items Management
-- `!grantitem @user <item_id> <amount>` - Grant battle items to a user
-- `!removeitem @user <item_id> <amount>` - Remove battle items from a user
-- `!viewinventory @user` / `!checkinventory @user` - View a user's battle item inventory
-- `!clearinventory @user` - Clear all battle items from a user's inventory
-- `!listitems` - List all available battle items with their IDs
+#### Battle Items Management (Consumables)
+- `!grantitem @user <item_id> <amount>` - Grant consumable battle items to a user
+- `!removeitem @user <item_id> <amount>` - Remove consumable battle items from a user
+- `!viewinventory @user` / `!checkinventory @user` - View a user's consumable battle item inventory
+- `!clearinventory @user` - Clear all consumable battle items from a user's inventory
+- `!listitems` - List all available consumable battle items with their IDs
   - **Note:** See BATTLE_ITEMS_ADMIN_GUIDE.md for detailed usage and examples
+
+#### Equipment Items Management (Silver/Gold/Legendary)
+- `!grantequipment @user <equipment_id> <copies>` / `!grantequip` - Grant equipment items to a user
+- `!removeequipment @user <equipment_id> <copies>` / `!removeequip` - Remove equipment items from a user
+- `!viewequipment @user` / `!checkequipment @user` - View a user's equipment collection
+- `!clearequipment @user` - Clear all equipment items from a user's collection
+- `!listequipment` / `!listequip` - List all available equipment items with their IDs
+  - **Note:** See EQUIPMENT_ADMIN_GUIDE.md for detailed usage and examples
 
 #### Server Management
 - `!servers` / `!serverlist` - List all servers the bot is in

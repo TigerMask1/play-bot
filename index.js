@@ -2240,6 +2240,233 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [listItemsEmbed] });
         break;
         
+      case 'grantequipment':
+      case 'grantequip':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const grantEquipUser = message.mentions.users.first();
+        const grantEquipId = args[1]?.toLowerCase();
+        const grantEquipCopies = parseInt(args[2]) || 1;
+        
+        if (!grantEquipUser || !grantEquipId || grantEquipCopies <= 0) {
+          await message.reply('Usage: `!grantequipment @user <equipment_id> <copies>`\nExample: `!grantequipment @user med_drop 5`\n\nUse `!listequipment` to see all available equipment IDs.');
+          return;
+        }
+        
+        if (!data.users[grantEquipUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { grantItem } = require('./equipmentSystem.js');
+        const { getEquipmentItem } = require('./equipmentConfig.js');
+        const grantEquipData = getEquipmentItem(grantEquipId);
+        
+        if (!grantEquipData) {
+          await message.reply(`❌ Invalid equipment ID: **${grantEquipId}**\n\nUse \`!listequipment\` to see all available equipment.`);
+          return;
+        }
+        
+        let totalGranted = 0;
+        let finalLevel = 1;
+        let levelUps = 0;
+        const startingLevel = data.users[grantEquipUser.id].itemCollection?.[grantEquipId]?.level || 1;
+        
+        for (let i = 0; i < grantEquipCopies; i++) {
+          const result = grantItem(data.users[grantEquipUser.id], grantEquipId);
+          if (result.success) {
+            totalGranted++;
+            if (result.leveledUp) levelUps++;
+            finalLevel = result.level;
+          }
+        }
+        
+        await saveDataImmediate(data);
+        
+        const levelUpText = levelUps > 0 ? `\n🎉 Leveled up **${levelUps}** time(s)! (Lv.${startingLevel} → Lv.${finalLevel})` : '';
+        await message.reply(`✅ Granted **${totalGranted}x ${grantEquipData.emoji} ${grantEquipData.name}** (${grantEquipData.tier}) to <@${grantEquipUser.id}>!${levelUpText}\nThey now have **${data.users[grantEquipUser.id].itemCollection[grantEquipId].copies}** copies at Lv.${finalLevel}.`);
+        break;
+        
+      case 'removeequipment':
+      case 'removeequip':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const removeEquipUser = message.mentions.users.first();
+        const removeEquipId = args[1]?.toLowerCase();
+        const removeEquipCopies = parseInt(args[2]) || 1;
+        
+        if (!removeEquipUser || !removeEquipId || removeEquipCopies <= 0) {
+          await message.reply('Usage: `!removeequipment @user <equipment_id> <copies>`\nExample: `!removeequipment @user med_drop 3`');
+          return;
+        }
+        
+        if (!data.users[removeEquipUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { getEquipmentItem: getRemoveEquip, calculateItemLevel } = require('./equipmentConfig.js');
+        const removeEquipData = getRemoveEquip(removeEquipId);
+        
+        if (!removeEquipData) {
+          await message.reply(`❌ Invalid equipment ID: **${removeEquipId}**`);
+          return;
+        }
+        
+        if (!data.users[removeEquipUser.id].itemCollection) {
+          data.users[removeEquipUser.id].itemCollection = {};
+        }
+        
+        if (!data.users[removeEquipUser.id].itemCollection[removeEquipId] || data.users[removeEquipUser.id].itemCollection[removeEquipId].copies <= 0) {
+          await message.reply(`❌ <@${removeEquipUser.id}> doesn't have any **${removeEquipData.emoji} ${removeEquipData.name}**!`);
+          return;
+        }
+        
+        const currentEquipCopies = data.users[removeEquipUser.id].itemCollection[removeEquipId].copies;
+        const oldEquipLevel = data.users[removeEquipUser.id].itemCollection[removeEquipId].level;
+        const copiesToRemove = Math.min(removeEquipCopies, currentEquipCopies);
+        
+        data.users[removeEquipUser.id].itemCollection[removeEquipId].copies -= copiesToRemove;
+        const newEquipCopies = data.users[removeEquipUser.id].itemCollection[removeEquipId].copies;
+        const newEquipLevel = calculateItemLevel(removeEquipData.tier, newEquipCopies);
+        data.users[removeEquipUser.id].itemCollection[removeEquipId].level = newEquipLevel;
+        
+        await saveDataImmediate(data);
+        
+        const levelDownText = newEquipLevel < oldEquipLevel ? `\n⚠️ Level decreased: Lv.${oldEquipLevel} → Lv.${newEquipLevel}` : '';
+        await message.reply(`✅ Removed **${copiesToRemove}x ${removeEquipData.emoji} ${removeEquipData.name}** from <@${removeEquipUser.id}>!${levelDownText}\nThey now have **${newEquipCopies}** copies at Lv.${newEquipLevel}.`);
+        break;
+        
+      case 'viewequipment':
+      case 'checkequipment':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const viewEquipUser = message.mentions.users.first();
+        
+        if (!viewEquipUser) {
+          await message.reply('Usage: `!viewequipment @user`\nExample: `!viewequipment @user`');
+          return;
+        }
+        
+        if (!data.users[viewEquipUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const { getUserItems } = require('./equipmentSystem.js');
+        const userEquipmentItems = getUserItems(data.users[viewEquipUser.id]);
+        
+        if (userEquipmentItems.length === 0) {
+          await message.reply(`📦 <@${viewEquipUser.id}> has no equipment items.`);
+          return;
+        }
+        
+        const silverEquip = userEquipmentItems.filter(item => item.tier === 'silver');
+        const goldEquip = userEquipmentItems.filter(item => item.tier === 'gold');
+        const legendaryEquip = userEquipmentItems.filter(item => item.tier === 'legendary');
+        
+        const formatEquipList = (items) => {
+          return items.map(item => 
+            `${item.emoji} **${item.name}** - Lv.${item.level} (${item.copies} copies)`
+          ).join('\n');
+        };
+        
+        const viewEquipEmbed = new EmbedBuilder()
+          .setColor('#9C27B0')
+          .setTitle(`⚔️ ${viewEquipUser.username}'s Equipment Collection`)
+          .setDescription('Equipment items enhance character abilities in battle');
+        
+        if (silverEquip.length > 0) {
+          viewEquipEmbed.addFields({ name: '⚪ Silver Equipment', value: formatEquipList(silverEquip), inline: false });
+        }
+        
+        if (goldEquip.length > 0) {
+          viewEquipEmbed.addFields({ name: '🥇 Gold Equipment', value: formatEquipList(goldEquip), inline: false });
+        }
+        
+        if (legendaryEquip.length > 0) {
+          viewEquipEmbed.addFields({ name: '🔥 Legendary Equipment', value: formatEquipList(legendaryEquip), inline: false });
+        }
+        
+        viewEquipEmbed.setFooter({ text: `Total equipment types: ${userEquipmentItems.length}` });
+        
+        await message.reply({ embeds: [viewEquipEmbed] });
+        break;
+        
+      case 'clearequipment':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const clearEquipUser = message.mentions.users.first();
+        
+        if (!clearEquipUser) {
+          await message.reply('Usage: `!clearequipment @user`\nExample: `!clearequipment @user`\n\n⚠️ **Warning:** This will remove ALL equipment items from the user!');
+          return;
+        }
+        
+        if (!data.users[clearEquipUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const equipItemCount = data.users[clearEquipUser.id].itemCollection ? Object.keys(data.users[clearEquipUser.id].itemCollection).length : 0;
+        data.users[clearEquipUser.id].itemCollection = {};
+        
+        data.users[clearEquipUser.id].characters.forEach(char => {
+          if (char.equipment) {
+            char.equipment = { silver: null, gold: null, legendary: null };
+          }
+        });
+        
+        await saveDataImmediate(data);
+        
+        await message.reply(`✅ Cleared equipment collection for <@${clearEquipUser.id}>!\nRemoved **${equipItemCount}** equipment type(s) and unequipped all items from characters.`);
+        break;
+        
+      case 'listequipment':
+      case 'listequip':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const { getItemsByTier: getEquipByTier } = require('./equipmentConfig.js');
+        
+        const silverItems = getEquipByTier('silver');
+        const goldItems = getEquipByTier('gold');
+        const legendaryItems = getEquipByTier('legendary');
+        
+        const formatEquipmentList = (items) => {
+          return items.map(item => 
+            `\`${item.id}\` - ${item.emoji} **${item.name}**\n  _${item.description}_`
+          ).join('\n\n');
+        };
+        
+        const listEquipEmbed = new EmbedBuilder()
+          .setColor('#9C27B0')
+          .setTitle('⚔️ All Equipment Items')
+          .setDescription('Use these equipment IDs with admin commands like `!grantequipment`\n\nEquipment items level up as you collect more copies!')
+          .addFields(
+            { name: '⚪ Silver Equipment', value: silverItems.length > 0 ? formatEquipmentList(silverItems) : 'None', inline: false },
+            { name: '🥇 Gold Equipment', value: goldItems.length > 0 ? formatEquipmentList(goldItems) : 'None', inline: false },
+            { name: '🔥 Legendary Equipment', value: legendaryItems.length > 0 ? formatEquipmentList(legendaryItems) : 'None', inline: false }
+          )
+          .setFooter({ text: 'Equipment Admin Reference' });
+        
+        await message.reply({ embeds: [listEquipEmbed] });
+        break;
+        
       case 'equipskin':
         const equipCharName = args[0];
         const equipSkinName = args[1];
