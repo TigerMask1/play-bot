@@ -10,7 +10,7 @@ The agent should prioritize iterative development, frequently asking for feedbac
 The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data storage system (JSON for testing, MongoDB for production) with a one-command migration script.
 
 **UI/UX Decisions:**
-- **Visuals:** Character skins displayed in embeds, paginated user profiles with progress bars, and custom profile picture selection from owned characters.
+- **Visuals:** Character skins displayed in embeds, paginated user profiles with progress bars, custom profile picture selection from owned characters, and custom PFP image system.
 - **Progress Bars:** 12-slot colored emoji progress bars (🟩🟦🟨🟧🟥⬜) with percentage display for token collection.
 - **Information Display:** Extensive use of Discord embeds and emoji integration for characters and items.
 
@@ -33,6 +33,10 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Admin Tools:** Commands for managing resources, characters, skins, custom emojis, chest GIFs, and bot channels, along with server management and bot update broadcasting.
 - **Key & Cage System:** Two-tier character unlock system using character-specific keys and random cage keys obtained from events.
 - **Custom Emojis:** System for bot-wide custom character emojis, stored in MongoDB and applied automatically. Centralized emoji configuration in emojiConfig.js for easy customization.
+- **Profile Picture (PFP) System:** Custom profile image system allowing users to upload and manage multiple profile pictures stored via Discord CDN URLs. Users can switch between character images and custom PFPs for their profile display using !setpfp command. Supports both character selection (!setpfp <character>) and custom PFP selection (!setpfp pfp <number>).
+- **Personalized Task System:** Task system restricted to registered players who have completed !start command.
+- **Trivia System:** Interactive trivia with 3-guess limit, 1-minute timer, 30-second cooldown, and 100 coin rewards. Bot admin-manageable question database.
+- **AI Battle Scaling:** Dynamic AI difficulty scaling for hard mode that adjusts level (1.2× + 3-5 bonus) and ST (minimum 90, up to 115 cap) based on challenger stats, with interpolated scaling for low-ST players and HP multipliers for high-ST players to maintain competitive balance.
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
 
