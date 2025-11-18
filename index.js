@@ -112,6 +112,24 @@ const {
   handleDiceClashButton,
   handleDoorButton
 } = require('./minigamesSystem.js');
+const {
+  uploadPfpFromAttachment,
+  equipPfp,
+  listAllPfps,
+  getUserPfps,
+  getEquippedPfp,
+  adminAddPfpToUser,
+  adminRemovePfpFromUser
+} = require('./pfpSystem.js');
+const {
+  addTriviaQuestion,
+  removeTriviaQuestion,
+  startTriviaSession,
+  answerTrivia,
+  clearExpiredSessions,
+  listAllQuestions,
+  getTriviaStats
+} = require('./triviaSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -797,22 +815,29 @@ client.on('messageCreate', async (message) => {
           profileEmbed.addFields({ name: '🏰 Clan', value: clanName, inline: true });
         }
         
-        let displayCharName = user.profileDisplayCharacter || user.selectedCharacter;
-        if (displayCharName) {
-          let displayChar = user.characters.find(c => c.name === displayCharName);
-          
-          if (!displayChar && user.profileDisplayCharacter) {
-            user.profileDisplayCharacter = null;
-            await saveDataImmediate(data);
-            displayCharName = user.selectedCharacter;
-            displayChar = user.characters.find(c => c.name === displayCharName);
-          }
-          
-          if (displayChar) {
-            const displaySkinUrl = await getSkinUrl(displayChar.name, displayChar.currentSkin || 'default');
-            profileEmbed.setThumbnail(displaySkinUrl);
-            if (user.profileDisplayCharacter && user.profileDisplayCharacter !== user.selectedCharacter) {
-              profileEmbed.addFields({ name: '🖼️ Profile Picture', value: displayCharName, inline: true });
+        const equippedPfp = getEquippedPfp(targetId, data);
+        
+        if (equippedPfp) {
+          profileEmbed.setThumbnail(equippedPfp.url);
+          profileEmbed.addFields({ name: '📸 Profile Image', value: equippedPfp.name, inline: true });
+        } else {
+          let displayCharName = user.profileDisplayCharacter || user.selectedCharacter;
+          if (displayCharName) {
+            let displayChar = user.characters.find(c => c.name === displayCharName);
+            
+            if (!displayChar && user.profileDisplayCharacter) {
+              user.profileDisplayCharacter = null;
+              await saveDataImmediate(data);
+              displayCharName = user.selectedCharacter;
+              displayChar = user.characters.find(c => c.name === displayCharName);
+            }
+            
+            if (displayChar) {
+              const displaySkinUrl = await getSkinUrl(displayChar.name, displayChar.currentSkin || 'default');
+              profileEmbed.setThumbnail(displaySkinUrl);
+              if (user.profileDisplayCharacter && user.profileDisplayCharacter !== user.selectedCharacter) {
+                profileEmbed.addFields({ name: '🖼️ Profile Picture', value: displayCharName, inline: true });
+              }
             }
           }
         }
@@ -840,6 +865,139 @@ client.on('messageCreate', async (message) => {
         }
         
         await message.reply({ embeds: [profileEmbed] });
+        break;
+        
+      case 'addpfp':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const pfpName = args.join(' ');
+        if (!pfpName) {
+          await message.reply('❌ Please provide a name for your profile image!\nUsage: `!addpfp <name>` (attach an image)');
+          return;
+        }
+        
+        const uploadResult = await uploadPfpFromAttachment(message, pfpName, userId, data);
+        await message.reply(uploadResult.message);
+        break;
+        
+      case 'pfps':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const pfpsList = listAllPfps(userId, data);
+        
+        if (pfpsList.count === 0) {
+          await message.reply('📸 You don\'t have any profile images yet!\n\nUpload one using: `!addpfp <name>` (attach an image)');
+          return;
+        }
+        
+        const pfpsEmbed = new EmbedBuilder()
+          .setColor('#FF69B4')
+          .setTitle('📸 Your Profile Images')
+          .setDescription(`You have **${pfpsList.count}** profile image(s)`);
+        
+        pfpsList.pfps.forEach((pfp, index) => {
+          const isEquipped = pfp.id === pfpsList.equipped ? ' ✅ (Equipped)' : '';
+          pfpsEmbed.addFields({
+            name: `${index + 1}. ${pfp.name}${isEquipped}`,
+            value: `ID: \`${pfp.id}\`\nUse: \`!equippfp ${pfp.id}\``,
+            inline: false
+          });
+        });
+        
+        pfpsEmbed.setFooter({ text: 'Use !equippfp <id> to equip | !unequippfp to remove' });
+        
+        await message.reply({ embeds: [pfpsEmbed] });
+        break;
+        
+      case 'equippfp':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const pfpIdToEquip = args[0];
+        if (!pfpIdToEquip) {
+          await message.reply('❌ Please provide a PFP ID to equip!\nUsage: `!equippfp <pfp_id>`\n\nUse `!pfps` to see your profile images.');
+          return;
+        }
+        
+        const equipResult = await equipPfp(userId, pfpIdToEquip, data);
+        await message.reply(equipResult.message);
+        break;
+        
+      case 'unequippfp':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const unequipResult = await equipPfp(userId, null, data);
+        await message.reply(unequipResult.message);
+        break;
+        
+      case 'trivia':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        clearExpiredSessions(data);
+        
+        const triviaStartResult = startTriviaSession(userId, data);
+        
+        if (!triviaStartResult.success) {
+          await message.reply(triviaStartResult.message);
+          return;
+        }
+        
+        await saveDataImmediate(data);
+        
+        const triviaEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle('🎯 Trivia Challenge!')
+          .setDescription(`**Question:**\n${triviaStartResult.question}\n\n⏰ You have **${triviaStartResult.timeLimit} seconds** to answer!\n🎲 You get **${triviaStartResult.guessesLeft} guesses**\n💰 Correct answer = **100 coins**\n\nAnswer using: \`!a <your answer>\``)
+          .setFooter({ text: 'Case insensitive | Good luck!' })
+          .setTimestamp();
+        
+        await message.reply({ embeds: [triviaEmbed] });
+        break;
+        
+      case 'a':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const triviaAnswer = args.join(' ');
+        
+        if (!triviaAnswer) {
+          await message.reply('❌ Please provide an answer!\nUsage: `!a <your answer>`');
+          return;
+        }
+        
+        clearExpiredSessions(data);
+        
+        const answerResult = answerTrivia(userId, triviaAnswer, data);
+        
+        if (answerResult.correct) {
+          await saveDataImmediate(data);
+          const correctEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('✅ Correct Answer!')
+            .setDescription(answerResult.message)
+            .setTimestamp();
+          
+          await message.reply({ embeds: [correctEmbed] });
+        } else {
+          await saveDataImmediate(data);
+          await message.reply(answerResult.message);
+        }
         break;
         
       case 'crate':
@@ -2401,6 +2559,141 @@ client.on('messageCreate', async (message) => {
         saveData(data);
         
         await message.reply(`✅ Set <@${trophyUser.id}>'s trophies to **${trophyAmount}** 🏆`);
+        break;
+        
+      case 'adminaddpfp':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can use this command!');
+          return;
+        }
+        
+        const targetUserForPfp = message.mentions.users.first();
+        const adminPfpName = args.slice(1).join(' ');
+        
+        if (!targetUserForPfp || !adminPfpName) {
+          await message.reply('❌ Usage: `!adminaddpfp @user <pfp_name>` (attach an image)');
+          return;
+        }
+        
+        if (!data.users[targetUserForPfp.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        if (message.attachments.size === 0) {
+          await message.reply('❌ Please attach an image to add as their profile picture!');
+          return;
+        }
+        
+        const adminAttachment = message.attachments.first();
+        if (!adminAttachment.contentType || !adminAttachment.contentType.startsWith('image/')) {
+          await message.reply('❌ Please attach a valid image file!');
+          return;
+        }
+        
+        const adminPfpResult = await adminAddPfpToUser(targetUserForPfp.id, adminAttachment.url, adminPfpName, data);
+        await message.reply(adminPfpResult.message);
+        break;
+        
+      case 'adminremovepfp':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can use this command!');
+          return;
+        }
+        
+        const targetUserForRemove = message.mentions.users.first();
+        const pfpIdToRemove = args[1];
+        
+        if (!targetUserForRemove || !pfpIdToRemove) {
+          await message.reply('❌ Usage: `!adminremovepfp @user <pfp_id>`');
+          return;
+        }
+        
+        if (!data.users[targetUserForRemove.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const adminRemoveResult = await adminRemovePfpFromUser(targetUserForRemove.id, pfpIdToRemove, data);
+        await message.reply(adminRemoveResult.message);
+        break;
+        
+      case 'addtrivia':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can add trivia questions!');
+          return;
+        }
+        
+        const triviaQuestion = args.join(' ');
+        
+        if (!triviaQuestion || !triviaQuestion.includes('|')) {
+          await message.reply('❌ Invalid format!\nUsage: `!addtrivia <question> | <answer>`\n\nExample: `!addtrivia What is the capital of France? | Paris`');
+          return;
+        }
+        
+        const [questionPart, answerPart] = triviaQuestion.split('|').map(s => s.trim());
+        
+        if (!questionPart || !answerPart) {
+          await message.reply('❌ Both question and answer are required!\nUsage: `!addtrivia <question> | <answer>`');
+          return;
+        }
+        
+        const triviaAddResult = addTriviaQuestion(questionPart, answerPart, data);
+        await saveDataImmediate(data);
+        await message.reply(triviaAddResult.message);
+        break;
+        
+      case 'removetrivia':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can remove trivia questions!');
+          return;
+        }
+        
+        const triviaIdToRemove = args[0];
+        
+        if (!triviaIdToRemove) {
+          await message.reply('❌ Please provide a trivia question ID!\nUsage: `!removetrivia <question_id>`\n\nUse `!listtrivia` to see all questions and their IDs.');
+          return;
+        }
+        
+        const triviaRemoveResult = removeTriviaQuestion(triviaIdToRemove, data);
+        
+        if (triviaRemoveResult.success) {
+          await saveDataImmediate(data);
+        }
+        
+        await message.reply(triviaRemoveResult.message);
+        break;
+        
+      case 'listtrivia':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can view all trivia questions!');
+          return;
+        }
+        
+        const allQuestions = listAllQuestions(data);
+        
+        if (allQuestions.length === 0) {
+          await message.reply('📝 No trivia questions yet! Use `!addtrivia <question> | <answer>` to add some.');
+          return;
+        }
+        
+        const triviaListEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle('📚 All Trivia Questions')
+          .setDescription(`Total: **${allQuestions.length}** questions`);
+        
+        allQuestions.forEach((q, index) => {
+          triviaListEmbed.addFields({
+            name: `${index + 1}. ${q.question}`,
+            value: `**Answer:** ${q.answer}\n**ID:** \`${q.id}\``,
+            inline: false
+          });
+        });
+        
+        triviaListEmbed.setFooter({ text: 'Use !removetrivia <id> to remove a question' });
+        
+        await message.reply({ embeds: [triviaListEmbed] });
         break;
         
       case 'setevent':

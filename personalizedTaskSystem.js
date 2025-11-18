@@ -416,6 +416,9 @@ function getEligibleUsers(data) {
     const userData = data.users[userId];
     const ptData = initializePersonalizedTaskData(userData);
     
+    // Only send PT to registered players who completed !start
+    if (!userData.started) continue;
+    
     if (!ptData.isActive) continue; // Skip if disabled by admin
     
     // Check last activity

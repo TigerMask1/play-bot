@@ -11,25 +11,44 @@ const ENERGY_PER_TURN = 10;
 const MAX_ENERGY = 100;
 const aiActiveBattles = new Map();
 
-function createAIOpponent(CHARACTERS, difficulty = 'normal') {
+function createAIOpponent(CHARACTERS, difficulty = 'normal', playerCharacter = null) {
   const aiCharName = AI_CHARACTERS[Math.floor(Math.random() * AI_CHARACTERS.length)];
   const charData = CHARACTERS.find(c => c.name === aiCharName);
   
   let level, st;
-  switch (difficulty) {
-    case 'easy':
-      level = Math.floor(Math.random() * 3) + 1;
-      st = Math.floor(Math.random() * 30) + 20;
-      break;
-    case 'hard':
-      level = Math.floor(Math.random() * 5) + 8;
-      st = Math.floor(Math.random() * 20) + 75;
-      break;
-    case 'normal':
-    default:
-      level = Math.floor(Math.random() * 5) + 3;
-      st = Math.floor(Math.random() * 40) + 40;
-      break;
+  
+  if (difficulty === 'hard' && playerCharacter) {
+    const playerLevel = playerCharacter.level || 1;
+    const playerST = playerCharacter.st || 50;
+    
+    level = Math.floor(playerLevel * 1.2) + Math.floor(Math.random() * 4) + 2;
+    level = Math.max(playerLevel + 3, level);
+    
+    const calculatedST = Math.floor(playerST * 1.1) + Math.floor(Math.random() * 8) + 5;
+    
+    if (playerST < 80) {
+      const targetST = 90;
+      const interpolated = playerST + ((targetST - playerST) * 0.5);
+      st = Math.max(Math.round(interpolated), calculatedST);
+    } else {
+      st = Math.max(90, Math.min(115, calculatedST));
+    }
+  } else {
+    switch (difficulty) {
+      case 'easy':
+        level = Math.floor(Math.random() * 3) + 1;
+        st = Math.floor(Math.random() * 30) + 20;
+        break;
+      case 'hard':
+        level = Math.floor(Math.random() * 5) + 8;
+        st = Math.floor(Math.random() * 11) + 90;
+        break;
+      case 'normal':
+      default:
+        level = Math.floor(Math.random() * 5) + 3;
+        st = Math.floor(Math.random() * 40) + 40;
+        break;
+    }
   }
   
   const moves = assignMovesToCharacter(charData.name, st);
@@ -99,7 +118,7 @@ async function startAIBattle(message, data, playerId, botId, difficulty, CHARACT
     
     collector.stop();
     
-    const aiOpponent = createAIOpponent(CHARACTERS, difficulty);
+    const aiOpponent = createAIOpponent(CHARACTERS, difficulty, selectedChar);
     
     await m.reply(`✅ You selected **${selectedChar.name} ${selectedChar.emoji}**!`);
     await message.channel.send(`🤖 AI selected **${aiOpponent.name} ${aiOpponent.emoji}** (Lvl ${aiOpponent.level}, ST: ${aiOpponent.st}%)!`);
@@ -112,6 +131,12 @@ async function initializeAIBattle(channel, data, playerId, playerChar, aiChar, d
   const playerAbility = getCharacterAbility(playerChar.name);
   const aiAbility = aiChar.ability;
   
+  let aiMaxHP = aiChar.baseHp;
+  if (difficulty === 'hard' && playerChar.st >= 115) {
+    const hpMultiplier = 1 + ((playerChar.st - 115) / 200);
+    aiMaxHP = Math.round(aiChar.baseHp * hpMultiplier);
+  }
+  
   const battle = {
     id: `ai-battle-${playerId}-${Date.now()}`,
     player1: playerId,
@@ -119,9 +144,9 @@ async function initializeAIBattle(channel, data, playerId, playerChar, aiChar, d
     player1Character: playerChar,
     player2Character: aiChar,
     player1HP: playerChar.baseHp,
-    player2HP: aiChar.baseHp,
+    player2HP: aiMaxHP,
     player1MaxHP: playerChar.baseHp,
-    player2MaxHP: aiChar.baseHp,
+    player2MaxHP: aiMaxHP,
     player1Energy: STARTING_ENERGY,
     player2Energy: STARTING_ENERGY,
     player1Shield: 0,
