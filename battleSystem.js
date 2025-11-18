@@ -507,7 +507,7 @@ async function promptTurn(battle, channel, data) {
     .setEmoji('🎒');
   
   const playerSlot = isPlayer1 ? 'player1' : 'player2';
-  const equipmentButtons = createEquipmentButtons(battle[`${playerSlot}Equipment`], playerSlot);
+  const equipmentButtons = createEquipmentButtons(battle[`${playerSlot}Equipment`], playerSlot, battle.id);
   
   const rows = [
     new ActionRowBuilder().addComponents(moveButtons.slice(0, 3)),

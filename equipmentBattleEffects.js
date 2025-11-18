@@ -2,21 +2,16 @@
 const { getEquipmentItem } = require('./equipmentConfig.js');
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
-// Prepare equipment state for battle (CHARACTER-SPECIFIC SYSTEM)
+// Prepare equipment state for battle (CHARACTER-SPECIFIC SYSTEM - SINGLE SLOT)
 function prepareBattleEquipment(battle, playerSlot, user, character) {
   // ON-DEMAND MIGRATION: Ensure equipment is migrated before battle
-  const { migrateUserEquipment } = require('./equipmentSystem.js');
+  const { migrateUserEquipment, initializeCharacterEquipment } = require('./equipmentSystem.js');
   migrateUserEquipment(user);
+  initializeCharacterEquipment(character);
   
-  if (!character.equipment || !character.equipment.slots || !character.equipment.collection) {
+  if (!character.equipment || !character.equipment.collection) {
     return null;
   }
-  
-  const equipped = {
-    silver: null,
-    gold: null,
-    legendary: null
-  };
   
   const state = {
     // Med-Drop tracking
@@ -55,78 +50,79 @@ function prepareBattleEquipment(battle, playerSlot, user, character) {
     energySmashUsed: false
   };
   
-  // Load equipped items and their levels from CHARACTER-SPECIFIC storage
-  for (const [slot, itemId] of Object.entries(character.equipment.slots)) {
-    if (itemId && character.equipment.collection[itemId]) {
-      const item = getEquipmentItem(itemId);
-      if (item) {
-        const level = character.equipment.collection[itemId].level;
-        equipped[slot] = {
-          ...item,
-          level
-        };
-        
-        // Set availability flags for active items
-        if (itemId === 'leech_suck') state.leechSuckAvailable = true;
-        if (itemId === 'mist_dodge') state.mistDodgeAvailable = true;
-        if (itemId === 'fire_fang') state.fireFangAvailable = true;
-        if (itemId === 'reflective_mirror') state.reflectiveMirrorAvailable = true;
-        if (itemId === 'self_defibrillator') state.defibrillatorAvailable = true;
-        if (itemId === 'energy_smash') state.energySmashAvailable = true;
-      }
+  // Load single equipped item from CHARACTER-SPECIFIC storage
+  const itemId = character.equipment.equipped;
+  let equippedItem = null;
+  
+  if (itemId && character.equipment.collection[itemId]) {
+    const item = getEquipmentItem(itemId);
+    if (item && character.equipment.collection[itemId].copies > 0) {
+      const level = character.equipment.collection[itemId].level;
+      equippedItem = {
+        ...item,
+        level
+      };
+      
+      // Set availability flags for active items
+      if (itemId === 'leech_suck') state.leechSuckAvailable = true;
+      if (itemId === 'mist_dodge') state.mistDodgeAvailable = true;
+      if (itemId === 'fire_fang') state.fireFangAvailable = true;
+      if (itemId === 'reflective_mirror') state.reflectiveMirrorAvailable = true;
+      if (itemId === 'self_defibrillator') state.defibrillatorAvailable = true;
+      if (itemId === 'energy_smash') state.energySmashAvailable = true;
     }
   }
   
   return {
-    items: equipped,
+    item: equippedItem,
     state
   };
 }
 
-// Create equipment action buttons for battle
-function createEquipmentButtons(equipmentData, playerSlot) {
-  if (!equipmentData) return [];
+// Create equipment action buttons for battle (single item system)
+function createEquipmentButtons(equipmentData, playerSlot, battleId) {
+  if (!equipmentData || !equipmentData.item) return [];
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   const buttons = [];
   
   // Leech-Suck button
-  if (items.gold?.id === 'leech_suck' && state.leechSuckAvailable && !state.leechSuckUsed) {
+  if (item.id === 'leech_suck' && state.leechSuckAvailable && !state.leechSuckUsed) {
     buttons.push(new ButtonBuilder()
-      .setCustomId(`equip_leech_${playerSlot}`)
-      .setLabel(`${items.gold.emoji} Leech-Suck`)
+      .setCustomId(`equip_leech_${playerSlot}_${battleId}`)
+      .setLabel(`${item.emoji} Leech-Suck`)
       .setStyle(ButtonStyle.Danger));
   }
   
   // Mist-Dodge button
-  if (items.gold?.id === 'mist_dodge' && state.mistDodgeAvailable && !state.mistDodgeUsed) {
+  if (item.id === 'mist_dodge' && state.mistDodgeAvailable && !state.mistDodgeUsed) {
     buttons.push(new ButtonBuilder()
-      .setCustomId(`equip_mist_${playerSlot}`)
-      .setLabel(`${items.gold.emoji} ${state.mistDodgeActive ? '✅ ' : ''}Mist-Dodge`)
+      .setCustomId(`equip_mist_${playerSlot}_${battleId}`)
+      .setLabel(`${item.emoji} ${state.mistDodgeActive ? '✅ ' : ''}Mist-Dodge`)
       .setStyle(state.mistDodgeActive ? ButtonStyle.Success : ButtonStyle.Primary));
   }
   
   // Fire-Fang button
-  if (items.gold?.id === 'fire_fang' && state.fireFangAvailable && !state.fireFangUsed) {
+  if (item.id === 'fire_fang' && state.fireFangAvailable && !state.fireFangUsed) {
     buttons.push(new ButtonBuilder()
-      .setCustomId(`equip_fire_${playerSlot}`)
-      .setLabel(`${items.gold.emoji} ${state.fireFangArmed ? '⚡ ' : ''}Fire-Fang`)
+      .setCustomId(`equip_fire_${playerSlot}_${battleId}`)
+      .setLabel(`${item.emoji} ${state.fireFangArmed ? '⚡ ' : ''}Fire-Fang`)
       .setStyle(state.fireFangArmed ? ButtonStyle.Success : ButtonStyle.Primary));
   }
   
   // Reflective-Mirror button (hidden activation)
-  if (items.legendary?.id === 'reflective_mirror' && state.reflectiveMirrorAvailable && !state.reflectiveMirrorUsed) {
+  if (item.id === 'reflective_mirror' && state.reflectiveMirrorAvailable && !state.reflectiveMirrorUsed) {
     buttons.push(new ButtonBuilder()
-      .setCustomId(`equip_mirror_${playerSlot}`)
-      .setLabel(`${items.legendary.emoji} Mirror`)
+      .setCustomId(`equip_mirror_${playerSlot}_${battleId}`)
+      .setLabel(`${item.emoji} Mirror`)
       .setStyle(ButtonStyle.Secondary));
   }
   
   // Energy-Smash button
-  if (items.legendary?.id === 'energy_smash' && state.energySmashAvailable && !state.energySmashUsed) {
+  if (item.id === 'energy_smash' && state.energySmashAvailable && !state.energySmashUsed) {
     buttons.push(new ButtonBuilder()
-      .setCustomId(`equip_smash_${playerSlot}`)
-      .setLabel(`${items.legendary.emoji} ${state.energySmashArmed ? '⚡ ' : ''}E-Smash`)
+      .setCustomId(`equip_smash_${playerSlot}_${battleId}`)
+      .setLabel(`${item.emoji} ${state.energySmashArmed ? '⚡ ' : ''}E-Smash`)
       .setStyle(state.energySmashArmed ? ButtonStyle.Success : ButtonStyle.Primary));
   }
   
@@ -138,12 +134,12 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
   const playerSlot = buttonId.includes('_p1') || buttonId.includes('_player1') ? 'player1' : 'player2';
   const equipmentData = battle[`${playerSlot}Equipment`];
   
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) {
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) {
     await interaction.reply({ content: '❌ No equipment data!', flags: 64 });
     return false;
   }
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
   // Leech-Suck activation
   if (buttonId.includes('leech')) {
@@ -152,7 +148,7 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
       return false;
     }
     
-    if (!items.gold || items.gold.id !== 'leech_suck') {
+    if (!item || item.id !== 'leech_suck') {
       await interaction.reply({ content: '❌ Invalid equipment!', flags: 64 });
       return false;
     }
@@ -161,7 +157,7 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
     const opponentHP = battle[`${opponentSlot}HP`];
     const opponentMaxHP = battle[`${opponentSlot}MaxHP`];
     
-    const level = items.gold.level;
+    const level = item.level;
     const maxDrain = Math.min(15 + (level - 1) * 3, 30);
     const drainPercent = 5 + Math.random() * (maxDrain - 5);
     const drainAmount = Math.floor(opponentHP * (drainPercent / 100));
@@ -254,25 +250,38 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
 // Hook: On damage dealt by player (for Med-Drop)
 function onDamageDealt(battle, playerSlot, damageDealt) {
   const equipmentData = battle[`${playerSlot}Equipment`];
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) return 0;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) return 0;
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
-  // Med-Drop: heal percentage of damage dealt
-  if (items.silver?.id === 'med_drop' && !state.medDropUsed && damageDealt > 0) {
-    const level = items.silver.level;
-    const healPercent = 5 + (level - 1) * 1.5;
-    const healAmount = Math.floor(damageDealt * (healPercent / 100));
+  // Med-Drop: heal percentage of damage dealt with random chance
+  if (item.id === 'med_drop' && !state.medDropUsed && damageDealt > 0) {
+    const currentHP = battle[`${playerSlot}HP`];
+    const maxHP = battle[`${playerSlot}MaxHP`];
     
-    state.medDropUsed = true;
-    state.medDropHealAmount = healAmount;
+    // Only activate if not at full HP
+    if (currentHP >= maxHP) {
+      return 0;
+    }
     
-    battle[`${playerSlot}HP`] = Math.min(
-      battle[`${playerSlot}HP`] + healAmount,
-      battle[`${playerSlot}MaxHP`]
-    );
+    const level = item.level;
+    const procChance = Math.min(30 + (level - 1) * 5, 70); // 30-70% chance
     
-    return healAmount;
+    // Random chance to activate
+    if (Math.random() * 100 < procChance) {
+      const healPercent = 5 + (level - 1) * 1.5;
+      const healAmount = Math.floor(damageDealt * (healPercent / 100));
+      
+      state.medDropUsed = true;
+      state.medDropHealAmount = healAmount;
+      
+      battle[`${playerSlot}HP`] = Math.min(
+        currentHP + healAmount,
+        maxHP
+      );
+      
+      return healAmount;
+    }
   }
   
   return 0;
@@ -283,13 +292,13 @@ function onOpponentMove(battle, opponentSlot, energyUsed) {
   const playerSlot = opponentSlot === 'player1' ? 'player2' : 'player1';
   const equipmentData = battle[`${playerSlot}Equipment`];
   
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) return 0;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) return 0;
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
   // Vanish-Ring: chance to drain extra energy
-  if (items.silver?.id === 'vanish_ring' && state.vanishRingActive) {
-    const level = items.silver.level;
+  if (item.id === 'vanish_ring' && state.vanishRingActive) {
+    const level = item.level;
     const procChance = 5 + (level - 1) * 2;
     
     if (Math.random() * 100 < procChance) {
@@ -306,12 +315,12 @@ function onOpponentMove(battle, opponentSlot, energyUsed) {
 // Hook: Check if Mist-Dodge should trigger
 function checkMistDodge(battle, defenderSlot) {
   const equipmentData = battle[`${defenderSlot}Equipment`];
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) return false;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) return false;
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
-  if (items.gold?.id === 'mist_dodge' && state.mistDodgeActive) {
-    const level = items.gold.level;
+  if (item.id === 'mist_dodge' && state.mistDodgeActive) {
+    const level = item.level;
     const dodgeChance = Math.min(20 + (level - 1) * 5, 50);
     
     state.mistDodgeActive = false;
@@ -327,14 +336,14 @@ function checkMistDodge(battle, defenderSlot) {
 // Hook: Calculate reflected damage (Fire-Fang & Reflective-Mirror)
 function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDamage) {
   const defenderEquipment = battle[`${defenderSlot}Equipment`];
-  if (!defenderEquipment || !defenderEquipment.items || !defenderEquipment.state) return 0;
+  if (!defenderEquipment || !defenderEquipment.item || !defenderEquipment.state) return 0;
   
-  const { items, state } = defenderEquipment;
+  const { item, state } = defenderEquipment;
   let reflectedDamage = 0;
   
   // Reflective-Mirror: 75% reflection
-  if (items.legendary?.id === 'reflective_mirror' && state.reflectiveMirrorArmed) {
-    const level = items.legendary.level;
+  if (item.id === 'reflective_mirror' && state.reflectiveMirrorArmed) {
+    const level = item.level;
     const reflectPercent = Math.min(75 + (level - 1) * 5, 100);
     reflectedDamage = Math.floor(incomingDamage * (reflectPercent / 100));
     state.reflectiveMirrorArmed = false;
@@ -345,8 +354,8 @@ function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDa
   }
   
   // Fire-Fang: 20-35% reflection after special ability
-  if (items.gold?.id === 'fire_fang' && state.fireFangArmed) {
-    const level = items.gold.level;
+  if (item.id === 'fire_fang' && state.fireFangArmed) {
+    const level = item.level;
     const reflectPercent = Math.min(20 + (level - 1) * 5, 35);
     reflectedDamage = Math.floor(incomingDamage * (reflectPercent / 100));
     state.fireFangArmed = false;
@@ -363,12 +372,12 @@ function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDa
 // Hook: Check for Self-Defibrillator revival
 function checkDefibrillatorRevive(battle, playerSlot) {
   const equipmentData = battle[`${playerSlot}Equipment`];
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) return false;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) return false;
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
-  if (items.legendary?.id === 'self_defibrillator' && !state.defibrillatorUsed && battle[`${playerSlot}HP`] <= 0) {
-    const level = items.legendary.level;
+  if (item.id === 'self_defibrillator' && !state.defibrillatorUsed && battle[`${playerSlot}HP`] <= 0) {
+    const level = item.level;
     const reviveEnergy = 5 + (level - 1) * 2;
     
     state.defibrillatorUsed = true;
@@ -385,12 +394,12 @@ function checkDefibrillatorRevive(battle, playerSlot) {
 // Hook: Apply Energy-Smash refund
 function applyEnergySmashRefund(battle, playerSlot, energyUsed) {
   const equipmentData = battle[`${playerSlot}Equipment`];
-  if (!equipmentData || !equipmentData.items || !equipmentData.state) return 0;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) return 0;
   
-  const { items, state } = equipmentData;
+  const { item, state } = equipmentData;
   
-  if (items.legendary?.id === 'energy_smash' && state.energySmashArmed) {
-    const level = items.legendary.level;
+  if (item.id === 'energy_smash' && state.energySmashArmed) {
+    const level = item.level;
     const refundPercent = Math.min(70 + (level - 1) * 5, 90);
     const refundAmount = Math.floor(energyUsed * (refundPercent / 100));
     
@@ -409,46 +418,35 @@ function applyEnergySmashRefund(battle, playerSlot, energyUsed) {
   return 0;
 }
 
-// Get equipment status display
+// Get equipment status display (single item system)
 function getEquipmentStatusDisplay(equipmentData) {
-  if (!equipmentData) return '';
+  if (!equipmentData || !equipmentData.item) return '';
   
-  const { items, state } = equipmentData;
-  const status = [];
+  const { item, state } = equipmentData;
+  let statusText = `${item.emoji} ${item.name} Lv.${item.level}`;
   
-  if (items.silver) {
-    let statusText = `${items.silver.emoji} ${items.silver.name} Lv.${items.silver.level}`;
-    if (items.silver.id === 'med_drop') {
-      statusText += state.medDropUsed ? ' ❌' : ' ✅';
-    }
-    status.push(statusText);
+  // Add status indicator
+  if (item.id === 'med_drop') {
+    statusText += state.medDropUsed ? ' ❌' : ' ✅';
+  } else if (item.id === 'vanish_ring') {
+    statusText += ' ✅';
+  } else if (item.id === 'leech_suck') {
+    statusText += state.leechSuckUsed ? ' ❌' : ' ✅';
+  } else if (item.id === 'mist_dodge') {
+    statusText += state.mistDodgeUsed ? ' ❌' : (state.mistDodgeActive ? ' ⚡' : ' ✅');
+  } else if (item.id === 'fire_fang') {
+    statusText += state.fireFangUsed ? ' ❌' : (state.fireFangArmed ? ' ⚡' : ' ✅');
+  } else if (item.id === 'reflective_mirror') {
+    statusText += state.reflectiveMirrorUsed ? ' ❌' : (state.reflectiveMirrorArmed ? ' ⚡' : ' ✅');
+  } else if (item.id === 'self_defibrillator') {
+    statusText += state.defibrillatorUsed ? ' ❌' : ' ✅';
+  } else if (item.id === 'energy_smash') {
+    statusText += state.energySmashUsed ? ' ❌' : (state.energySmashArmed ? ' ⚡' : ' ✅');
   }
   
-  if (items.gold) {
-    let statusText = `${items.gold.emoji} ${items.gold.name} Lv.${items.gold.level}`;
-    if (items.gold.id === 'leech_suck') {
-      statusText += state.leechSuckUsed ? ' ❌' : ' ✅';
-    } else if (items.gold.id === 'mist_dodge') {
-      statusText += state.mistDodgeUsed ? ' ❌' : (state.mistDodgeActive ? ' ⚡' : ' ✅');
-    } else if (items.gold.id === 'fire_fang') {
-      statusText += state.fireFangUsed ? ' ❌' : (state.fireFangArmed ? ' ⚡' : ' ✅');
-    }
-    status.push(statusText);
-  }
+  statusText += ` - ${item.detailedDescription(item.level)}`;
   
-  if (items.legendary) {
-    let statusText = `${items.legendary.emoji} ${items.legendary.name} Lv.${items.legendary.level}`;
-    if (items.legendary.id === 'reflective_mirror') {
-      statusText += state.reflectiveMirrorUsed ? ' ❌' : ' ✅';
-    } else if (items.legendary.id === 'self_defibrillator') {
-      statusText += state.defibrillatorUsed ? ' ❌' : ' ✅';
-    } else if (items.legendary.id === 'energy_smash') {
-      statusText += state.energySmashUsed ? ' ❌' : (state.energySmashArmed ? ' ⚡' : ' ✅');
-    }
-    status.push(statusText);
-  }
-  
-  return status.length > 0 ? '\n**Equipment:** ' + status.join(' | ') : '';
+  return '\n**Equipment:** ' + statusText;
 }
 
 module.exports = {

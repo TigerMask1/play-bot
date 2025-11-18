@@ -1371,18 +1371,10 @@ client.on('messageCreate', async (message) => {
         const equipment = getCharacterEquipment(data.users[userId], userChar);
         
         let equipmentDisplay = '';
-        const slots = ['legendary', 'gold', 'silver'];
-        for (const slot of slots) {
-          const item = equipment[slot];
-          if (item) {
-            equipmentDisplay += `${getTierEmoji(slot)} ${item.emoji} ${item.name} (Lv.${item.level})\n`;
-          } else {
-            equipmentDisplay += `${getTierEmoji(slot)} *Empty*\n`;
-          }
-        }
-        
-        if (!equipmentDisplay || equipmentDisplay.trim() === '') {
-          equipmentDisplay = '*No equipment equipped*\nUse `!equip <character> <item>` to equip items!';
+        if (equipment) {
+          equipmentDisplay = `${getTierEmoji(equipment.tier)} ${equipment.emoji} ${equipment.name} (Lv.${equipment.level})\n${equipment.detailedDescription(equipment.level)}`;
+        } else {
+          equipmentDisplay = '*No equipment equipped*\nUse `!equip <character> <item>` to equip an item!';
         }
         
         const charEmbed = new EmbedBuilder()
@@ -1534,15 +1526,14 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const unequipmentCharName = args[0];
-        const unequipmentTier = args[1]?.toLowerCase();
+        const unequipmentCharName = args.join(' ');
         
-        if (!unequipmentCharName || !unequipmentTier) {
-          await message.reply('❌ Usage: `!unequip <character> <tier>`\nTiers: silver, gold, legendary\nExample: `!unequip Nix silver`');
+        if (!unequipmentCharName) {
+          await message.reply('❌ Usage: `!unequip <character>`\nExample: `!unequip Nix`');
           return;
         }
         
-        const unequipmentResult = unequipItem(data.users[userId], unequipmentCharName, unequipmentTier);
+        const unequipmentResult = unequipItem(data.users[userId], unequipmentCharName);
         
         if (unequipmentResult.success) {
           await saveDataImmediate(data);

@@ -22,16 +22,18 @@ const EQUIPMENT_ITEMS = {
     name: 'Med-Drop',
     tier: EQUIPMENT_TIERS.SILVER,
     emoji: '💉',
-    description: 'Heals you for a percentage of damage dealt',
+    description: 'Chance to heal when you deal damage',
     type: 'passive',
     baseEffect: {
       healPercent: 5,
+      procChance: 30,
       maxActivations: 1,
       scalePerLevel: 1.5
     },
     detailedDescription: (level) => {
       const healPercent = 5 + (level - 1) * 1.5;
-      return `Heals you for ${healPercent.toFixed(1)}% of damage you deal (activates once per battle)`;
+      const procChance = Math.min(30 + (level - 1) * 5, 70);
+      return `${procChance}% chance to heal ${healPercent.toFixed(1)}% of damage dealt (once per battle, only when not at full HP)`;
     }
   },
   'vanish_ring': {

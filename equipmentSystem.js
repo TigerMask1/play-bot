@@ -70,31 +70,31 @@ function initializeCharacterEquipment(character) {
   if (!character.equipment) {
     character.equipment = {
       collection: {}, // Character-specific equipment inventory
-      slots: {        // Equipped items
-        silver: null,
-        gold: null,
-        legendary: null
-      }
+      equipped: null  // Single equipped item (itemId)
     };
   }
   
-  // Ensure old structure compatibility - migrate slots if needed
+  // Ensure old structure compatibility - migrate from multi-slot to single-slot
   if (!character.equipment.collection) {
     character.equipment.collection = {};
   }
   
-  if (!character.equipment.slots) {
+  // Migrate from old multi-slot system to new single-slot system
+  if (character.equipment.slots && typeof character.equipment.equipped === 'undefined') {
+    // Pick the first non-null item from old slots (priority: legendary > gold > silver)
+    const oldSlots = character.equipment.slots;
+    character.equipment.equipped = oldSlots.legendary || oldSlots.gold || oldSlots.silver || null;
+    delete character.equipment.slots;
+  } else if (!character.equipment.hasOwnProperty('equipped')) {
+    // Migrate very old structure with direct slot properties
     const oldEquipment = { ...character.equipment };
-    character.equipment.slots = {
-      silver: oldEquipment.silver || null,
-      gold: oldEquipment.gold || null,
-      legendary: oldEquipment.legendary || null
-    };
+    character.equipment.equipped = oldEquipment.legendary || oldEquipment.gold || oldEquipment.silver || null;
     
     // Clean up old slot references
     delete character.equipment.silver;
     delete character.equipment.gold;
     delete character.equipment.legendary;
+    delete character.equipment.slots;
   }
   
   // Ensure character has a unique ID
@@ -180,11 +180,8 @@ function equipItem(user, characterName, itemId) {
     };
   }
   
-  // Get tier slot
-  const slot = item.tier;
-  
   // Check if already equipped
-  if (character.equipment.slots[slot] === itemId) {
+  if (character.equipment.equipped === itemId) {
     return {
       success: false,
       message: `❌ **${item.emoji} ${item.name}** is already equipped to ${character.emoji} ${character.name}!`
@@ -192,10 +189,10 @@ function equipItem(user, characterName, itemId) {
   }
   
   // Get previously equipped item
-  const previousItem = character.equipment.slots[slot] ? getEquipmentItem(character.equipment.slots[slot]) : null;
+  const previousItem = character.equipment.equipped ? getEquipmentItem(character.equipment.equipped) : null;
   
-  // Equip the item
-  character.equipment.slots[slot] = itemId;
+  // Equip the item (only one item can be equipped at a time)
+  character.equipment.equipped = itemId;
   
   const level = character.equipment.collection[itemId].level;
   
@@ -210,7 +207,7 @@ function equipItem(user, characterName, itemId) {
 }
 
 // Unequip an item from a character
-function unequipItem(user, characterName, tier) {
+function unequipItem(user, characterName) {
   // Find character
   const character = user.characters.find(c => c.name.toLowerCase() === characterName.toLowerCase());
   if (!character) {
@@ -223,29 +220,19 @@ function unequipItem(user, characterName, tier) {
   // Initialize equipment
   initializeCharacterEquipment(character);
   
-  // Validate tier
-  if (!['silver', 'gold', 'legendary'].includes(tier.toLowerCase())) {
-    return {
-      success: false,
-      message: `❌ Invalid tier! Use: silver, gold, or legendary`
-    };
-  }
-  
-  const slot = tier.toLowerCase();
-  
   // Check if something is equipped
-  if (!character.equipment.slots[slot]) {
+  if (!character.equipment.equipped) {
     return {
       success: false,
-      message: `❌ No ${getTierEmoji(slot)} **${slot}** item equipped on ${character.emoji} ${character.name}!`
+      message: `❌ No item equipped on ${character.emoji} ${character.name}!`
     };
   }
   
-  const itemId = character.equipment.slots[slot];
+  const itemId = character.equipment.equipped;
   const item = getEquipmentItem(itemId);
   
   // Unequip
-  character.equipment.slots[slot] = null;
+  character.equipment.equipped = null;
   
   return {
     success: true,
@@ -285,30 +272,35 @@ function getCharacterItems(character) {
   return items;
 }
 
-// Get equipped items for a character
+// Get equipped item for a character (single item system)
 function getCharacterEquipment(user, character) {
   initializeCharacterEquipment(character);
   
-  const equipped = {
-    silver: null,
-    gold: null,
-    legendary: null
-  };
+  const itemId = character.equipment.equipped;
   
-  for (const [slot, itemId] of Object.entries(character.equipment.slots)) {
-    if (itemId && character.equipment.collection[itemId]) {
-      const item = getEquipmentItem(itemId);
-      if (item) {
-        equipped[slot] = {
-          ...item,
-          level: character.equipment.collection[itemId].level,
-          copies: character.equipment.collection[itemId].copies
-        };
-      }
-    }
+  if (!itemId) {
+    return null;
   }
   
-  return equipped;
+  const itemData = character.equipment.collection[itemId];
+  
+  // Only return if character actually owns copies
+  if (!itemData || itemData.copies === 0) {
+    character.equipment.equipped = null; // Clean up invalid reference
+    return null;
+  }
+  
+  const item = getEquipmentItem(itemId);
+  if (!item) {
+    character.equipment.equipped = null; // Clean up invalid reference
+    return null;
+  }
+  
+  return {
+    ...item,
+    level: itemData.level,
+    copies: itemData.copies
+  };
 }
 
 // Format item display
@@ -342,23 +334,12 @@ function formatCharacterEquipment(user, character) {
   
   let display = `**${character.emoji} ${character.name}'s Equipment**\n\n`;
   
-  const slots = ['legendary', 'gold', 'silver'];
-  let hasAny = false;
-  
-  for (const slot of slots) {
-    const item = equipment[slot];
-    display += `${getTierEmoji(slot)} **${slot.charAt(0).toUpperCase() + slot.slice(1)}**: `;
-    
-    if (item) {
-      display += `${item.emoji} ${item.name} (Lv.${item.level})\n`;
-      hasAny = true;
-    } else {
-      display += `*Empty*\n`;
-    }
-  }
-  
-  if (!hasAny) {
-    display += `\n💡 Use \`!equip ${character.name} <item_name>\` to equip items!`;
+  if (equipment) {
+    display += `${getTierEmoji(equipment.tier)} ${equipment.emoji} **${equipment.name}** (Lv.${equipment.level})\n`;
+    display += `${equipment.detailedDescription(equipment.level)}\n`;
+  } else {
+    display += `*No equipment equipped*\n`;
+    display += `\n💡 Use \`!equip ${character.name} <item_name>\` to equip an item!`;
   }
   
   return display;
