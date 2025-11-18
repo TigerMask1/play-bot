@@ -130,13 +130,13 @@ function createEquipmentButtons(equipmentData, playerSlot, battleId) {
 }
 
 // Handle equipment button interactions
-async function handleEquipmentButton(battle, interaction, buttonId) {
+// Returns { success: boolean, message: string } instead of handling the interaction directly
+function handleEquipmentButton(battle, buttonId) {
   const playerSlot = buttonId.includes('_p1') || buttonId.includes('_player1') ? 'player1' : 'player2';
   const equipmentData = battle[`${playerSlot}Equipment`];
   
   if (!equipmentData || !equipmentData.item || !equipmentData.state) {
-    await interaction.reply({ content: '❌ No equipment data!', flags: 64 });
-    return false;
+    return { success: false, message: '❌ No equipment data!' };
   }
   
   const { item, state } = equipmentData;
@@ -144,13 +144,11 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
   // Leech-Suck activation
   if (buttonId.includes('leech')) {
     if (state.leechSuckUsed) {
-      await interaction.reply({ content: '❌ Leech-Suck already used!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Leech-Suck already used!' };
     }
     
     if (!item || item.id !== 'leech_suck') {
-      await interaction.reply({ content: '❌ Invalid equipment!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Invalid equipment!' };
     }
     
     const opponentSlot = playerSlot === 'player1' ? 'player2' : 'player1';
@@ -167,84 +165,75 @@ async function handleEquipmentButton(battle, interaction, buttonId) {
     
     state.leechSuckUsed = true;
     
-    await interaction.reply({ 
-      content: `🧛 **Leech-Suck activated!** Drained ${drainAmount} HP (${drainPercent.toFixed(1)}%) from opponent!`, 
-      flags: 64 
-    });
-    return true;
+    return { 
+      success: true, 
+      message: `🧛 **Leech-Suck activated!** Drained ${drainAmount} HP (${drainPercent.toFixed(1)}%) from opponent!`
+    };
   }
   
   // Mist-Dodge activation
   if (buttonId.includes('mist')) {
     if (state.mistDodgeUsed) {
-      await interaction.reply({ content: '❌ Mist-Dodge already used!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Mist-Dodge already used!' };
     }
     
     state.mistDodgeActive = true;
     state.mistDodgeUsed = true;
     
-    await interaction.reply({ 
-      content: `🌫️ **Mist-Dodge activated!** Next opponent attack may miss!`, 
-      flags: 64 
-    });
-    return true;
+    return { 
+      success: true, 
+      message: `🌫️ **Mist-Dodge activated!** Next opponent attack may miss!`
+    };
   }
   
   // Fire-Fang activation
   if (buttonId.includes('fire')) {
     if (state.fireFangUsed) {
-      await interaction.reply({ content: '❌ Fire-Fang already used!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Fire-Fang already used!' };
     }
     
     state.fireFangArmed = !state.fireFangArmed;
     
-    await interaction.reply({ 
-      content: state.fireFangArmed 
+    return { 
+      success: true, 
+      message: state.fireFangArmed 
         ? `🔥 **Fire-Fang armed!** Use your special ability, then opponent's next move will reflect damage!`
-        : `🔥 Fire-Fang disarmed.`, 
-      flags: 64 
-    });
-    return true;
+        : `🔥 Fire-Fang disarmed.`
+    };
   }
   
   // Reflective-Mirror activation (hidden)
   if (buttonId.includes('mirror')) {
     if (state.reflectiveMirrorUsed) {
-      await interaction.reply({ content: '❌ Reflective-Mirror already used!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Reflective-Mirror already used!' };
     }
     
     state.reflectiveMirrorArmed = true;
     state.reflectiveMirrorUsed = true;
     
-    await interaction.reply({ 
-      content: `🪞 **Reflective-Mirror set!** (Hidden activation - opponent won't see this)`, 
-      flags: 64 
-    });
-    return true;
+    return { 
+      success: true, 
+      message: `🪞 **Reflective-Mirror set!** (Hidden activation - opponent won't see this)`
+    };
   }
   
   // Energy-Smash activation
   if (buttonId.includes('smash')) {
     if (state.energySmashUsed) {
-      await interaction.reply({ content: '❌ Energy-Smash already used!', flags: 64 });
-      return false;
+      return { success: false, message: '❌ Energy-Smash already used!' };
     }
     
     state.energySmashArmed = !state.energySmashArmed;
     
-    await interaction.reply({ 
-      content: state.energySmashArmed 
+    return { 
+      success: true, 
+      message: state.energySmashArmed 
         ? `⚡ **Energy-Smash armed!** Your next move will refund energy!`
-        : `⚡ Energy-Smash disarmed.`, 
-      flags: 64 
-    });
-    return true;
+        : `⚡ Energy-Smash disarmed.`
+    };
   }
   
-  return false;
+  return { success: false, message: '❌ Unknown equipment action!' };
 }
 
 // Hook: On damage dealt by player (for Med-Drop)

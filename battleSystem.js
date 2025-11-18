@@ -585,12 +585,29 @@ async function promptTurn(battle, channel, data) {
         await showItemMenu(interaction, battle, data, isPlayer1);
         return;
       } else if (interaction.customId.startsWith('equip_')) {
-        await handleEquipmentButton(battle, interaction, interaction.customId);
-        setTimeout(() => {
-          if (activeBattles.has(battle.player1)) {
-            promptTurn(battle, channel, data);
-          }
-        }, 1500);
+        const result = handleEquipmentButton(battle, interaction.customId);
+        
+        try {
+          await interaction.editReply({ content: result.message, embeds: [], components: [] }).catch(async () => {
+            await interaction.followUp({ content: result.message, flags: 64 });
+          });
+        } catch (err) {
+          console.error('Error showing equipment message:', err);
+        }
+        
+        if (result.success) {
+          setTimeout(() => {
+            if (activeBattles.has(battle.player1)) {
+              promptTurn(battle, channel, data);
+            }
+          }, 1500);
+        } else {
+          setTimeout(() => {
+            if (activeBattles.has(battle.player1)) {
+              promptTurn(battle, channel, data);
+            }
+          }, 1000);
+        }
         return;
       } else if (interaction.customId.startsWith('move_')) {
         const moveIndex = parseInt(interaction.customId.split('_')[1]);
