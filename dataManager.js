@@ -129,6 +129,11 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.itemCollection === undefined) {
+      user.itemCollection = {};
+      needsSave = true;
+    }
+    
     if (user.characters && Array.isArray(user.characters)) {
       user.characters.forEach(char => {
         if (char.st === undefined) {
@@ -153,6 +158,20 @@ function backfillUserData(data) {
         
         if (!char.ownedSkins) {
           char.ownedSkins = ['default'];
+          needsSave = true;
+        }
+        
+        if (!char.equipment) {
+          char.equipment = {
+            silver: null,
+            gold: null,
+            legendary: null
+          };
+          needsSave = true;
+        }
+        
+        if (!char.id) {
+          char.id = `${char.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           needsSave = true;
         }
         

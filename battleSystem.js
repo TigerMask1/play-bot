@@ -6,6 +6,18 @@ const { MOVE_EFFECTS, applyEffect, processEffects, hasEffect, getEffectsDisplay,
 const { getUserBattleItems, useItem } = require('./itemsSystem.js');
 const eventSystem = require('./eventSystem.js');
 const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
+const { 
+  prepareBattleEquipment, 
+  createEquipmentButtons, 
+  handleEquipmentButton,
+  onDamageDealt,
+  onOpponentMove,
+  checkMistDodge,
+  calculateReflectedDamage,
+  checkDefibrillatorRevive,
+  applyEnergySmashRefund,
+  getEquipmentStatusDisplay
+} = require('./equipmentBattleEffects.js');
 
 const activeBattles = new Map();
 const battleInvites = new Map();
@@ -279,6 +291,9 @@ async function startBattle(battle, channel, data) {
   battle.started = true;
   battle.currentTurn = Math.random() < 0.5 ? battle.player1 : battle.player2;
   
+  battle.player1Equipment = prepareBattleEquipment(battle, 'player1', data.users[battle.player1], battle.player1Character);
+  battle.player2Equipment = prepareBattleEquipment(battle, 'player2', data.users[battle.player2], battle.player2Character);
+  
   const ability1 = battle.player1Ability;
   const ability2 = battle.player2Ability;
   
@@ -294,6 +309,9 @@ async function startBattle(battle, channel, data) {
     battle.player2Buffs[randomBuff] = { value: 1.2, duration: 4 };
   }
   
+  const p1EquipStatus = getEquipmentStatusDisplay(battle.player1Equipment);
+  const p2EquipStatus = getEquipmentStatusDisplay(battle.player2Equipment);
+  
   const battleStartEmbed = new EmbedBuilder()
     .setColor('#FFD700')
     .setTitle('⚔️ BATTLE BEGINS!')
@@ -301,12 +319,12 @@ async function startBattle(battle, channel, data) {
     .addFields(
       { 
         name: `${battle.player1Character.emoji} ${battle.player1Character.name}`, 
-        value: `HP: ${battle.player1HP}/${battle.player1MaxHP}${battle.player1Shield > 0 ? ` 🛡️${battle.player1Shield}` : ''}\n⚡ Energy: ${battle.player1Energy}/${MAX_ENERGY}${battle.player1Ability ? `\n${battle.player1Ability.emoji} ${battle.player1Ability.name}` : ''}`, 
+        value: `HP: ${battle.player1HP}/${battle.player1MaxHP}${battle.player1Shield > 0 ? ` 🛡️${battle.player1Shield}` : ''}\n⚡ Energy: ${battle.player1Energy}/${MAX_ENERGY}${battle.player1Ability ? `\n${battle.player1Ability.emoji} ${battle.player1Ability.name}` : ''}${p1EquipStatus}`, 
         inline: true 
       },
       { 
         name: `${battle.player2Character.emoji} ${battle.player2Character.name}`, 
-        value: `HP: ${battle.player2HP}/${battle.player2MaxHP}${battle.player2Shield > 0 ? ` 🛡️${battle.player2Shield}` : ''}\n⚡ Energy: ${battle.player2Energy}/${MAX_ENERGY}${battle.player2Ability ? `\n${battle.player2Ability.emoji} ${battle.player2Ability.name}` : ''}`, 
+        value: `HP: ${battle.player2HP}/${battle.player2MaxHP}${battle.player2Shield > 0 ? ` 🛡️${battle.player2Shield}` : ''}\n⚡ Energy: ${battle.player2Energy}/${MAX_ENERGY}${battle.player2Ability ? `\n${battle.player2Ability.emoji} ${battle.player2Ability.name}` : ''}${p2EquipStatus}`, 
         inline: true 
       }
     );
@@ -418,9 +436,18 @@ async function promptTurn(battle, channel, data) {
   }
   
   if ((isPlayer1 ? battle.player1HP : battle.player2HP) <= 0) {
-    const winner = isPlayer1 ? battle.player2 : battle.player1;
-    await endBattle(battle, channel, data, 'knockout', winner);
-    return;
+    const playerSlot = isPlayer1 ? 'player1' : 'player2';
+    const revived = checkDefibrillatorRevive(battle, playerSlot);
+    
+    if (revived) {
+      const revivedChar = isPlayer1 ? battle.player1Character : battle.player2Character;
+      const revivedEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
+      await channel.send(`⚡💚 **SELF-DEFIBRILLATOR ACTIVATED!**\n${revivedChar.emoji} ${revivedChar.name} miraculously revived with full HP and ${revivedEnergy} energy!`);
+    } else {
+      const winner = isPlayer1 ? battle.player2 : battle.player1;
+      await endBattle(battle, channel, data, 'knockout', winner);
+      return;
+    }
   }
   
   if (effectsResult.skipTurn) {
@@ -479,10 +506,17 @@ async function promptTurn(battle, channel, data) {
     .setStyle(ButtonStyle.Success)
     .setEmoji('🎒');
   
+  const playerSlot = isPlayer1 ? 'player1' : 'player2';
+  const equipmentButtons = createEquipmentButtons(battle[`${playerSlot}Equipment`], playerSlot);
+  
   const rows = [
     new ActionRowBuilder().addComponents(moveButtons.slice(0, 3)),
     new ActionRowBuilder().addComponents(passButton, itemButton, fleeButton)
   ];
+  
+  if (equipmentButtons.length > 0) {
+    rows.push(new ActionRowBuilder().addComponents(equipmentButtons));
+  }
   
   const effectsDisplay1 = getEffectsDisplay(battle, battle.player1);
   const effectsDisplay2 = getEffectsDisplay(battle, battle.player2);
@@ -549,6 +583,14 @@ async function promptTurn(battle, channel, data) {
         return;
       } else if (interaction.customId === `items_${battle.id}`) {
         await showItemMenu(interaction, battle, data, isPlayer1);
+        return;
+      } else if (interaction.customId.startsWith('equip_')) {
+        await handleEquipmentButton(battle, interaction, interaction.customId);
+        setTimeout(() => {
+          if (activeBattles.has(battle.player1)) {
+            promptTurn(battle, channel, data);
+          }
+        }, 1500);
         return;
       } else if (interaction.customId.startsWith('move_')) {
         const moveIndex = parseInt(interaction.customId.split('_')[1]);
@@ -767,6 +809,18 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
     battle.player2Energy -= energyCost;
   }
   
+  const playerSlot = isPlayer1 ? 'player1' : 'player2';
+  const energyRefund = applyEnergySmashRefund(battle, playerSlot, energyCost);
+  if (energyRefund > 0) {
+    await channel.send(`⚡ **Energy-Smash**: ${currentChar.emoji} ${currentChar.name} refunded ${energyRefund} energy!`);
+  }
+  
+  const opponentSlot = isPlayer1 ? 'player2' : 'player1';
+  const vanishDrain = onOpponentMove(battle, playerSlot, energyCost);
+  if (vanishDrain > 0) {
+    await channel.send(`💍 **Vanish-Ring**: ${opponentChar.emoji} ${opponentChar.name} lost ${vanishDrain} extra energy!`);
+  }
+  
   if (currentAbility && currentAbility.effect.specialEnergyRefund && isSpecial) {
     const refund = Math.round(energyCost * currentAbility.effect.specialEnergyRefund);
     if (isPlayer1) {
@@ -853,6 +907,12 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
     const opponentMaxHP = isPlayer1 ? battle.player2MaxHP : battle.player1MaxHP;
     let opponentShield = isPlayer1 ? battle.player2Shield : battle.player1Shield;
     
+    const opponentSlot = isPlayer1 ? 'player2' : 'player1';
+    if (checkMistDodge(battle, opponentSlot)) {
+      baseDamage = 0;
+      await channel.send(`🌫️ **Mist-Dodge**: ${opponentChar.emoji} ${opponentChar.name} completely avoided the attack!`);
+    }
+    
     if (opponentAbility && opponentAbility.effect.dodgeChance && Math.random() < opponentAbility.effect.dodgeChance) {
       baseDamage = 0;
       await channel.send(`${opponentAbility.emoji} **${opponentAbility.name}**: ${opponentChar.emoji} ${opponentChar.name} dodged the attack!`);
@@ -897,6 +957,17 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       battle.player2HP = Math.max(0, battle.player2HP - finalDamage);
     } else {
       battle.player1HP = Math.max(0, battle.player1HP - finalDamage);
+    }
+    
+    const playerSlot = isPlayer1 ? 'player1' : 'player2';
+    const medDropHeal = onDamageDealt(battle, playerSlot, finalDamage);
+    if (medDropHeal > 0) {
+      await channel.send(`💉 **Med-Drop**: ${currentChar.emoji} ${currentChar.name} healed for ${medDropHeal} HP!`);
+    }
+    
+    const reflectedDamage = calculateReflectedDamage(battle, playerSlot, opponentSlot, finalDamage);
+    if (reflectedDamage > 0) {
+      await channel.send(`🪞 **Reflected Damage**: ${currentChar.emoji} ${currentChar.name} took ${reflectedDamage} damage!`);
     }
     
     if (currentAbility && currentAbility.effect.lifesteal) {
@@ -1020,9 +1091,18 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
   }
   
   if ((isPlayer1 ? battle.player2HP : battle.player1HP) <= 0) {
-    const winner = isPlayer1 ? battle.player1 : battle.player2;
-    await endBattle(battle, channel, data, 'knockout', winner);
-    return;
+    const defenderSlot = isPlayer1 ? 'player2' : 'player1';
+    const revived = checkDefibrillatorRevive(battle, defenderSlot);
+    
+    if (revived) {
+      const revivedChar = isPlayer1 ? battle.player2Character : battle.player1Character;
+      const revivedEnergy = isPlayer1 ? battle.player2Energy : battle.player1Energy;
+      await channel.send(`⚡💚 **SELF-DEFIBRILLATOR ACTIVATED!**\n${revivedChar.emoji} ${revivedChar.name} miraculously revived with full HP and ${revivedEnergy} energy!`);
+    } else {
+      const winner = isPlayer1 ? battle.player1 : battle.player2;
+      await endBattle(battle, channel, data, 'knockout', winner);
+      return;
+    }
   }
   
   battle.currentTurn = isPlayer1 ? battle.player2 : battle.player1;

@@ -58,6 +58,14 @@ const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 const { openShop } = require('./shopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
+const { 
+  equipItem, 
+  unequipItem, 
+  formatItemsInventory, 
+  formatCharacterEquipment,
+  getUserItems 
+} = require('./equipmentSystem.js');
+const { getEquipmentItem } = require('./equipmentConfig.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
@@ -1404,6 +1412,107 @@ client.on('messageCreate', async (message) => {
           .setDescription(`<@${userId}> released **${charToRelease.name} ${charToRelease.emoji}**!\n\nLevel: ${charToRelease.level}\nST: ${charToRelease.st}%\nTokens: ${charToRelease.tokens}\n\nGoodbye, ${charToRelease.name}!`);
         
         await message.reply({ embeds: [releaseEmbed] });
+        break;
+        
+      case 'items':
+      case 'equipment':
+      case 'gear':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const itemsDisplay = formatItemsInventory(data.users[userId]);
+        
+        const itemsEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle('⚔️ Equipment Collection')
+          .setDescription(itemsDisplay);
+        
+        await message.reply({ embeds: [itemsEmbed] });
+        break;
+        
+      case 'equip':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const equipmentCharName = args[0];
+        const equipmentItemName = args.slice(1).join(' ').toLowerCase().replace(/-/g, '_');
+        
+        if (!equipmentCharName || !equipmentItemName) {
+          await message.reply('❌ Usage: `!equip <character> <item_name>`\nExample: `!equip Nix med-drop`\n\nUse `!items` to see your equipment collection!');
+          return;
+        }
+        
+        const equipmentResult = equipItem(data.users[userId], equipmentCharName, equipmentItemName);
+        
+        if (equipmentResult.success) {
+          await saveDataImmediate(data);
+        }
+        
+        await message.reply(equipmentResult.message);
+        break;
+        
+      case 'unequip':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const unequipmentCharName = args[0];
+        const unequipmentTier = args[1]?.toLowerCase();
+        
+        if (!unequipmentCharName || !unequipmentTier) {
+          await message.reply('❌ Usage: `!unequip <character> <tier>`\nTiers: silver, gold, legendary\nExample: `!unequip Nix silver`');
+          return;
+        }
+        
+        const unequipmentResult = unequipItem(data.users[userId], unequipmentCharName, unequipmentTier);
+        
+        if (unequipmentResult.success) {
+          await saveDataImmediate(data);
+        }
+        
+        await message.reply(unequipmentResult.message);
+        break;
+        
+      case 'iteminfo':
+      case 'equipmentinfo':
+        const infoItemName = args.join(' ').toLowerCase().replace(/-/g, '_');
+        
+        if (!infoItemName) {
+          await message.reply('❌ Usage: `!iteminfo <item_name>`\nExample: `!iteminfo med-drop`');
+          return;
+        }
+        
+        const itemInfo = getEquipmentItem(infoItemName);
+        
+        if (!itemInfo) {
+          await message.reply('❌ Item not found! Use `!items` to see available equipment.');
+          return;
+        }
+        
+        const userItemData = data.users[userId].itemCollection?.[infoItemName];
+        const itemLevel = userItemData?.level || 1;
+        
+        const itemInfoEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle(`${itemInfo.emoji} ${itemInfo.name}`)
+          .setDescription(`**Tier:** ${itemInfo.tier.toUpperCase()}\n**Type:** ${itemInfo.type}\n\n${itemInfo.detailedDescription(itemLevel)}`)
+          .addFields(
+            { name: 'Description', value: itemInfo.description, inline: false }
+          );
+        
+        if (userItemData) {
+          itemInfoEmbed.addFields(
+            { name: 'Your Level', value: `${itemLevel}`, inline: true },
+            { name: 'Copies Owned', value: `${userItemData.copies}`, inline: true }
+          );
+        }
+        
+        await message.reply({ embeds: [itemInfoEmbed] });
         break;
         
       case 'setdrop':
@@ -3412,7 +3521,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <character>` - Choose starter character' },
             { name: '🎰 Minigames (NEW!)', value: '`!coinduel <h/t> <bet>` - Coin flip (×2, rare ×5)\n`!diceclash <bet>` - Progressive dice rolling\n`!dooroffate <bet>` - Pick 1 of 3 doors\n`!almostwin <bet>` - Roll 1-100 for prizes\n`!rps <r/p/s> <bet>` - Rock Paper Scissors\n💡 **1.5× rewards on main server!**' },
             { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
-            { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop' },
+            { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop\n`!items` - View equipment collection\n`!equip <char> <item>` - Equip item to character\n`!unequip <char> <tier>` - Unequip item\n`!iteminfo <item>` - View item details' },
             { name: '🎁 Drops & Rewards', value: '`!c <code>` - Catch drops\n`!paydrops` - Activate drops (100 gems/3h)\n`!dropstatus` - Check drop timer\n`!daily` - Daily rewards' },
             { name: '📦 Crates & Shop', value: '`!crate [type]` - Open crates\n`!pickcrate <type>` - Choose crate to open\n`!opencrate` - Open selected crate\n`!buycrate <type>` - Buy crates' },
             { name: '💱 Trading', value: '`!t @user` - Trade with users' },

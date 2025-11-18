@@ -3,6 +3,8 @@ const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
 const eventSystem = require('./eventSystem.js');
 const { checkTaskProgress, completePersonalizedTask, initializePersonalizedTaskData } = require('./personalizedTaskSystem.js');
 const { getEmojiForCharacter } = require('./emojiAssetManager.js');
+const { CRATE_ITEM_POOLS } = require('./equipmentConfig.js');
+const { grantItem } = require('./equipmentSystem.js');
 
 const CRATE_TYPES = {
   bronze: {
@@ -210,6 +212,59 @@ async function openCrate(data, userId, crateType, client = null) {
     } else {
       user.gems += 50;
       rewards += `\n\n✨ Bonus: 50 gems (all characters owned!)`;
+    }
+  }
+  
+  const itemPool = CRATE_ITEM_POOLS[crateType];
+  if (itemPool) {
+    for (let i = 0; i < itemPool.maxRolls; i++) {
+      const itemRoll = Math.random() * 100;
+      
+      if (itemRoll < itemPool.dropChance) {
+        let selectedItem;
+        
+        if (itemPool.tierWeights) {
+          const tierRoll = Math.random() * 100;
+          let cumulativeWeight = 0;
+          let selectedTier = null;
+          
+          for (const [tier, weight] of Object.entries(itemPool.tierWeights)) {
+            cumulativeWeight += weight;
+            if (tierRoll < cumulativeWeight) {
+              selectedTier = tier;
+              break;
+            }
+          }
+          
+          const tierItems = itemPool.items.filter(itemId => {
+            const { getEquipmentItem } = require('./equipmentConfig.js');
+            const item = getEquipmentItem(itemId);
+            return item && item.tier === selectedTier;
+          });
+          
+          if (tierItems.length > 0) {
+            selectedItem = tierItems[Math.floor(Math.random() * tierItems.length)];
+          }
+        } else {
+          selectedItem = itemPool.items[Math.floor(Math.random() * itemPool.items.length)];
+        }
+        
+        if (selectedItem) {
+          const result = grantItem(user, selectedItem);
+          
+          if (result.success) {
+            rewards += `\n\n⚔️ **EQUIPMENT FOUND!** ${result.item.emoji} ${result.item.name}`;
+            
+            if (result.leveledUp) {
+              rewards += ` \n🎊 **Level Up!** ${result.oldLevel} → ${result.level}`;
+            } else {
+              rewards += ` (Lv.${result.level})`;
+            }
+            
+            rewards += `\n📦 Total copies: ${result.copies}`;
+          }
+        }
+      }
     }
   }
   
