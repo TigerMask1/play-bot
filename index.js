@@ -1350,6 +1350,27 @@ client.on('messageCreate', async (message) => {
         const boostCount = getCharacterBoostCount(userChar);
         const remainingBoosts = MAX_BOOSTS_PER_CHARACTER - boostCount;
         
+        const { getCharacterEquipment, initializeCharacterEquipment } = require('./equipmentSystem.js');
+        const { getTierEmoji } = require('./equipmentConfig.js');
+        
+        initializeCharacterEquipment(userChar);
+        const equipment = getCharacterEquipment(data.users[userId], userChar);
+        
+        let equipmentDisplay = '';
+        const slots = ['legendary', 'gold', 'silver'];
+        for (const slot of slots) {
+          const item = equipment[slot];
+          if (item) {
+            equipmentDisplay += `${getTierEmoji(slot)} ${item.emoji} ${item.name} (Lv.${item.level})\n`;
+          } else {
+            equipmentDisplay += `${getTierEmoji(slot)} *Empty*\n`;
+          }
+        }
+        
+        if (!equipmentDisplay || equipmentDisplay.trim() === '') {
+          equipmentDisplay = '*No equipment equipped*\nUse `!equip <character> <item>` to equip items!';
+        }
+        
         const charEmbed = new EmbedBuilder()
           .setColor('#3498DB')
           .setTitle(`${userChar.emoji} ${userChar.name}`)
@@ -1361,6 +1382,7 @@ client.on('messageCreate', async (message) => {
             { name: 'ST Boosts', value: `${boostCount}/${MAX_BOOSTS_PER_CHARACTER} used\n${remainingBoosts > 0 ? `⚡ ${remainingBoosts} left` : '❌ Max reached'}`, inline: true },
             { name: 'Next Level Cost', value: `🎫 ${charReq.tokens} tokens\n💰 ${charReq.coins} coins`, inline: true },
             { name: 'Progress to Next Level', value: charProgress, inline: false },
+            { name: '⚔️ Equipment', value: equipmentDisplay, inline: false },
             { name: '🎨 Current Skin', value: userChar.currentSkin || 'default', inline: true },
             { name: '🖼️ Owned Skins', value: availableSkins.join(', '), inline: true }
           );
@@ -2645,6 +2667,27 @@ client.on('messageCreate', async (message) => {
         const infoSkinUrl = await getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
         const abilityDesc = getAbilityDescription(userInfoChar.name);
         
+        const { getCharacterEquipment: getInfoEquipment, initializeCharacterEquipment: initInfoEquipment } = require('./equipmentSystem.js');
+        const { getTierEmoji: getInfoTierEmoji } = require('./equipmentConfig.js');
+        
+        initInfoEquipment(userInfoChar);
+        const infoEquipment = getInfoEquipment(data.users[userId], userInfoChar);
+        
+        let infoEquipmentDisplay = '';
+        const infoSlots = ['legendary', 'gold', 'silver'];
+        for (const slot of infoSlots) {
+          const item = infoEquipment[slot];
+          if (item) {
+            infoEquipmentDisplay += `${getInfoTierEmoji(slot)} ${item.emoji} ${item.name} (Lv.${item.level})\n`;
+          } else {
+            infoEquipmentDisplay += `${getInfoTierEmoji(slot)} *Empty*\n`;
+          }
+        }
+        
+        if (!infoEquipmentDisplay || infoEquipmentDisplay.trim() === '') {
+          infoEquipmentDisplay = '*No equipment*';
+        }
+        
         const infoEmbed = new EmbedBuilder()
           .setColor('#9B59B6')
           .setTitle(`${userInfoChar.emoji} ${userInfoChar.name}`)
@@ -2653,6 +2696,7 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: '✨ Ability', value: abilityDesc, inline: false },
             { name: '⚔️ Moves', value: movesList, inline: false },
+            { name: '🛡️ Equipment', value: infoEquipmentDisplay, inline: false },
             { name: '📊 Battle Info', value: `Energy system: Moves cost ⚡\nCritical hits: 15% base chance\nSpecial moves cost more energy but deal more damage`, inline: false }
           );
         
