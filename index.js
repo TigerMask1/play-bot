@@ -226,7 +226,7 @@ client.on('clientReady', async () => {
     setLotteryData(data.lotteryData);
   }
   initializeGiveawaySystem(client);
-  initializeLotterySystem(client);
+  initializeLotterySystem(client, data);
   await eventSystem.init(client, data);
   await startDropSystem(client, data);
   startPromotionSystem(client);
@@ -3426,6 +3426,8 @@ client.on('messageCreate', async (message) => {
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
+            { name: '🎉 Giveaways (Main Server)', value: '`!giveaway` - View giveaway info\n`!joingiveaway` - Enter giveaway\n`!startgiveaway <mins>` - Start manual giveaway (Admin)\n`!stopgiveaway` - End giveaway early (Admin)' },
+            { name: '🎰 Lottery (All Servers)', value: '`!lottery` - View lottery info\n`!lottery join <tickets>` - Buy lottery tickets\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Start lottery (Admin)\n`!stoplottery` - End lottery early (Admin)' },
             { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
@@ -3476,6 +3478,193 @@ client.on('messageCreate', async (message) => {
         
       case 'cage':
         await openRandomCage(message, data, userId);
+        break;
+        
+      case 'giveaway':
+      case 'giveawayinfo':
+        const { getGiveawayInfo } = require('./giveawaySystem.js');
+        const giveawayInfo = await getGiveawayInfo();
+        
+        if (giveawayInfo.success) {
+          const giveawayInfoEmbed = new EmbedBuilder()
+            .setColor('#FFD700')
+            .setTitle('🎉 Giveaway Information')
+            .setDescription(giveawayInfo.message);
+          
+          await message.reply({ embeds: [giveawayInfoEmbed] });
+        } else {
+          await message.reply(giveawayInfo.message);
+        }
+        break;
+        
+      case 'joingiveaway':
+      case 'entergiveaway':
+        const { joinGiveaway } = require('./giveawaySystem.js');
+        const giveawayJoinResult = await joinGiveaway(userId, serverId);
+        
+        if (giveawayJoinResult.success) {
+          await saveDataImmediate(data);
+        }
+        
+        await message.reply(giveawayJoinResult.message);
+        break;
+        
+      case 'startgiveaway':
+        if (!isSuperAdmin(userId) && (!serverId || !isZooAdmin(message.member))) {
+          await message.reply('❌ Only Super Admins or ZooAdmins can start giveaways!');
+          return;
+        }
+        
+        if (!serverId || !isMainServer(serverId)) {
+          await message.reply('❌ Giveaways can only be started in the main server!');
+          return;
+        }
+        
+        const durationArg = parseInt(args[0]);
+        if (!durationArg || durationArg < 1 || durationArg > 1440) {
+          await message.reply('Usage: `!startgiveaway <duration in minutes>`\n\nExample: `!startgiveaway 60` (1 hour)\n\nDuration must be between 1-1440 minutes (24 hours)');
+          return;
+        }
+        
+        const { startManualGiveaway } = require('./giveawaySystem.js');
+        const giveawayStartResult = await startManualGiveaway(durationArg);
+        
+        await message.reply(giveawayStartResult.message);
+        break;
+        
+      case 'stopgiveaway':
+      case 'endgiveaway':
+        if (!isSuperAdmin(userId) && (!serverId || !isZooAdmin(message.member))) {
+          await message.reply('❌ Only Super Admins or ZooAdmins can stop giveaways!');
+          return;
+        }
+        
+        if (!serverId || !isMainServer(serverId)) {
+          await message.reply('❌ Giveaways can only be managed from the main server!');
+          return;
+        }
+        
+        const { stopManualGiveaway } = require('./giveawaySystem.js');
+        const stopGiveawayResult = await stopManualGiveaway();
+        
+        await message.reply(stopGiveawayResult.message);
+        break;
+        
+      case 'lottery':
+      case 'lotteryinfo':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const lotterySubCmd = args[0]?.toLowerCase();
+        
+        if (lotterySubCmd === 'join' || lotterySubCmd === 'buy') {
+          const { joinLottery } = require('./lotterySystem.js');
+          const ticketCount = parseInt(args[1]) || 1;
+          
+          const joinLotteryResult = await joinLottery(userId, serverId, ticketCount, data.users[userId]);
+          
+          if (joinLotteryResult.success) {
+            if (joinLotteryResult.currency === 'gems') {
+              data.users[userId].gems = (data.users[userId].gems || 0) - joinLotteryResult.cost;
+            } else {
+              data.users[userId].coins = (data.users[userId].coins || 0) - joinLotteryResult.cost;
+            }
+            await saveDataImmediate(data);
+          }
+          
+          await message.reply(joinLotteryResult.message);
+        } else {
+          const { getLotteryInfo } = require('./lotterySystem.js');
+          const lotteryInfoResult = await getLotteryInfo(serverId);
+          
+          if (lotteryInfoResult.success) {
+            const lotteryInfoEmbed = new EmbedBuilder()
+              .setColor('#9B59B6')
+              .setTitle('🎰 Lottery Information')
+              .setDescription(lotteryInfoResult.message);
+            
+            await message.reply({ embeds: [lotteryInfoEmbed] });
+          } else {
+            await message.reply(lotteryInfoResult.message);
+          }
+        }
+        break;
+        
+      case 'startlottery':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
+          await message.reply('❌ Only Super Admins or ZooAdmins can start lotteries!');
+          return;
+        }
+        
+        const durationType = args[0]?.toLowerCase();
+        const entryFee = parseInt(args[1]);
+        const currencyType = args[2]?.toLowerCase();
+        
+        if (!durationType || !entryFee || !currencyType) {
+          await message.reply(
+            '**Start a Lottery**\n\n' +
+            'Usage: `!startlottery <3h/6h/24h> <entry fee> <coins/gems>`\n\n' +
+            '**Examples:**\n' +
+            '`!startlottery 3h 100 gems` - 3 hour lottery, 100 gems per ticket\n' +
+            '`!startlottery 6h 500 coins` - 6 hour lottery, 500 coins per ticket\n' +
+            '`!startlottery 24h 1000 gems` - 24 hour lottery, 1000 gems per ticket\n\n' +
+            '**Prize Distribution:** Top 3 winners split the pool (50%, 30%, 20%)'
+          );
+          return;
+        }
+        
+        let durationHours;
+        if (durationType === '3h') durationHours = 3;
+        else if (durationType === '6h') durationHours = 6;
+        else if (durationType === '24h') durationHours = 24;
+        else {
+          await message.reply('❌ Duration must be 3h, 6h, or 24h!');
+          return;
+        }
+        
+        if (entryFee < 1) {
+          await message.reply('❌ Entry fee must be at least 1!');
+          return;
+        }
+        
+        if (currencyType !== 'coins' && currencyType !== 'gems') {
+          await message.reply('❌ Currency must be either coins or gems!');
+          return;
+        }
+        
+        const { startLottery } = require('./lotterySystem.js');
+        const startLotteryResult = await startLottery(serverId, durationHours, entryFee, currencyType, message.channel.id);
+        
+        if (startLotteryResult.success) {
+          await message.reply({ content: '✅ Lottery started!', embeds: [startLotteryResult.embed] });
+        } else {
+          await message.reply(startLotteryResult.message);
+        }
+        break;
+        
+      case 'stoplottery':
+      case 'endlottery':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
+          await message.reply('❌ Only Super Admins or ZooAdmins can stop lotteries!');
+          return;
+        }
+        
+        const { stopLottery } = require('./lotterySystem.js');
+        const stopLotteryResult = await stopLottery(serverId);
+        
+        await message.reply(stopLotteryResult.message);
         break;
     }
   } catch (error) {

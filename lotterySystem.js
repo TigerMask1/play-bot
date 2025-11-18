@@ -1,231 +1,188 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
-const { getUpdatesChannel } = require('./serverConfigManager.js');
+const { getEventsChannel } = require('./serverConfigManager.js');
 
-let lotteryData = {
-  active: false,
-  channelId: null,
-  drawTime: '21:00',
-  entryFee: 100,
-  maxTicketsPerPerson: 5,
-  prizePool: 0,
-  bonusPrizes: {
-    coins: 0,
-    crates: {},
-    characters: []
-  },
-  participants: [],
-  lastDrawDate: null,
-  winnersHistory: []
-};
+let activeLotteries = {};
 
-let lotteryInterval = null;
 let activeClient = null;
 
 function getLotteryData() {
-  return lotteryData;
+  return activeLotteries;
 }
 
 function setLotteryData(data) {
   if (data) {
-    lotteryData = { ...data };
+    activeLotteries = { ...data };
   }
 }
 
-function startLotteryScheduler() {
-  if (lotteryInterval) {
-    clearInterval(lotteryInterval);
+async function startLottery(serverId, duration, entryFee, currency, channelId) {
+  if (activeLotteries[serverId]) {
+    return { success: false, message: '❌ A lottery is already active in this server!' };
   }
   
-  lotteryInterval = setInterval(async () => {
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    const currentDate = now.toISOString().split('T')[0];
-    
-    if (currentTime === lotteryData.drawTime && lotteryData.lastDrawDate !== currentDate) {
-      lotteryData.lastDrawDate = currentDate;
-      const { loadData } = require('./dataManager.js');
-      const data = await loadData();
-      data.lotteryData = lotteryData;
-      await saveDataImmediate(data);
-      
-      await performLotteryDraw();
-    }
-  }, 60000);
+  const durationMs = duration * 60 * 60 * 1000;
+  const endTime = Date.now() + durationMs;
   
-  console.log(`🎰 Lottery scheduler started - Draw time: ${lotteryData.drawTime}`);
+  activeLotteries[serverId] = {
+    active: true,
+    channelId: channelId,
+    duration: duration,
+    startTime: Date.now(),
+    endTime: endTime,
+    entryFee: entryFee,
+    currency: currency,
+    prizePool: 0,
+    participants: [],
+    winnersHistory: []
+  };
+  
+  const { loadData } = require('./dataManager.js');
+  const data = await loadData();
+  if (!data.lotteryData) {
+    data.lotteryData = {};
+  }
+  data.lotteryData = activeLotteries;
+  await saveDataImmediate(data);
+  
+  setTimeout(async () => {
+    await performLotteryDraw(serverId);
+  }, durationMs);
+  
+  const startEmbed = new EmbedBuilder()
+    .setColor('#9B59B6')
+    .setTitle('🎰 LOTTERY STARTED!')
+    .setDescription(
+      `A new ${duration}-hour lottery has begun!\n\n` +
+      `**Entry Fee:** ${entryFee} ${currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n` +
+      `**Duration:** ${duration} hour(s)\n` +
+      `**Winners:** Top 3 participants\n` +
+      `**Prize Pool:** Splits among 3 winners (50%, 30%, 20%)\n\n` +
+      `Use \`!lottery join\` to buy tickets!\n` +
+      `Ends: <t:${Math.floor(endTime / 1000)}:R>`
+    )
+    .setTimestamp();
+  
+  return { success: true, message: 'Lottery started!', embed: startEmbed };
 }
 
-async function performLotteryDraw() {
-  if (!activeClient || !lotteryData.active || lotteryData.participants.length === 0) {
-    console.log('⚠️ Lottery draw skipped - not active or no participants');
-    
-    const capturedPrizePool = lotteryData.prizePool;
-    
-    lotteryData.prizePool = 0;
-    lotteryData.participants = [];
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    data.lotteryData = lotteryData;
-    await saveDataImmediate(data);
-    
-    if (capturedPrizePool > 0) {
-      const noWinnerEmbed = new EmbedBuilder()
-        .setColor('#FFA500')
-        .setTitle('🎰 LOTTERY DRAW - NO PARTICIPANTS')
-        .setDescription(
-          `No one participated in today's lottery!\n\n` +
-          `💎 Prize pool of ${capturedPrizePool.toLocaleString()} gems will roll over to tomorrow.\n\n` +
-          `Use \`!lottery join\` to buy tickets for tomorrow's draw!`
-        )
-        .setFooter({ text: 'Join early for better chances!' })
-        .setTimestamp();
-      
-      await broadcastToAllServers(noWinnerEmbed);
-    }
-    
+async function performLotteryDraw(serverId) {
+  const lottery = activeLotteries[serverId];
+  
+  if (!lottery || !lottery.active) {
+    console.log(`⚠️ Lottery draw skipped for server ${serverId} - not active`);
+    return;
+  }
+  
+  if (!activeClient) {
+    console.log('⚠️ Lottery draw skipped - client not ready');
     return;
   }
   
   try {
-    const winnerIndex = Math.floor(Math.random() * lotteryData.participants.length);
-    const winnerData = lotteryData.participants[winnerIndex];
-    
-    const winner = await activeClient.users.fetch(winnerData.userId).catch(() => null);
-    if (!winner) {
-      lotteryData.prizePool = 0;
-      lotteryData.participants = [];
+    if (lottery.participants.length === 0) {
+      const noParticipantsEmbed = new EmbedBuilder()
+        .setColor('#FFA500')
+        .setTitle('🎰 LOTTERY ENDED')
+        .setDescription(
+          `No one participated in the ${lottery.duration}-hour lottery!\n\n` +
+          `Better luck next time!`
+        )
+        .setTimestamp();
+      
+      const channel = await activeClient.channels.fetch(lottery.channelId).catch(() => null);
+      if (channel) {
+        await channel.send({ embeds: [noParticipantsEmbed] });
+      }
+      
+      delete activeLotteries[serverId];
       const { loadData } = require('./dataManager.js');
       const data = await loadData();
-      data.lotteryData = lotteryData;
+      data.lotteryData = activeLotteries;
       await saveDataImmediate(data);
+      
       return;
     }
     
-    const totalEntries = lotteryData.participants.length;
-    const uniqueParticipants = [...new Set(lotteryData.participants.map(p => p.userId))].length;
-    const winnerEntries = lotteryData.participants.filter(p => p.userId === winnerData.userId).length;
-    const winChance = ((winnerEntries / totalEntries) * 100).toFixed(2);
+    const uniqueParticipants = [...new Set(lottery.participants.map(p => p.userId))];
+    const totalEntries = lottery.participants.length;
     
-    const capturedPrizePool = lotteryData.prizePool;
+    const numWinners = Math.min(3, uniqueParticipants.length);
+    const winners = [];
+    const selectedUsers = new Set();
     
-    let lotteryPrizeDesc = `**Winner:** ${winner.tag}\n\n` +
-      `**Prizes:**\n` +
-      `💎 ${capturedPrizePool.toLocaleString()} Gems\n`;
-    
-    const bonusPrizes = lotteryData.bonusPrizes;
-    if (bonusPrizes.coins > 0) {
-      lotteryPrizeDesc += `💰 ${bonusPrizes.coins.toLocaleString()} Bonus Coins\n`;
-    }
-    
-    if (bonusPrizes.crates && Object.keys(bonusPrizes.crates).length > 0) {
-      for (const [crateType, count] of Object.entries(bonusPrizes.crates)) {
-        if (count > 0) {
-          lotteryPrizeDesc += `📦 ${count}x ${crateType.charAt(0).toUpperCase() + crateType.slice(1)} Crates\n`;
-        }
+    while (winners.length < numWinners) {
+      const randomIndex = Math.floor(Math.random() * lottery.participants.length);
+      const participant = lottery.participants[randomIndex];
+      
+      if (!selectedUsers.has(participant.userId)) {
+        selectedUsers.add(participant.userId);
+        winners.push(participant);
       }
     }
     
-    if (bonusPrizes.characters && bonusPrizes.characters.length > 0) {
-      lotteryPrizeDesc += `🎭 Characters: ${bonusPrizes.characters.join(', ')}\n`;
-    }
-    
-    lotteryPrizeDesc += `\n**Statistics:**\n` +
-      `🎫 Winner's Tickets: ${winnerEntries}\n` +
-      `📊 Win Chance: ${winChance}%\n` +
-      `👥 Total Participants: ${uniqueParticipants}\n` +
-      `🎟️ Total Entries: ${totalEntries}\n\n` +
-      `Congratulations! 🎊`;
-    
-    const winnerEmbed = new EmbedBuilder()
-      .setColor('#9B59B6')
-      .setTitle('🎰 DAILY LOTTERY WINNER! 🎰')
-      .setDescription(lotteryPrizeDesc)
-      .setFooter({ text: 'Try your luck tomorrow!' })
-      .setTimestamp();
-    
+    const prizeShares = [0.50, 0.30, 0.20];
     const { loadData } = require('./dataManager.js');
     const data = await loadData();
     
-    if (!data.users[winnerData.userId]) {
-      data.users[winnerData.userId] = { coins: 0, gems: 0, characters: [], crates: {} };
-    }
+    let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     
-    data.users[winnerData.userId].gems = (data.users[winnerData.userId].gems || 0) + capturedPrizePool;
-    
-    if (lotteryData.bonusPrizes.coins > 0) {
-      data.users[winnerData.userId].coins = (data.users[winnerData.userId].coins || 0) + lotteryData.bonusPrizes.coins;
-    }
-    
-    if (lotteryData.bonusPrizes.crates && Object.keys(lotteryData.bonusPrizes.crates).length > 0) {
-      if (!data.users[winnerData.userId].crates) {
-        data.users[winnerData.userId].crates = {};
-      }
-      for (const [crateType, count] of Object.entries(lotteryData.bonusPrizes.crates)) {
-        if (count > 0) {
-          data.users[winnerData.userId].crates[crateType] = 
-            (data.users[winnerData.userId].crates[crateType] || 0) + count;
-        }
-      }
-    }
-    
-    if (lotteryData.bonusPrizes.characters && lotteryData.bonusPrizes.characters.length > 0) {
-      const CHARACTERS = require('./characters.js');
-      const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
+    for (let i = 0; i < winners.length; i++) {
+      const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
+      if (!winner) continue;
       
-      if (!data.users[winnerData.userId].characters) {
-        data.users[winnerData.userId].characters = [];
+      const prize = Math.floor(lottery.prizePool * prizeShares[i]);
+      const place = ['🥇 1st', '🥈 2nd', '🥉 3rd'][i];
+      const share = ['50%', '30%', '20%'][i];
+      
+      if (!data.users[winners[i].userId]) {
+        data.users[winners[i].userId] = { coins: 0, gems: 0, characters: [], crates: {} };
       }
       
-      for (const charName of lotteryData.bonusPrizes.characters) {
-        const charData = CHARACTERS[charName];
-        if (charData) {
-          const alreadyOwns = data.users[winnerData.userId].characters.some(c => c.name === charData.name);
-          if (!alreadyOwns) {
-            const moves = assignMovesToCharacter(charData.name);
-            const baseHP = calculateBaseHP(charData.name);
-            const st = parseFloat((Math.random() * 100).toFixed(2));
-            
-            data.users[winnerData.userId].characters.push({
-              name: charData.name,
-              emoji: charData.emoji,
-              level: 1,
-              tokens: 0,
-              st: st,
-              moves: moves,
-              baseHp: baseHP,
-              currentSkin: 'default',
-              ownedSkins: ['default']
-            });
-          }
-        }
+      if (lottery.currency === 'gems') {
+        data.users[winners[i].userId].gems = (data.users[winners[i].userId].gems || 0) + prize;
+      } else {
+        data.users[winners[i].userId].coins = (data.users[winners[i].userId].coins || 0) + prize;
       }
+      
+      resultDescription += `${place} Place (${share}): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
     }
     
-    lotteryData.winnersHistory.unshift({
-      userId: winnerData.userId,
-      username: winner.tag,
-      date: new Date().toISOString(),
-      prizeAmount: capturedPrizePool,
-      participants: uniqueParticipants,
-      totalEntries: totalEntries
-    });
+    resultDescription += `**Statistics:**\n` +
+      `👥 Total Participants: ${uniqueParticipants.length}\n` +
+      `🎟️ Total Entries: ${totalEntries}\n\n` +
+      `Congratulations to all winners! 🎊`;
     
-    if (lotteryData.winnersHistory.length > 30) {
-      lotteryData.winnersHistory = lotteryData.winnersHistory.slice(0, 30);
+    const winnerEmbed = new EmbedBuilder()
+      .setColor('#9B59B6')
+      .setTitle('🎰 LOTTERY RESULTS!')
+      .setDescription(resultDescription)
+      .setFooter({ text: 'Thanks for participating!' })
+      .setTimestamp();
+    
+    const channel = await activeClient.channels.fetch(lottery.channelId).catch(() => null);
+    if (channel) {
+      await channel.send({ embeds: [winnerEmbed] });
     }
-    
-    lotteryData.prizePool = 0;
-    lotteryData.participants = [];
-    data.lotteryData = lotteryData;
-    await saveDataImmediate(data);
     
     await broadcastToAllServers(winnerEmbed);
     
-    console.log(`✅ Lottery winner: ${winner.tag} won ${capturedPrizePool} gems (${totalEntries} entries)`);
+    lottery.winnersHistory.unshift({
+      winners: winners.map((w, i) => ({ userId: w.userId, place: i + 1, prize: Math.floor(lottery.prizePool * prizeShares[i]) })),
+      date: new Date().toISOString(),
+      prizePool: lottery.prizePool,
+      participants: uniqueParticipants.length,
+      totalEntries: totalEntries
+    });
+    
+    delete activeLotteries[serverId];
+    data.lotteryData = activeLotteries;
+    await saveDataImmediate(data);
+    
+    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners`);
     
   } catch (error) {
-    console.error('❌ Error performing lottery draw:', error);
+    console.error(`❌ Error performing lottery draw for server ${serverId}:`, error);
   }
 }
 
@@ -234,10 +191,10 @@ async function broadcastToAllServers(embed) {
   
   try {
     for (const guild of activeClient.guilds.cache.values()) {
-      const updatesChannelId = getUpdatesChannel(guild.id);
+      const eventsChannelId = getEventsChannel(guild.id);
       
-      if (updatesChannelId) {
-        const channel = await activeClient.channels.fetch(updatesChannelId).catch(() => null);
+      if (eventsChannelId) {
+        const channel = await activeClient.channels.fetch(eventsChannelId).catch(() => null);
         if (channel) {
           await channel.send({ embeds: [embed] }).catch(err => {
             console.error(`Failed to send lottery result to server ${guild.id}:`, err.message);
@@ -251,130 +208,130 @@ async function broadcastToAllServers(embed) {
   }
 }
 
-function initializeLotterySystem(client) {
+function initializeLotterySystem(client, data) {
   activeClient = client;
-  if (lotteryData.active) {
-    startLotteryScheduler();
+  
+  if (data && data.lotteryData) {
+    activeLotteries = { ...data.lotteryData };
+    
+    for (const [serverId, lottery] of Object.entries(activeLotteries)) {
+      if (lottery.active && lottery.endTime) {
+        const remaining = lottery.endTime - Date.now();
+        if (remaining > 0) {
+          setTimeout(async () => {
+            await performLotteryDraw(serverId);
+          }, remaining);
+          console.log(`⏰ Resumed lottery for server ${serverId} - ${Math.floor(remaining / 60000)} minutes remaining`);
+        } else {
+          performLotteryDraw(serverId);
+        }
+      }
+    }
   }
+  
   console.log('✅ Lottery system initialized');
 }
 
-async function startLottery(channelId) {
-  lotteryData.active = true;
-  lotteryData.channelId = channelId;
-  startLotteryScheduler();
+async function stopLottery(serverId) {
+  const lottery = activeLotteries[serverId];
   
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.lotteryData = lotteryData;
-  await saveDataImmediate(data);
-}
-
-async function stopLottery() {
-  lotteryData.active = false;
-  if (lotteryInterval) {
-    clearInterval(lotteryInterval);
-    lotteryInterval = null;
+  if (!lottery || !lottery.active) {
+    return { success: false, message: '❌ No lottery is currently active in this server!' };
   }
   
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.lotteryData = lotteryData;
-  await saveDataImmediate(data);
-}
-
-async function setLotteryDrawTime(time) {
-  lotteryData.drawTime = time;
-  if (lotteryData.active) {
-    startLotteryScheduler();
-  }
+  await performLotteryDraw(serverId);
   
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.lotteryData = lotteryData;
-  await saveDataImmediate(data);
+  return { success: true, message: '✅ Lottery ended and winners announced!' };
 }
 
-async function setEntryFee(fee) {
-  lotteryData.entryFee = fee;
+async function joinLottery(userId, serverId, ticketCount, userData) {
+  const lottery = activeLotteries[serverId];
   
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.lotteryData = lotteryData;
-  await saveDataImmediate(data);
-}
-
-async function setMaxTickets(max) {
-  lotteryData.maxTicketsPerPerson = max;
-  
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.lotteryData = lotteryData;
-  await saveDataImmediate(data);
-}
-
-async function joinLottery(userId, ticketCount = 1, userData) {
-  if (!lotteryData.active) {
-    return { success: false, message: '❌ The lottery is not currently active!' };
+  if (!lottery || !lottery.active) {
+    return { success: false, message: '❌ No lottery is currently active in this server!' };
   }
   
   if (ticketCount < 1) {
     return { success: false, message: '❌ You must buy at least 1 ticket!' };
   }
   
-  const userCurrentTickets = lotteryData.participants.filter(p => p.userId === userId).length;
+  const totalCost = lottery.entryFee * ticketCount;
   
-  if (userCurrentTickets + ticketCount > lotteryData.maxTicketsPerPerson) {
-    return { 
-      success: false, 
-      message: `❌ Maximum ${lotteryData.maxTicketsPerPerson} tickets per person!\nYou currently have ${userCurrentTickets} ticket(s).`
-    };
-  }
-  
-  const totalCost = lotteryData.entryFee * ticketCount;
-  
-  if ((userData.gems || 0) < totalCost) {
-    return { 
-      success: false, 
-      message: `❌ Not enough gems!\nCost: ${totalCost} gems\nYou have: ${userData.gems || 0} gems`
-    };
+  if (lottery.currency === 'gems') {
+    if ((userData.gems || 0) < totalCost) {
+      return { 
+        success: false, 
+        message: `❌ Not enough gems!\nCost: ${totalCost} 💎 gems\nYou have: ${userData.gems || 0} 💎 gems`
+      };
+    }
+  } else {
+    if ((userData.coins || 0) < totalCost) {
+      return { 
+        success: false, 
+        message: `❌ Not enough coins!\nCost: ${totalCost} 💰 coins\nYou have: ${userData.coins || 0} 💰 coins`
+      };
+    }
   }
   
   for (let i = 0; i < ticketCount; i++) {
-    lotteryData.participants.push({ userId, ticketNumber: Date.now() + i });
+    lottery.participants.push({ userId, ticketNumber: Date.now() + i });
   }
   
-  lotteryData.prizePool += totalCost;
-  
-  const newTotal = userCurrentTickets + ticketCount;
-  const winChance = ((newTotal / (lotteryData.participants.length)) * 100).toFixed(2);
-  
-  return { 
-    success: true, 
-    message: `✅ Purchased ${ticketCount} lottery ticket(s)!\n💎 Cost: ${totalCost} gems\n🎫 Your total tickets: ${newTotal}\n📊 Win chance: ${winChance}%\n💰 Current prize pool: ${lotteryData.prizePool.toLocaleString()} gems`,
-    cost: totalCost
-  };
-}
-
-async function setBonusPrizes(coins = 0, crates = {}, characters = []) {
-  lotteryData.bonusPrizes = { coins, crates, characters };
+  lottery.prizePool += totalCost;
   
   const { loadData } = require('./dataManager.js');
   const data = await loadData();
-  data.lotteryData = lotteryData;
+  data.lotteryData = activeLotteries;
   await saveDataImmediate(data);
+  
+  const userTickets = lottery.participants.filter(p => p.userId === userId).length;
+  const winChance = ((userTickets / lottery.participants.length) * 100).toFixed(2);
+  
+  const timeRemaining = lottery.endTime - Date.now();
+  
+  return { 
+    success: true, 
+    message: `✅ Purchased ${ticketCount} lottery ticket(s)!\n` +
+      `💰 Cost: ${totalCost} ${lottery.currency === 'gems' ? '💎 gems' : '💰 coins'}\n` +
+      `🎫 Your total tickets: ${userTickets}\n` +
+      `📊 Your chance: ${winChance}%\n` +
+      `💵 Current prize pool: ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 gems' : '💰 coins'}\n` +
+      `⏰ Ends: <t:${Math.floor(lottery.endTime / 1000)}:R>`,
+    cost: totalCost,
+    currency: lottery.currency
+  };
+}
+
+async function getLotteryInfo(serverId) {
+  const lottery = activeLotteries[serverId];
+  
+  if (!lottery || !lottery.active) {
+    return { success: false, message: '❌ No lottery is currently active in this server!' };
+  }
+  
+  const uniqueParticipants = [...new Set(lottery.participants.map(p => p.userId))].length;
+  
+  return {
+    success: true,
+    message: `**🎰 Lottery Status**\n\n` +
+      `**Entry Fee:** ${lottery.entryFee} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n` +
+      `**Duration:** ${lottery.duration} hour(s)\n` +
+      `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n` +
+      `**Winners:** Top 3 participants (50%, 30%, 20% split)\n` +
+      `👥 Participants: ${uniqueParticipants}\n` +
+      `🎟️ Total entries: ${lottery.participants.length}\n` +
+      `⏰ Ends: <t:${Math.floor(lottery.endTime / 1000)}:R>\n\n` +
+      `Use \`!lottery join <tickets>\` to participate!`
+  };
 }
 
 module.exports = {
   initializeLotterySystem,
   startLottery,
   stopLottery,
-  setLotteryDrawTime,
-  setEntryFee,
-  setMaxTickets,
   joinLottery,
+  getLotteryInfo,
   performLotteryDraw,
   getLotteryData,
-  setLotteryData,
-  setBonusPrizes
+  setLotteryData
 };
