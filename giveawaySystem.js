@@ -1,6 +1,12 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
 
+const USE_MONGODB = process.env.USE_MONGODB === 'true';
+let mongoManager = null;
+if (USE_MONGODB) {
+  mongoManager = require('./mongoManager.js');
+}
+
 let activeGiveaway = {
   active: false,
   channelId: null,
@@ -8,19 +14,25 @@ let activeGiveaway = {
   participants: [],
   endTime: null,
   prizes: {
-    gems: 5000,
-    coins: 10000,
-    crates: { legendary: 2 }
+    gems: 500,
+    coins: 5000,
+    crates: { legendary: 1 }
+  },
+  autoSchedule: {
+    enabled: false,
+    interval: 24 * 60 * 60 * 1000,
+    nextRunTime: null
   }
 };
 
 let activeClient = null;
+let autoScheduleTimeout = null;
 
 function getGiveawayData() {
   return activeGiveaway;
 }
 
-function setGiveawayData(data) {
+async function setGiveawayData(data) {
   if (data && data.giveaway) {
     activeGiveaway = {
       active: data.giveaway.active || false,
@@ -29,17 +41,152 @@ function setGiveawayData(data) {
       participants: data.giveaway.participants || [],
       endTime: data.giveaway.endTime || null,
       prizes: data.giveaway.prizes || {
-        gems: 5000,
-        coins: 10000,
-        crates: { legendary: 2 }
+        gems: 500,
+        coins: 5000,
+        crates: { legendary: 1 }
+      },
+      autoSchedule: data.giveaway.autoSchedule || {
+        enabled: false,
+        interval: 24 * 60 * 60 * 1000,
+        nextRunTime: null
       }
     };
   }
 }
 
-function initializeGiveawaySystem(client) {
+async function saveGiveawayToMongo() {
+  if (!USE_MONGODB || !mongoManager) return;
+  
+  try {
+    await mongoManager.saveGiveawayData(activeGiveaway);
+  } catch (error) {
+    console.error('Error saving giveaway to MongoDB:', error);
+  }
+}
+
+async function loadGiveawayFromMongo() {
+  if (!USE_MONGODB || !mongoManager) return null;
+  
+  try {
+    return await mongoManager.loadGiveawayData();
+  } catch (error) {
+    console.error('Error loading giveaway from MongoDB:', error);
+    return null;
+  }
+}
+
+async function enableAutoGiveaway(channelId) {
+  activeGiveaway.channelId = channelId;
+  activeGiveaway.autoSchedule.enabled = true;
+  activeGiveaway.autoSchedule.nextRunTime = Date.now() + (24 * 60 * 60 * 1000);
+  
+  if (USE_MONGODB) {
+    await saveGiveawayToMongo();
+  } else {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+  }
+  
+  scheduleNextAutoGiveaway(channelId);
+  
+  return { success: true, message: '✅ Auto giveaway enabled! A giveaway will run every 24 hours.' };
+}
+
+async function disableAutoGiveaway() {
+  activeGiveaway.autoSchedule.enabled = false;
+  activeGiveaway.autoSchedule.nextRunTime = null;
+  
+  if (autoScheduleTimeout) {
+    clearTimeout(autoScheduleTimeout);
+    autoScheduleTimeout = null;
+  }
+  
+  if (USE_MONGODB) {
+    await saveGiveawayToMongo();
+  } else {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+  }
+  
+  return { success: true, message: '✅ Auto giveaway disabled.' };
+}
+
+function scheduleNextAutoGiveaway(channelId) {
+  if (!activeGiveaway.autoSchedule.enabled || !channelId) return;
+  
+  if (autoScheduleTimeout) {
+    clearTimeout(autoScheduleTimeout);
+  }
+  
+  const timeUntilNext = activeGiveaway.autoSchedule.nextRunTime - Date.now();
+  
+  if (timeUntilNext <= 0) {
+    startAutomaticGiveaway(channelId);
+  } else {
+    autoScheduleTimeout = setTimeout(() => {
+      startAutomaticGiveaway(channelId);
+    }, timeUntilNext);
+    
+    console.log(`⏰ Next auto giveaway scheduled in ${Math.floor(timeUntilNext / 1000 / 60 / 60)} hours`);
+  }
+}
+
+async function startAutomaticGiveaway(channelId) {
+  if (activeGiveaway.active) {
+    activeGiveaway.autoSchedule.nextRunTime = Date.now() + (24 * 60 * 60 * 1000);
+    scheduleNextAutoGiveaway(channelId);
+    return;
+  }
+  
+  await startGiveaway(channelId, 1440);
+  
+  activeGiveaway.autoSchedule.nextRunTime = Date.now() + (24 * 60 * 60 * 1000);
+  
+  if (USE_MONGODB) {
+    await saveGiveawayToMongo();
+  } else {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+  }
+  
+  scheduleNextAutoGiveaway(channelId);
+}
+
+async function initializeGiveawaySystem(client, data) {
   activeClient = client;
-  console.log('✅ Simplified giveaway system initialized');
+  
+  if (USE_MONGODB) {
+    const mongoData = await loadGiveawayFromMongo();
+    if (mongoData) {
+      await setGiveawayData({ giveaway: mongoData });
+    }
+  } else if (data && data.giveaway) {
+    await setGiveawayData(data);
+  }
+  
+  if (activeGiveaway.active && activeGiveaway.endTime) {
+    const remaining = activeGiveaway.endTime - Date.now();
+    if (remaining > 0) {
+      setTimeout(async () => {
+        await endGiveaway();
+      }, remaining);
+      console.log(`⏰ Resumed giveaway - ${Math.floor(remaining / 60000)} minutes remaining`);
+    } else {
+      await endGiveaway();
+    }
+  }
+  
+  if (activeGiveaway.autoSchedule.enabled && activeGiveaway.channelId) {
+    scheduleNextAutoGiveaway(activeGiveaway.channelId);
+  }
+  
+  console.log('✅ Giveaway system initialized with auto-scheduling');
 }
 
 async function startGiveaway(channelId, durationMinutes) {
@@ -48,25 +195,30 @@ async function startGiveaway(channelId, durationMinutes) {
   }
 
   activeGiveaway = {
+    ...activeGiveaway,
     active: true,
     channelId: channelId,
     messageId: null,
     participants: [],
     endTime: Date.now() + (durationMinutes * 60 * 1000),
     prizes: {
-      gems: 5000,
-      coins: 10000,
-      crates: { legendary: 2 }
+      gems: 500,
+      coins: 5000,
+      crates: { legendary: 1 }
     }
   };
 
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  if (!data.giveaway) {
-    data.giveaway = {};
+  if (USE_MONGODB) {
+    await saveGiveawayToMongo();
+  } else {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    if (!data.giveaway) {
+      data.giveaway = {};
+    }
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
   }
-  data.giveaway = activeGiveaway;
-  await saveDataImmediate(data);
 
   const giveawayEmbed = new EmbedBuilder()
     .setColor('#FFD700')
@@ -77,7 +229,7 @@ async function startGiveaway(channelId, durationMinutes) {
       `**Prizes:**\n` +
       `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
       `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
-      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crate\n\n` +
       `**Click the button below to enter!**\n` +
       `👥 Participants: 0`
     )
@@ -97,8 +249,15 @@ async function startGiveaway(channelId, durationMinutes) {
     const message = await channel.send({ embeds: [giveawayEmbed], components: [button] });
     
     activeGiveaway.messageId = message.id;
-    data.giveaway.messageId = message.id;
-    await saveDataImmediate(data);
+    
+    if (USE_MONGODB) {
+      await saveGiveawayToMongo();
+    } else {
+      const { loadData } = require('./dataManager.js');
+      const data = await loadData();
+      data.giveaway.messageId = message.id;
+      await saveDataImmediate(data);
+    }
 
     setTimeout(async () => {
       if (activeGiveaway.active && activeGiveaway.endTime <= Date.now() + 1000) {
@@ -136,10 +295,14 @@ async function handleButtonJoin(interaction) {
 
   activeGiveaway.participants.push(userId);
 
-  const { loadData } = require('./dataManager.js');
-  const data = await loadData();
-  data.giveaway = activeGiveaway;
-  await saveDataImmediate(data);
+  if (USE_MONGODB) {
+    await saveGiveawayToMongo();
+  } else {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    data.giveaway = activeGiveaway;
+    await saveDataImmediate(data);
+  }
 
   const updatedEmbed = new EmbedBuilder()
     .setColor('#FFD700')
@@ -149,7 +312,7 @@ async function handleButtonJoin(interaction) {
       `**Prizes:**\n` +
       `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
       `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
-      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+      `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crate\n\n` +
       `**Click the button below to enter!**\n` +
       `👥 Participants: ${activeGiveaway.participants.length}`
     )
@@ -173,18 +336,37 @@ async function endGiveaway() {
     return { success: false, message: '❌ No giveaway is currently active!' };
   }
 
+  const preservedChannelId = activeGiveaway.channelId;
+  const preservedAutoSchedule = { ...activeGiveaway.autoSchedule };
+
   if (activeGiveaway.participants.length === 0) {
-    activeGiveaway.active = false;
+    const messageId = activeGiveaway.messageId;
     
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    data.giveaway = activeGiveaway;
-    await saveDataImmediate(data);
+    activeGiveaway.active = false;
+    activeGiveaway.messageId = null;
+    activeGiveaway.participants = [];
+    activeGiveaway.endTime = null;
+    
+    if (preservedAutoSchedule.enabled) {
+      activeGiveaway.channelId = preservedChannelId;
+      activeGiveaway.autoSchedule = preservedAutoSchedule;
+    } else {
+      activeGiveaway.channelId = null;
+    }
+    
+    if (USE_MONGODB) {
+      await saveGiveawayToMongo();
+    } else {
+      const { loadData } = require('./dataManager.js');
+      const data = await loadData();
+      data.giveaway = activeGiveaway;
+      await saveDataImmediate(data);
+    }
 
     try {
-      if (activeGiveaway.channelId && activeGiveaway.messageId) {
-        const channel = await activeClient.channels.fetch(activeGiveaway.channelId);
-        const message = await channel.messages.fetch(activeGiveaway.messageId);
+      if (preservedChannelId && messageId) {
+        const channel = await activeClient.channels.fetch(preservedChannelId);
+        const message = await channel.messages.fetch(messageId);
         
         const noParticipantsEmbed = new EmbedBuilder()
           .setColor('#FFA500')
@@ -207,20 +389,30 @@ async function endGiveaway() {
   try {
     const winner = await activeClient.users.fetch(winnerId);
     
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
+    if (USE_MONGODB && mongoManager) {
+      await mongoManager.incrementUserResources(winnerId, {
+        gems: activeGiveaway.prizes.gems,
+        coins: activeGiveaway.prizes.coins,
+        crates: { legendary: activeGiveaway.prizes.crates.legendary }
+      });
+    } else {
+      const { loadData } = require('./dataManager.js');
+      const data = await loadData();
 
-    if (!data.users[winnerId]) {
-      data.users[winnerId] = { coins: 0, gems: 0, characters: [], crates: {} };
+      if (!data.users[winnerId]) {
+        data.users[winnerId] = { coins: 0, gems: 0, characters: [], crates: {} };
+      }
+
+      if (!data.users[winnerId].crates) {
+        data.users[winnerId].crates = {};
+      }
+
+      data.users[winnerId].gems = (data.users[winnerId].gems || 0) + activeGiveaway.prizes.gems;
+      data.users[winnerId].coins = (data.users[winnerId].coins || 0) + activeGiveaway.prizes.coins;
+      data.users[winnerId].crates.legendary = (data.users[winnerId].crates.legendary || 0) + activeGiveaway.prizes.crates.legendary;
+      
+      await saveDataImmediate(data);
     }
-
-    if (!data.users[winnerId].crates) {
-      data.users[winnerId].crates = {};
-    }
-
-    data.users[winnerId].gems = (data.users[winnerId].gems || 0) + activeGiveaway.prizes.gems;
-    data.users[winnerId].coins = (data.users[winnerId].coins || 0) + activeGiveaway.prizes.coins;
-    data.users[winnerId].crates.legendary = (data.users[winnerId].crates.legendary || 0) + activeGiveaway.prizes.crates.legendary;
 
     const winnerEmbed = new EmbedBuilder()
       .setColor('#00FF00')
@@ -230,22 +422,39 @@ async function endGiveaway() {
         `**Prizes Won:**\n` +
         `💎 ${activeGiveaway.prizes.gems.toLocaleString()} Gems\n` +
         `💰 ${activeGiveaway.prizes.coins.toLocaleString()} Coins\n` +
-        `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crates\n\n` +
+        `📦 ${activeGiveaway.prizes.crates.legendary}x Legendary Crate\n\n` +
         `Congratulations! 🎉\n` +
         `Total Participants: ${activeGiveaway.participants.length}`
       )
       .setFooter({ text: 'Thanks everyone for participating!' })
       .setTimestamp();
 
-    if (activeGiveaway.channelId && activeGiveaway.messageId) {
-      const channel = await activeClient.channels.fetch(activeGiveaway.channelId);
+    if (preservedChannelId && activeGiveaway.messageId) {
+      const channel = await activeClient.channels.fetch(preservedChannelId);
       const message = await channel.messages.fetch(activeGiveaway.messageId);
       await message.edit({ embeds: [winnerEmbed], components: [] });
     }
 
     activeGiveaway.active = false;
-    data.giveaway = activeGiveaway;
-    await saveDataImmediate(data);
+    activeGiveaway.messageId = null;
+    activeGiveaway.participants = [];
+    activeGiveaway.endTime = null;
+    
+    if (preservedAutoSchedule.enabled) {
+      activeGiveaway.channelId = preservedChannelId;
+      activeGiveaway.autoSchedule = preservedAutoSchedule;
+    } else {
+      activeGiveaway.channelId = null;
+    }
+    
+    if (USE_MONGODB) {
+      await saveGiveawayToMongo();
+    } else {
+      const { loadData } = require('./dataManager.js');
+      const data = await loadData();
+      data.giveaway = activeGiveaway;
+      await saveDataImmediate(data);
+    }
 
     return { 
       success: true, 
@@ -255,11 +464,25 @@ async function endGiveaway() {
   } catch (error) {
     console.error('Error ending giveaway:', error);
     activeGiveaway.active = false;
+    activeGiveaway.messageId = null;
+    activeGiveaway.participants = [];
+    activeGiveaway.endTime = null;
     
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    data.giveaway = activeGiveaway;
-    await saveDataImmediate(data);
+    if (preservedAutoSchedule.enabled) {
+      activeGiveaway.channelId = preservedChannelId;
+      activeGiveaway.autoSchedule = preservedAutoSchedule;
+    } else {
+      activeGiveaway.channelId = null;
+    }
+    
+    if (USE_MONGODB) {
+      await saveGiveawayToMongo();
+    } else {
+      const { loadData } = require('./dataManager.js');
+      const data = await loadData();
+      data.giveaway = activeGiveaway;
+      await saveDataImmediate(data);
+    }
 
     return { success: false, message: '❌ Error ending giveaway.' };
   }
@@ -288,5 +511,7 @@ module.exports = {
   handleButtonJoin,
   getGiveawayStatus,
   getGiveawayData,
-  setGiveawayData
+  setGiveawayData,
+  enableAutoGiveaway,
+  disableAutoGiveaway
 };

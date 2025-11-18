@@ -62,8 +62,8 @@ const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
 const { loadServerConfigs, isMainServer, isSuperAdmin, isBotAdmin, isZooAdmin, addBotAdmin, removeBotAdmin, setupServer, isServerSetup, setDropChannel, setEventsChannel, setUpdatesChannel, getUpdatesChannel } = require('./serverConfigManager.js');
 const { startPromotionSystem } = require('./promotionSystem.js');
-const { initializeGiveawaySystem, setGiveawayData } = require('./giveawaySystem.js');
-const { initializeLotterySystem, setLotteryData } = require('./lotterySystem.js');
+const { initializeGiveawaySystem, setGiveawayData, enableAutoGiveaway, disableAutoGiveaway } = require('./giveawaySystem.js');
+const { initializeLotterySystem, setLotteryData, enableAutoLottery, disableAutoLottery } = require('./lotterySystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
 const { 
   PERSONALIZED_TASKS,
@@ -219,14 +219,8 @@ client.on('clientReady', async () => {
   await initializeBot();
   await loadServerConfigs();
   initializeClanData(data);
-  if (data.giveawayData) {
-    setGiveawayData(data.giveawayData);
-  }
-  if (data.lotteryData) {
-    setLotteryData(data.lotteryData);
-  }
-  initializeGiveawaySystem(client);
-  initializeLotterySystem(client, data);
+  await initializeGiveawaySystem(client, data);
+  await initializeLotterySystem(client, data);
   await eventSystem.init(client, data);
   await startDropSystem(client, data);
   startPromotionSystem(client);
@@ -3429,8 +3423,8 @@ client.on('messageCreate', async (message) => {
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
-            { name: '🎉 Giveaways **[SIMPLIFIED]**', value: '`!giveaway` - View active giveaway\n`!startgiveaway <mins>` - Start giveaway (Bot Admin)\n`!endgiveaway` - End giveaway (Bot Admin)\n\nUsers join by clicking the button!' },
-            { name: '🎰 Lottery (All Servers)', value: '`!lottery` - View lottery info\n`!lottery join <tickets>` - Buy lottery tickets\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Start lottery (Bot Admin)\n`!stoplottery` - End lottery early (Bot Admin)' },
+            { name: '🎉 Giveaways **[AUTO-SCHEDULED]**', value: '`!giveaway` - View active giveaway\n`!autogiveaway enable/disable` - Auto daily giveaways (Bot Admin)\n`!startgiveaway <mins>` - Manual giveaway (Bot Admin)\n`!endgiveaway` - End giveaway (Bot Admin)\n\n💎 Prizes: 500 gems, 5000 coins, 1 legendary crate' },
+            { name: '🎰 Lottery **[AUTO-SCHEDULED]**', value: '`!lottery` - View lottery info (shows if you joined)\n`!lottery join <tickets>` - Buy lottery tickets\n`!autolottery enable/disable <fee> <coins/gems>` - Auto 12h lottery (Bot Admin)\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Manual lottery (Bot Admin)\n`!stoplottery` - End lottery early (Bot Admin)' },
             { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
@@ -3542,6 +3536,31 @@ client.on('messageCreate', async (message) => {
         await message.reply(endGiveawayResult.message);
         break;
         
+      case 'autogiveaway':
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can manage auto-giveaway!');
+          return;
+        }
+        
+        const autoGiveawayAction = args[0]?.toLowerCase();
+        
+        if (autoGiveawayAction === 'enable') {
+          const autoGiveawayResult = await enableAutoGiveaway(message.channel.id);
+          await message.reply(autoGiveawayResult.message);
+        } else if (autoGiveawayAction === 'disable') {
+          const disableResult = await disableAutoGiveaway();
+          await message.reply(disableResult.message);
+        } else {
+          await message.reply(
+            '**Auto Giveaway**\n\n' +
+            'Usage: `!autogiveaway <enable/disable>`\n\n' +
+            '**Enable:** Automatically runs a 24-hour giveaway every day\n' +
+            '**Disable:** Stops automatic giveaways\n\n' +
+            '**Prizes:** 500 💎 gems, 5000 💰 coins, 1x 📦 legendary crate'
+          );
+        }
+        break;
+        
       case 'lottery':
       case 'lotteryinfo':
         if (!serverId) {
@@ -3569,7 +3588,7 @@ client.on('messageCreate', async (message) => {
           await message.reply(joinLotteryResult.message);
         } else {
           const { getLotteryInfo } = require('./lotterySystem.js');
-          const lotteryInfoResult = await getLotteryInfo(serverId);
+          const lotteryInfoResult = await getLotteryInfo(serverId, userId);
           
           if (lotteryInfoResult.success) {
             const lotteryInfoEmbed = new EmbedBuilder()
@@ -3657,6 +3676,52 @@ client.on('messageCreate', async (message) => {
         const stopLotteryResult = await stopLottery(serverId);
         
         await message.reply(stopLotteryResult.message);
+        break;
+        
+      case 'autolottery':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can manage auto-lottery!');
+          return;
+        }
+        
+        const autoLotteryAction = args[0]?.toLowerCase();
+        
+        if (autoLotteryAction === 'enable') {
+          const lotteryFee = parseInt(args[1]);
+          const lotteryCurrency = args[2]?.toLowerCase();
+          
+          if (!lotteryFee || !lotteryCurrency || (lotteryCurrency !== 'coins' && lotteryCurrency !== 'gems')) {
+            await message.reply(
+              '**Auto Lottery - Enable**\n\n' +
+              'Usage: `!autolottery enable <entry fee> <coins/gems>`\n\n' +
+              '**Examples:**\n' +
+              '`!autolottery enable 100 gems` - Lottery every 12 hours with 100 gems per ticket\n' +
+              '`!autolottery enable 500 coins` - Lottery every 12 hours with 500 coins per ticket'
+            );
+            return;
+          }
+          
+          const autoLotteryResult = await enableAutoLottery(serverId, lotteryFee, lotteryCurrency, message.channel.id);
+          await message.reply(autoLotteryResult.message);
+        } else if (autoLotteryAction === 'disable') {
+          const disableLotteryResult = await disableAutoLottery(serverId);
+          await message.reply(disableLotteryResult.message);
+        } else {
+          await message.reply(
+            '**Auto Lottery**\n\n' +
+            'Usage: `!autolottery <enable/disable> [entry fee] [coins/gems]`\n\n' +
+            '**Enable:** Automatically runs a 12-hour lottery every 12 hours\n' +
+            '**Disable:** Stops automatic lotteries\n\n' +
+            '**Examples:**\n' +
+            '`!autolottery enable 100 gems` - Enable with 100 gems per ticket\n' +
+            '`!autolottery disable` - Disable auto lottery'
+          );
+        }
         break;
     }
   } catch (error) {

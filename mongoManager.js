@@ -533,6 +533,58 @@ async function clearEventParticipants(eventId) {
   }
 }
 
+async function saveGiveawayData(giveawayData) {
+  try {
+    const configCollection = await getCollection('config');
+    await configCollection.updateOne(
+      { _id: 'giveaway_data' },
+      { $set: { data: giveawayData, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error saving giveaway data to MongoDB:', error);
+    return false;
+  }
+}
+
+async function loadGiveawayData() {
+  try {
+    const configCollection = await getCollection('config');
+    const result = await configCollection.findOne({ _id: 'giveaway_data' });
+    return result ? result.data : null;
+  } catch (error) {
+    console.error('Error loading giveaway data from MongoDB:', error);
+    return null;
+  }
+}
+
+async function saveLotteryData(lotteryData) {
+  try {
+    const configCollection = await getCollection('config');
+    await configCollection.updateOne(
+      { _id: 'lottery_data' },
+      { $set: { data: lotteryData, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error saving lottery data to MongoDB:', error);
+    return false;
+  }
+}
+
+async function loadLotteryData() {
+  try {
+    const configCollection = await getCollection('config');
+    const result = await configCollection.findOne({ _id: 'lottery_data' });
+    return result ? result.data : null;
+  } catch (error) {
+    console.error('Error loading lottery data from MongoDB:', error);
+    return null;
+  }
+}
+
 module.exports = {
   connect,
   disconnect,
@@ -553,5 +605,9 @@ module.exports = {
   upsertEventSchedule,
   getEventSchedule,
   setEventStatus,
-  clearEventParticipants
+  clearEventParticipants,
+  saveGiveawayData,
+  loadGiveawayData,
+  saveLotteryData,
+  loadLotteryData
 };
