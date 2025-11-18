@@ -9,6 +9,11 @@ let lotteryData = {
   entryFee: 100,
   maxTicketsPerPerson: 5,
   prizePool: 0,
+  bonusPrizes: {
+    coins: 0,
+    crates: {},
+    characters: []
+  },
   participants: [],
   lastDrawDate: null,
   winnersHistory: []
@@ -104,19 +109,38 @@ async function performLotteryDraw() {
     
     const capturedPrizePool = lotteryData.prizePool;
     
+    let lotteryPrizeDesc = `**Winner:** ${winner.tag}\n\n` +
+      `**Prizes:**\n` +
+      `💎 ${capturedPrizePool.toLocaleString()} Gems\n`;
+    
+    const bonusPrizes = lotteryData.bonusPrizes;
+    if (bonusPrizes.coins > 0) {
+      lotteryPrizeDesc += `💰 ${bonusPrizes.coins.toLocaleString()} Bonus Coins\n`;
+    }
+    
+    if (bonusPrizes.crates && Object.keys(bonusPrizes.crates).length > 0) {
+      for (const [crateType, count] of Object.entries(bonusPrizes.crates)) {
+        if (count > 0) {
+          lotteryPrizeDesc += `📦 ${count}x ${crateType.charAt(0).toUpperCase() + crateType.slice(1)} Crates\n`;
+        }
+      }
+    }
+    
+    if (bonusPrizes.characters && bonusPrizes.characters.length > 0) {
+      lotteryPrizeDesc += `🎭 Characters: ${bonusPrizes.characters.join(', ')}\n`;
+    }
+    
+    lotteryPrizeDesc += `\n**Statistics:**\n` +
+      `🎫 Winner's Tickets: ${winnerEntries}\n` +
+      `📊 Win Chance: ${winChance}%\n` +
+      `👥 Total Participants: ${uniqueParticipants}\n` +
+      `🎟️ Total Entries: ${totalEntries}\n\n` +
+      `Congratulations! 🎊`;
+    
     const winnerEmbed = new EmbedBuilder()
       .setColor('#9B59B6')
       .setTitle('🎰 DAILY LOTTERY WINNER! 🎰')
-      .setDescription(
-        `**Winner:** ${winner.tag}\n\n` +
-        `**Prize:** 💎 ${capturedPrizePool.toLocaleString()} Gems\n\n` +
-        `**Statistics:**\n` +
-        `🎫 Winner's Tickets: ${winnerEntries}\n` +
-        `📊 Win Chance: ${winChance}%\n` +
-        `👥 Total Participants: ${uniqueParticipants}\n` +
-        `🎟️ Total Entries: ${totalEntries}\n\n` +
-        `Congratulations! 🎊`
-      )
+      .setDescription(lotteryPrizeDesc)
       .setFooter({ text: 'Try your luck tomorrow!' })
       .setTimestamp();
     
@@ -128,6 +152,55 @@ async function performLotteryDraw() {
     }
     
     data.users[winnerData.userId].gems = (data.users[winnerData.userId].gems || 0) + capturedPrizePool;
+    
+    if (lotteryData.bonusPrizes.coins > 0) {
+      data.users[winnerData.userId].coins = (data.users[winnerData.userId].coins || 0) + lotteryData.bonusPrizes.coins;
+    }
+    
+    if (lotteryData.bonusPrizes.crates && Object.keys(lotteryData.bonusPrizes.crates).length > 0) {
+      if (!data.users[winnerData.userId].crates) {
+        data.users[winnerData.userId].crates = {};
+      }
+      for (const [crateType, count] of Object.entries(lotteryData.bonusPrizes.crates)) {
+        if (count > 0) {
+          data.users[winnerData.userId].crates[crateType] = 
+            (data.users[winnerData.userId].crates[crateType] || 0) + count;
+        }
+      }
+    }
+    
+    if (lotteryData.bonusPrizes.characters && lotteryData.bonusPrizes.characters.length > 0) {
+      const CHARACTERS = require('./characters.js');
+      const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
+      
+      if (!data.users[winnerData.userId].characters) {
+        data.users[winnerData.userId].characters = [];
+      }
+      
+      for (const charName of lotteryData.bonusPrizes.characters) {
+        const charData = CHARACTERS[charName];
+        if (charData) {
+          const alreadyOwns = data.users[winnerData.userId].characters.some(c => c.name === charData.name);
+          if (!alreadyOwns) {
+            const moves = assignMovesToCharacter(charData.name);
+            const baseHP = calculateBaseHP(charData.name);
+            const st = parseFloat((Math.random() * 100).toFixed(2));
+            
+            data.users[winnerData.userId].characters.push({
+              name: charData.name,
+              emoji: charData.emoji,
+              level: 1,
+              tokens: 0,
+              st: st,
+              moves: moves,
+              baseHp: baseHP,
+              currentSkin: 'default',
+              ownedSkins: ['default']
+            });
+          }
+        }
+      }
+    }
     
     lotteryData.winnersHistory.unshift({
       userId: winnerData.userId,
@@ -283,6 +356,15 @@ async function joinLottery(userId, ticketCount = 1, userData) {
   };
 }
 
+async function setBonusPrizes(coins = 0, crates = {}, characters = []) {
+  lotteryData.bonusPrizes = { coins, crates, characters };
+  
+  const { loadData } = require('./dataManager.js');
+  const data = await loadData();
+  data.lotteryData = lotteryData;
+  await saveDataImmediate(data);
+}
+
 module.exports = {
   initializeLotterySystem,
   startLottery,
@@ -293,5 +375,6 @@ module.exports = {
   joinLottery,
   performLotteryDraw,
   getLotteryData,
-  setLotteryData
+  setLotteryData,
+  setBonusPrizes
 };

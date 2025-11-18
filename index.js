@@ -119,7 +119,12 @@ const {
   getUserPfps,
   getEquippedPfp,
   adminAddPfpToUser,
-  adminRemovePfpFromUser
+  adminRemovePfpFromUser,
+  uploadPfpToRegistry,
+  grantPfpToUser,
+  grantPfpToClan,
+  equipPfpByName,
+  listRegistryPfps
 } = require('./pfpSystem.js');
 const {
   addTriviaQuestion,
@@ -941,6 +946,145 @@ client.on('messageCreate', async (message) => {
         await message.reply(unequipResult.message);
         break;
         
+      case 'myprofile':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const myPfpsList = listAllPfps(userId, data);
+        
+        if (myPfpsList.count === 0) {
+          await message.reply('📸 You don\'t have any profile images yet!\n\nAsk a bot admin to grant you one!');
+          return;
+        }
+        
+        const myPfpsEmbed = new EmbedBuilder()
+          .setColor('#FF69B4')
+          .setTitle('📸 Your Profile Images')
+          .setDescription(`You have **${myPfpsList.count}** profile image(s)`);
+        
+        myPfpsList.pfps.forEach((pfp, index) => {
+          const isEquipped = pfp.id === myPfpsList.equipped ? ' ✅ (Equipped)' : '';
+          myPfpsEmbed.addFields({
+            name: `${pfp.name}${isEquipped}`,
+            value: `Use: \`!setpfp ${pfp.name}\` to equip`,
+            inline: false
+          });
+        });
+        
+        myPfpsEmbed.setFooter({ text: 'Use !setpfp <name> to equip a profile image' });
+        
+        await message.reply({ embeds: [myPfpsEmbed] });
+        break;
+        
+      case 'uploadpfp':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can upload PFPs to the registry!');
+          return;
+        }
+        
+        if (message.attachments.size === 0) {
+          await message.reply('❌ Please attach an image!\nUsage: `!uploadpfp <name>` (with image attached)');
+          return;
+        }
+        
+        const registryPfpName = args.join(' ');
+        if (!registryPfpName) {
+          await message.reply('❌ Please provide a name for the PFP!\nUsage: `!uploadpfp <name>` (with image attached)');
+          return;
+        }
+        
+        const registryAttachment = message.attachments.first();
+        
+        if (!registryAttachment.contentType || !registryAttachment.contentType.startsWith('image/')) {
+          await message.reply('❌ Please attach a valid image file (PNG, JPG, GIF, etc.)!');
+          return;
+        }
+        
+        const uploadRegistryResult = await uploadPfpToRegistry(registryAttachment.url, registryPfpName, data);
+        await message.reply(uploadRegistryResult.message);
+        break;
+        
+      case 'grantpfp':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can grant PFPs!');
+          return;
+        }
+        
+        const targetUserForPfpGrant = message.mentions.users.first();
+        if (!targetUserForPfpGrant) {
+          await message.reply('❌ Please mention a user!\nUsage: `!grantpfp <pfp name> @user`\nExample: `!grantpfp Winner Badge @user`');
+          return;
+        }
+        
+        const pfpNameToGrant = args.filter(arg => !arg.startsWith('<@')).join(' ');
+        if (!pfpNameToGrant) {
+          await message.reply('❌ Please provide the PFP name!\nUsage: `!grantpfp <pfp name> @user`');
+          return;
+        }
+        
+        if (!data.users[targetUserForPfpGrant.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        const grantResult = await grantPfpToUser(pfpNameToGrant, targetUserForPfpGrant.id, data);
+        await message.reply(grantResult.message);
+        break;
+        
+      case 'grantpfptoclan':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can grant PFPs to clans!');
+          return;
+        }
+        
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const clanPfpName = args.join(' ');
+        if (!clanPfpName) {
+          await message.reply('❌ Please provide the PFP name!\nUsage: `!grantpfptoclan <pfp name>`\nExample: `!grantpfptoclan Clan Winner`');
+          return;
+        }
+        
+        const grantClanResult = await grantPfpToClan(clanPfpName, serverId, data);
+        await message.reply(grantClanResult.message);
+        break;
+        
+      case 'listpfps':
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ Only bot admins can view the PFP registry!');
+          return;
+        }
+        
+        const registryList = listRegistryPfps(data);
+        
+        if (registryList.length === 0) {
+          await message.reply('📝 No PFPs in registry yet! Use `!uploadpfp <name>` (with image) to add some.');
+          return;
+        }
+        
+        const registryEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle('📚 PFP Registry')
+          .setDescription(`Total: **${registryList.length}** PFP(s)`);
+        
+        registryList.forEach((pfp, index) => {
+          registryEmbed.addFields({
+            name: `${index + 1}. ${pfp.name}`,
+            value: `Use: \`!grantpfp ${pfp.name} @user\``,
+            inline: false
+          });
+        });
+        
+        registryEmbed.setFooter({ text: 'Use !grantpfp <name> @user to grant a PFP' });
+        
+        await message.reply({ embeds: [registryEmbed] });
+        break;
+        
       case 'trivia':
         if (!data.users[userId].started) {
           await message.reply('❌ You must start first! Use `!start` to begin.');
@@ -960,8 +1104,9 @@ client.on('messageCreate', async (message) => {
         
         const triviaEmbed = new EmbedBuilder()
           .setColor('#FFD700')
-          .setTitle('🎯 Trivia Challenge!')
-          .setDescription(`**Question:**\n${triviaStartResult.question}\n\n⏰ You have **${triviaStartResult.timeLimit} seconds** to answer!\n🎲 You get **${triviaStartResult.guessesLeft} guesses**\n💰 Correct answer = **100 coins**\n\nAnswer using: \`!a <your answer>\``)
+          .setTitle('🎯 Character Trivia!')
+          .setDescription(`**Guess the character from this image!**\n\n⏰ You have **${triviaStartResult.timeLimit} seconds** to answer!\n🎲 You get **${triviaStartResult.guessesLeft} guesses**\n💰 Correct answer = **100 coins**\n\nAnswer using: \`!a <character name>\`\nExample: \`!a water jade\``)
+          .setImage(triviaStartResult.imageUrl)
           .setFooter({ text: 'Case insensitive | Good luck!' })
           .setTimestamp();
         
@@ -1851,50 +1996,18 @@ client.on('messageCreate', async (message) => {
         const firstArg = args[0];
         
         if (!firstArg) {
-          await message.reply('**Usage:**\n`!setpfp <character>` - Set a character as your profile picture\n`!setpfp pfp <number>` - Set a custom PFP from your collection\n\nExamples:\n`!setpfp Nix`\n`!setpfp pfp 1`');
+          await message.reply('**Usage:**\n`!setpfp <character>` - Set a character as your profile picture\n`!setpfp <pfp name>` - Set a custom PFP from your collection\n\nExamples:\n`!setpfp Nix`\n`!setpfp Winner Badge`');
           return;
         }
         
-        if (firstArg.toLowerCase() === 'pfp') {
-          const pfpNumber = parseInt(args[1]);
-          
-          if (!pfpNumber || pfpNumber < 1) {
-            await message.reply('❌ Please provide a valid PFP number!\nUse `!myprofile` to see your PFP collection.');
-            return;
-          }
-          
-          const pfpData = getUserPfps(userId, data);
-          
-          if (!pfpData || pfpData.ownedPfps.length === 0) {
-            await message.reply('❌ You don\'t have any custom PFPs yet!\nUse `!uploadpfp <name>` with an attached image to add one.');
-            return;
-          }
-          
-          if (pfpNumber > pfpData.ownedPfps.length) {
-            await message.reply(`❌ You only have ${pfpData.ownedPfps.length} PFP(s)!\nUse \`!myprofile\` to see your collection.`);
-            return;
-          }
-          
-          const selectedPfp = pfpData.ownedPfps[pfpNumber - 1];
-          const result = await equipPfp(userId, selectedPfp.id, data);
-          
-          const pfpSetEmbed = new EmbedBuilder()
-            .setColor('#FF69B4')
-            .setTitle('🖼️ Profile Picture Updated!')
-            .setDescription(`${result.message}\n\nYour profile will now display **${selectedPfp.name}**!\n\nUse \`!profile\` to see your updated profile.`)
-            .setThumbnail(selectedPfp.url);
-          
-          await message.reply({ embeds: [pfpSetEmbed] });
-        } else {
-          const ownedChar = data.users[userId].characters.find(c => 
-            c.name.toLowerCase() === firstArg.toLowerCase()
-          );
-          
-          if (!ownedChar) {
-            await message.reply('❌ You don\'t own this character! You can only use characters you own as your profile picture.');
-            return;
-          }
-          
+        const pfpNameToSet = args.join(' ');
+        
+        const ownedChar = data.users[userId].characters.find(c => 
+          c.name.toLowerCase() === pfpNameToSet.toLowerCase()
+        );
+        
+        if (ownedChar) {
+          const { initializePfpData } = require('./pfpSystem.js');
           const pfpData = initializePfpData(data.users[userId]);
           pfpData.equippedPfp = null;
           
@@ -1909,6 +2022,28 @@ client.on('messageCreate', async (message) => {
             .setThumbnail(profilePicUrl);
           
           await message.reply({ embeds: [pfpEmbed] });
+        } else {
+          const result = await equipPfpByName(userId, pfpNameToSet, data);
+          
+          if (!result.success) {
+            await message.reply(result.message);
+            return;
+          }
+          
+          const pfpData = getUserPfps(userId, data);
+          const equippedPfp = pfpData.ownedPfps.find(p => p.name.toLowerCase() === pfpNameToSet.toLowerCase());
+          
+          if (equippedPfp) {
+            const pfpSetEmbed = new EmbedBuilder()
+              .setColor('#FF69B4')
+              .setTitle('🖼️ Profile Picture Updated!')
+              .setDescription(`${result.message}\n\nYour profile will now display **${equippedPfp.name}**!\n\nUse \`!profile\` to see your updated profile.`)
+              .setThumbnail(equippedPfp.url);
+            
+            await message.reply({ embeds: [pfpSetEmbed] });
+          } else {
+            await message.reply(result.message);
+          }
         }
         break;
         
@@ -2659,21 +2794,28 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const triviaQuestion = args.join(' ');
-        
-        if (!triviaQuestion || !triviaQuestion.includes('|')) {
-          await message.reply('❌ Invalid format!\nUsage: `!addtrivia <question> | <answer>`\n\nExample: `!addtrivia What is the capital of France? | Paris`');
+        if (message.attachments.size === 0) {
+          await message.reply('❌ Please attach a character image!\nUsage: `!addtrivia <character name>` (with image attached)\n\nExample: `!addtrivia water jade` (attach image)');
           return;
         }
         
-        const [questionPart, answerPart] = triviaQuestion.split('|').map(s => s.trim());
+        const characterAnswer = args.join(' ');
         
-        if (!questionPart || !answerPart) {
-          await message.reply('❌ Both question and answer are required!\nUsage: `!addtrivia <question> | <answer>`');
+        if (!characterAnswer) {
+          await message.reply('❌ Please provide the character name!\nUsage: `!addtrivia <character name>` (with image attached)');
           return;
         }
         
-        const triviaAddResult = addTriviaQuestion(questionPart, answerPart, data);
+        const triviaAttachment = message.attachments.first();
+        
+        if (!triviaAttachment.contentType || !triviaAttachment.contentType.startsWith('image/')) {
+          await message.reply('❌ Please attach a valid image file (PNG, JPG, GIF, etc.)!');
+          return;
+        }
+        
+        const triviaImageUrl = triviaAttachment.url;
+        
+        const triviaAddResult = addTriviaQuestion(triviaImageUrl, characterAnswer, data);
         await saveDataImmediate(data);
         await message.reply(triviaAddResult.message);
         break;
@@ -2720,8 +2862,8 @@ client.on('messageCreate', async (message) => {
         
         allQuestions.forEach((q, index) => {
           triviaListEmbed.addFields({
-            name: `${index + 1}. ${q.question}`,
-            value: `**Answer:** ${q.answer}\n**ID:** \`${q.id}\``,
+            name: `${index + 1}. Character Trivia`,
+            value: `**Answer:** ${q.answer}\n**ID:** \`${q.id}\`\n**Image:** [View](${q.imageUrl})`,
             inline: false
           });
         });

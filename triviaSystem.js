@@ -11,13 +11,13 @@ function initializeTriviaData(data) {
   return data.trivia;
 }
 
-function addTriviaQuestion(question, answer, data) {
+function addTriviaQuestion(imageUrl, answer, data) {
   const triviaData = initializeTriviaData(data);
   
   const triviaId = `trivia_${Date.now()}`;
   const newQuestion = {
     id: triviaId,
-    question: question,
+    imageUrl: imageUrl,
     answer: answer.toLowerCase().trim(),
     addedAt: Date.now()
   };
@@ -26,7 +26,7 @@ function addTriviaQuestion(question, answer, data) {
   
   return {
     success: true,
-    message: `✅ Trivia question added successfully!\nID: \`${triviaId}\`\n\nTotal questions: ${triviaData.questions.length}`,
+    message: `✅ Trivia question added successfully!\nID: \`${triviaId}\`\nAnswer: ${answer}\n\nTotal questions: ${triviaData.questions.length}`,
     questionId: triviaId
   };
 }
@@ -107,7 +107,7 @@ function startTriviaSession(userId, data) {
   
   return {
     success: true,
-    question: question.question,
+    imageUrl: question.imageUrl,
     guessesLeft: 3,
     timeLimit: 60
   };

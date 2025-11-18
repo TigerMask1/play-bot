@@ -12,7 +12,9 @@ let giveawayData = {
     coins: 5000,
     gems: 100,
     crateType: 'gold',
-    crateCount: 3
+    crateCount: 3,
+    characters: [],
+    guaranteedCharacter: false
   },
   winnersHistory: []
 };
@@ -79,17 +81,22 @@ async function performDailyDraw() {
       return;
     }
     
+    let prizeDescription = `**Winner:** ${winner.tag}\n\n` +
+      `**Prizes:**\n` +
+      `💰 ${giveawayData.prizeConfig.coins.toLocaleString()} Coins\n` +
+      `💎 ${giveawayData.prizeConfig.gems.toLocaleString()} Gems\n` +
+      `📦 ${giveawayData.prizeConfig.crateCount}x ${giveawayData.prizeConfig.crateType.charAt(0).toUpperCase() + giveawayData.prizeConfig.crateType.slice(1)} Crates\n`;
+    
+    if (giveawayData.prizeConfig.characters && giveawayData.prizeConfig.characters.length > 0) {
+      prizeDescription += `🎭 Characters: ${giveawayData.prizeConfig.characters.join(', ')}\n`;
+    }
+    
+    prizeDescription += `\nCongratulations! 🎊`;
+    
     const winnerEmbed = new EmbedBuilder()
       .setColor('#FFD700')
       .setTitle('🎉 DAILY GIVEAWAY WINNER! 🎉')
-      .setDescription(
-        `**Winner:** ${winner.tag}\n\n` +
-        `**Prizes:**\n` +
-        `💰 ${giveawayData.prizeConfig.coins.toLocaleString()} Coins\n` +
-        `💎 ${giveawayData.prizeConfig.gems.toLocaleString()} Gems\n` +
-        `📦 ${giveawayData.prizeConfig.crateCount}x ${giveawayData.prizeConfig.crateType.charAt(0).toUpperCase() + giveawayData.prizeConfig.crateType.slice(1)} Crates\n\n` +
-        `Congratulations! 🎊`
-      )
+      .setDescription(prizeDescription)
       .setFooter({ text: 'Join tomorrow for another chance to win!' })
       .setTimestamp();
     
@@ -110,6 +117,40 @@ async function performDailyDraw() {
     }
     data.users[winnerId].crates[giveawayData.prizeConfig.crateType] = 
       (data.users[winnerId].crates[giveawayData.prizeConfig.crateType] || 0) + giveawayData.prizeConfig.crateCount;
+    
+    if (giveawayData.prizeConfig.characters && giveawayData.prizeConfig.characters.length > 0) {
+      const CHARACTERS = require('./characters.js');
+      const { assignMovesToCharacter, calculateBaseHP } = require('./battleUtils.js');
+      const { getSkinUrl } = require('./skinSystem.js');
+      
+      if (!data.users[winnerId].characters) {
+        data.users[winnerId].characters = [];
+      }
+      
+      for (const charName of giveawayData.prizeConfig.characters) {
+        const charData = CHARACTERS[charName];
+        if (charData) {
+          const alreadyOwns = data.users[winnerId].characters.some(c => c.name === charData.name);
+          if (!alreadyOwns) {
+            const moves = assignMovesToCharacter(charData.name);
+            const baseHP = calculateBaseHP(charData.name);
+            const st = parseFloat((Math.random() * 100).toFixed(2));
+            
+            data.users[winnerId].characters.push({
+              name: charData.name,
+              emoji: charData.emoji,
+              level: 1,
+              tokens: 0,
+              st: st,
+              moves: moves,
+              baseHp: baseHP,
+              currentSkin: 'default',
+              ownedSkins: ['default']
+            });
+          }
+        }
+      }
+    }
     
     giveawayData.winnersHistory.unshift({
       userId: winnerId,
@@ -207,8 +248,8 @@ async function setDrawTime(time) {
   await saveDataImmediate(data);
 }
 
-async function setPrize(coins, gems, crateType, crateCount) {
-  giveawayData.prizeConfig = { coins, gems, crateType, crateCount };
+async function setPrize(coins, gems, crateType, crateCount, characters = [], guaranteedCharacter = false) {
+  giveawayData.prizeConfig = { coins, gems, crateType, crateCount, characters, guaranteedCharacter };
   
   const { loadData } = require('./dataManager.js');
   const data = await loadData();
