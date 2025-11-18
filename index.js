@@ -3426,8 +3426,8 @@ client.on('messageCreate', async (message) => {
             { name: '🔑 Keys & Unlocks', value: '`!keys` - View your keys\n`!unlock <character>` - Unlock with 1000 keys\n`!cage` - Open random cage (250 cage keys)' },
             { name: '🎯 Events', value: '`!event` - View current event\n`!eventleaderboard` - Event rankings' },
             { name: '👥 Clans', value: '`!clan` - View your clan\n`!joinclan <name>` - Join clan\n`!leaveclan` - Leave clan\n`!clandonate` - Donate to clan\n`!clanleaderboard` - Clan rankings' },
-            { name: '🎉 Giveaways (Main Server)', value: '`!giveaway` - View giveaway info\n`!joingiveaway` - Enter giveaway\n`!startgiveaway <mins>` - Start manual giveaway (Admin)\n`!stopgiveaway` - End giveaway early (Admin)' },
-            { name: '🎰 Lottery (All Servers)', value: '`!lottery` - View lottery info\n`!lottery join <tickets>` - Buy lottery tickets\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Start lottery (Admin)\n`!stoplottery` - End lottery early (Admin)' },
+            { name: '🎉 Giveaways (Main Server)', value: '`!giveaway` - View giveaway info\n`!joingiveaway` - Enter giveaway\n`!startgiveaway <mins>` - Start manual giveaway (Bot Admin)\n`!stopgiveaway` - End giveaway early (Bot Admin)' },
+            { name: '🎰 Lottery (All Servers)', value: '`!lottery` - View lottery info\n`!lottery join <tickets>` - Buy lottery tickets\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Start lottery (Bot Admin)\n`!stoplottery` - End lottery early (Bot Admin)' },
             { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
@@ -3510,8 +3510,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'startgiveaway':
-        if (!isSuperAdmin(userId) && (!serverId || !isZooAdmin(message.member))) {
-          await message.reply('❌ Only Super Admins or ZooAdmins can start giveaways!');
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can start giveaways!');
           return;
         }
         
@@ -3534,8 +3534,8 @@ client.on('messageCreate', async (message) => {
         
       case 'stopgiveaway':
       case 'endgiveaway':
-        if (!isSuperAdmin(userId) && (!serverId || !isZooAdmin(message.member))) {
-          await message.reply('❌ Only Super Admins or ZooAdmins can stop giveaways!');
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can stop giveaways!');
           return;
         }
         
@@ -3598,8 +3598,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
-          await message.reply('❌ Only Super Admins or ZooAdmins can start lotteries!');
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can start lotteries!');
           return;
         }
         
@@ -3656,8 +3656,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!isSuperAdmin(userId) && !isZooAdmin(message.member)) {
-          await message.reply('❌ Only Super Admins or ZooAdmins can stop lotteries!');
+        if (!isAdmin) {
+          await message.reply('❌ Only Super Admins and Bot Admins can stop lotteries!');
           return;
         }
         
