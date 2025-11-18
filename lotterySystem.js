@@ -167,6 +167,9 @@ async function performLotteryDraw(serverId) {
     
     await broadcastToAllServers(winnerEmbed);
     
+    if (!lottery.winnersHistory) {
+      lottery.winnersHistory = [];
+    }
     lottery.winnersHistory.unshift({
       winners: winners.map((w, i) => ({ userId: w.userId, place: i + 1, prize: Math.floor(lottery.prizePool * prizeShares[i]) })),
       date: new Date().toISOString(),
@@ -215,7 +218,7 @@ function initializeLotterySystem(client, data) {
     activeLotteries = { ...data.lotteryData };
     
     for (const [serverId, lottery] of Object.entries(activeLotteries)) {
-      if (lottery.active && lottery.endTime) {
+      if (lottery && lottery.active && lottery.endTime) {
         const remaining = lottery.endTime - Date.now();
         if (remaining > 0) {
           setTimeout(async () => {
