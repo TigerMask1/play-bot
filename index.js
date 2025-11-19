@@ -3568,6 +3568,7 @@ client.on('messageCreate', async (message) => {
             { name: '🎰 Lottery **[AUTO-SCHEDULED]**', value: '`!lottery` - View lottery info (shows if you joined)\n`!lottery join <tickets>` - Buy lottery tickets\n`!autolottery enable/disable <fee> <coins/gems>` - Auto 12h lottery (Bot Admin)\n`!startlottery <3h/6h/24h> <fee> <coins/gems>` - Manual lottery (Bot Admin)\n`!stoplottery` - End lottery early (Bot Admin)' },
             { name: '🔧 Server Setup (Admins)', value: '`!setup` - Server setup guide\n`!setdropchannel #channel`\n`!seteventschannel #channel`\n`!setupdateschannel #channel`\n`!addadmin @user` - Add bot admin\n`!removeadmin @user` - Remove admin' },
             { name: '👑 Super Admin', value: '`!servers` - List all servers\n`!removeserver <id>` - Remove bot from server\n`!postupdate <msg>` - Post update to all servers\n`!grant` - Grant resources\n`!grantchar` - Grant characters\n`!sendmail` - Send mail to all\n`!postnews` - Post news\n`!reset` - Reset all data' },
+            { name: '⚒️ Work & Economy **[NEW!]**', value: '`!work` - Complete jobs for rewards\n`!workguide` - Complete work system guide\n`!craft` - Craft tools\n`!market` - Buy/sell items\n`!auctions` - Bid on auctions\n💡 **All new workers get FREE starter tools!**' },
             { name: 'ℹ️ Information', value: '`!overview` - Game systems overview\n`!botinfo` - About ZooBot\n`!history @user` - Transaction history' }
           )
           .setFooter({ text: '💡 Tip: Most commands have shorter aliases! Try !b, !t, !c' });
@@ -3603,6 +3604,101 @@ client.on('messageCreate', async (message) => {
           .setFooter({ text: 'Type !help to see all commands | This is a fan-made game for entertainment!' });
         
         await message.reply({ embeds: [overviewEmbed] });
+        break;
+        
+      case 'workguide':
+      case 'workhelp':
+        const workGuideEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle('⚒️ Work & Economy System Guide')
+          .setDescription(
+            '**Welcome to the Work System!** Earn resources, coins, gems, and more by completing jobs!\n\n' +
+            '🎁 **FREE STARTER PACK:** All new workers get:\n' +
+            '• Level 1 Drill ⛏️\n' +
+            '• Level 1 Axe 🪓\n' +
+            '• Level 1 Whistle 📢\n' +
+            '• Level 1 Binoculars 🔭\n' +
+            '• Level 1 Caretaker House 🏠\n\n'
+          )
+          .addFields(
+            {
+              name: '💼 Available Jobs (15 min cooldown)',
+              value:
+                '**⛏️ Miner** - Use drill to mine ores (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite)\n' +
+                '**🏠 Caretaker** - Care for animals, earn coins, gems, and character tokens\n' +
+                '**🌾 Farmer** - Use axe to chop wood (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial)\n' +
+                '**🦁 Zookeeper** - Use whistle to wrangle animals for rewards\n' +
+                '**🔭 Ranger** - Use binoculars to scout for rare items'
+            },
+            {
+              name: '🛠️ Tools & Levels',
+              value:
+                '**⛏️ Drill** (Lvl 1-5) - Higher levels = more/better ores\n' +
+                '**🪓 Axe** (Lvl 1-5) - Higher levels = more/better wood\n' +
+                '**📢 Whistle** (Lvl 1-5) - Higher levels = better rewards\n' +
+                '**🔭 Binoculars** (Lvl 1-5) - Higher levels = better rewards\n' +
+                '**🏠 House** (Lvl 1-5) - Upgrades boost caretaker rewards\n\n' +
+                '⚠️ Tools have durability and will break! Craft replacements using ores and wood.'
+            },
+            {
+              name: '📦 Possible Rewards',
+              value:
+                '💰 **Coins** - Main currency\n' +
+                '💎 **Gems** - Premium currency\n' +
+                '⛰️ **Ores** - 5 types for crafting tools\n' +
+                '🌲 **Wood** - 4 types for crafting tools\n' +
+                '🎫 **Tokens** - Level up your characters\n' +
+                '📦 **Crates** - Random rewards\n' +
+                '🔑 **Keys** - Unlock characters\n' +
+                '🔷 **Shards** - Craft ST boosters'
+            },
+            {
+              name: '⚙️ Crafting & Upgrades',
+              value:
+                '`!craft` - Craft tools using ores and wood\n' +
+                '`!tools` - View your tools and their durability\n' +
+                '`!upgradehouse <level>` - Upgrade caretaker house'
+            },
+            {
+              name: '🏪 Market & Trading',
+              value:
+                '`!market` - Browse items for sale\n' +
+                '`!sell <item> <amount> <price>` - List items for sale\n' +
+                '`!buy <listing_id>` - Purchase listed items\n' +
+                '`!mylistings` - View your active listings\n' +
+                '`!cancelmarket <listing_id>` - Cancel your listing'
+            },
+            {
+              name: '🔨 Auction System',
+              value:
+                '`!auctions` - View active auctions\n' +
+                '`!auction <item> <amount> <starting_bid> <duration>` - Create auction\n' +
+                '`!bid <auction_id> <amount>` - Place bid on auction\n' +
+                '`!myauctions` - View your active auctions'
+            },
+            {
+              name: '🎮 Work Commands',
+              value:
+                '`!work` - Complete your assigned job\n' +
+                '`!workstatus` - Check cooldown and current job\n' +
+                '`!showwork <job>` - View job images (drill, room, axe, whistle, binoculars)\n' +
+                '`!ores` - View your ore inventory\n' +
+                '`!wood` - View your wood inventory'
+            },
+            {
+              name: '💡 Tips & Strategy',
+              value:
+                '• Your **first work** is always caretaker to get you started!\n' +
+                '• **Upgrade tools** for better rewards!\n' +
+                '• **Upgrade house** to boost caretaker earnings!\n' +
+                '• Jobs rotate randomly every 15 minutes\n' +
+                '• Save rare ores/wood for high-level tool crafting\n' +
+                '• Use the market to trade resources you don\'t need!'
+            }
+          )
+          .setFooter({ text: 'Start with !work to begin your first job! | All starters get FREE tools!' });
+        
+        await message.reply({ embeds: [workGuideEmbed] });
         break;
         
       case 'keys':

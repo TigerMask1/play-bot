@@ -88,10 +88,36 @@ function giveStarterTool(userData) {
   const { initializeTools } = require('./toolSystem.js');
   const tools = initializeTools(userData);
   
-  if (tools.drill.level === 0 && tools.axe.level === 0 && 
-      tools.whistle.level === 0 && tools.binoculars.level === 0) {
+  if (!tools.drill) {
+    tools.drill = { level: 0, durability: 0 };
+  }
+  if (tools.drill.level === 0) {
     tools.drill.level = 1;
     tools.drill.durability = 20;
+  }
+  
+  if (!tools.axe) {
+    tools.axe = { level: 0, durability: 0 };
+  }
+  if (tools.axe.level === 0) {
+    tools.axe.level = 1;
+    tools.axe.durability = 20;
+  }
+  
+  if (!tools.whistle) {
+    tools.whistle = { level: 0, durability: 0 };
+  }
+  if (tools.whistle.level === 0) {
+    tools.whistle.level = 1;
+    tools.whistle.durability = 20;
+  }
+  
+  if (!tools.binoculars) {
+    tools.binoculars = { level: 0, durability: 0 };
+  }
+  if (tools.binoculars.level === 0) {
+    tools.binoculars.level = 1;
+    tools.binoculars.durability = 20;
   }
 }
 
