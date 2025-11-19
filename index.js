@@ -135,6 +135,12 @@ const {
   listAllQuestions,
   getTriviaStats
 } = require('./triviaSystem.js');
+const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
+const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
+const { JOBS, initializeWorkData, canWork, assignRandomJob, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
+const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
+const { listItemOnMarket, buyFromMarket, cancelListing, getMarketListings } = require('./marketSystem.js');
+const { createAuction, placeBid, getActiveAuctions } = require('./auctionSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -3721,6 +3727,411 @@ client.on('messageCreate', async (message) => {
             '`!autolottery enable 100 gems` - Enable with 100 gems per ticket\n' +
             '`!autolottery disable` - Disable auto lottery'
           );
+        }
+        break;
+        
+      case 'work':
+        initializeWorkData(data.users[userId]);
+        
+        const workCheck = canWork(data.users[userId]);
+        if (!workCheck.canWork) {
+          await message.reply(`⏰ You're tired! Rest for ${workCheck.timeLeft}`);
+          return;
+        }
+        
+        const jobAssignment = assignRandomJob(data.users[userId]);
+        const job = JOBS[jobAssignment.job];
+        
+        let jobResult;
+        switch (jobAssignment.job) {
+          case 'miner':
+            jobResult = handleMinerJob(data.users[userId]);
+            break;
+          case 'caretaker':
+            jobResult = handleCaretakerJob(data.users[userId]);
+            break;
+          case 'farmer':
+            jobResult = handleFarmerJob(data.users[userId]);
+            break;
+          case 'zookeeper':
+            jobResult = handleZookeeperJob(data.users[userId]);
+            break;
+          case 'ranger':
+            jobResult = handleRangerJob(data.users[userId]);
+            break;
+        }
+        
+        if (!jobResult.success) {
+          await message.reply(jobResult.message);
+          return;
+        }
+        
+        let rewardText = `💰 ${jobResult.rewards.coins} coins\n💎 ${jobResult.rewards.gems} gems`;
+        
+        if (jobResult.rewards.ores && Object.keys(jobResult.rewards.ores).length > 0) {
+          rewardText += '\n**Ores:** ';
+          rewardText += Object.entries(jobResult.rewards.ores)
+            .map(([ore, amount]) => `${ORES[ore].emoji} ${amount} ${ore}`)
+            .join(', ');
+        }
+        
+        if (jobResult.rewards.wood && Object.keys(jobResult.rewards.wood).length > 0) {
+          rewardText += '\n**Wood:** ';
+          rewardText += Object.entries(jobResult.rewards.wood)
+            .map(([wood, amount]) => `${WOOD_TYPES[wood].emoji} ${amount} ${wood}`)
+            .join(', ');
+        }
+        
+        if (jobResult.rewards.tokens) {
+          rewardText += `\n🎫 ${jobResult.rewards.tokens} tokens`;
+        }
+        
+        if (jobResult.rewards.crates && Object.keys(jobResult.rewards.crates).length > 0) {
+          rewardText += '\n**Crates:** ';
+          rewardText += Object.entries(jobResult.rewards.crates)
+            .map(([type, amount]) => `${amount}x ${type}`)
+            .join(', ');
+        }
+        
+        if (jobResult.rewards.keys > 0) {
+          rewardText += `\n🔑 ${jobResult.rewards.keys} keys`;
+        }
+        
+        if (jobResult.rewards.shards > 0) {
+          rewardText += `\n✨ ${jobResult.rewards.shards} shards`;
+        }
+        
+        if (jobResult.durability !== undefined) {
+          rewardText += `\n\n🔧 Tool durability: ${jobResult.durability}`;
+        }
+        
+        const workEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle(`${job.emoji} ${job.name} Job Complete!`)
+          .setDescription(rewardText)
+          .setFooter({ text: 'Next work in 15 minutes' });
+        
+        await message.reply({ embeds: [workEmbed] });
+        await saveDataImmediate(data);
+        break;
+        
+      case 'crafttool':
+        const toolName = args[0]?.toLowerCase();
+        const toolLevel = parseInt(args[1]) || 1;
+        
+        if (!toolName || !TOOL_TYPES[toolName]) {
+          await message.reply(
+            '**Craft Tools**\n\n' +
+            'Usage: `!crafttool <drill/axe/whistle/binoculars> [level]`\n\n' +
+            '**Examples:**\n' +
+            '`!crafttool drill` - Craft level 1 drill\n' +
+            '`!crafttool axe 3` - Craft level 3 axe\n\n' +
+            '**Available Tools:**\n' +
+            '⛏️ Drill (for mining)\n' +
+            '🪓 Axe (for farming)\n' +
+            '📢 Whistle (for zookeeping)\n' +
+            '🔭 Binoculars (for rangering)'
+          );
+          return;
+        }
+        
+        if (toolLevel < 1 || toolLevel > 5) {
+          await message.reply('❌ Tool level must be between 1 and 5!');
+          return;
+        }
+        
+        const recipe = CRAFTING_RECIPES[toolName][toolLevel];
+        if (!recipe) {
+          await message.reply('❌ Invalid tool or level!');
+          return;
+        }
+        
+        initializeWorkData(data.users[userId]);
+        
+        const toolCraftResult = craftTool(data.users[userId], toolName, toolLevel);
+        
+        if (!toolCraftResult.success) {
+          const recipeText = Object.entries(recipe)
+            .map(([resource, amount]) => {
+              const emoji = ORES[resource]?.emoji || WOOD_TYPES[resource]?.emoji || '•';
+              return `${emoji} ${amount} ${resource}`;
+            })
+            .join(', ');
+          
+          await message.reply(
+            `❌ Cannot craft ${TOOL_TYPES[toolName].emoji} ${toolName} level ${toolLevel}!\n\n` +
+            `**Required:** ${recipeText}\n` +
+            `You're missing ${toolCraftResult.missing}!`
+          );
+          return;
+        }
+        
+        const craftEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle('🔨 Crafting Success!')
+          .setDescription(
+            `Created ${TOOL_TYPES[toolName].emoji} **${toolName.toUpperCase()} Level ${toolCraftResult.level}**\n\n` +
+            `Durability: ${toolCraftResult.durability} uses`
+          );
+        
+        await message.reply({ embeds: [craftEmbed] });
+        await saveDataImmediate(data);
+        break;
+        
+      case 'upgrade':
+      case 'upgradehouse':
+        initializeWorkData(data.users[userId]);
+        
+        const houseInfo = getHouseInfo(data.users[userId]);
+        
+        if (!args[0] || args[0] !== 'confirm') {
+          if (houseInfo.level >= 5) {
+            await message.reply('✅ Your Caretaking House is already max level!');
+            return;
+          }
+          
+          const nextCost = houseInfo.nextLevelCost;
+          let costText = `💰 ${nextCost.coins} coins\n💎 ${nextCost.gems} gems`;
+          
+          if (nextCost.ores && Object.keys(nextCost.ores).length > 0) {
+            costText += '\n**Resources:** ';
+            costText += Object.entries(nextCost.ores)
+              .map(([resource, amount]) => {
+                const emoji = ORES[resource]?.emoji || WOOD_TYPES[resource]?.emoji;
+                return `${emoji} ${amount} ${resource}`;
+              })
+              .join(', ');
+          }
+          
+          const upgradeEmbed = new EmbedBuilder()
+            .setColor('#9B59B6')
+            .setTitle('🏠 Upgrade Caretaking House')
+            .setDescription(
+              `**Current Level:** ${houseInfo.level} - ${houseInfo.description}\n` +
+              `**Animals Cared For:** ${houseInfo.animalsCount}\n\n` +
+              `**Upgrade to Level ${houseInfo.level + 1}:**\n${costText}\n\n` +
+              `Use \`!upgrade confirm\` to upgrade!`
+            );
+          
+          await message.reply({ embeds: [upgradeEmbed] });
+          return;
+        }
+        
+        const upgradeResult = upgradeHouse(data.users[userId]);
+        
+        if (!upgradeResult.success) {
+          await message.reply(`❌ ${upgradeResult.reason}`);
+          return;
+        }
+        
+        const successEmbed = new EmbedBuilder()
+          .setColor('#00FF00')
+          .setTitle('✅ House Upgraded!')
+          .setDescription(
+            `Your Caretaking House is now **Level ${upgradeResult.newLevel}**\n` +
+            `${upgradeResult.description}\n\n` +
+            `Higher level = better rewards when working!`
+          );
+        
+        await message.reply({ embeds: [successEmbed] });
+        await saveDataImmediate(data);
+        break;
+        
+      case 'inventory':
+      case 'inv':
+        initializeWorkData(data.users[userId]);
+        
+        const oreDisplay = formatOreInventory(data.users[userId].ores);
+        const woodDisplay = formatWoodInventory(data.users[userId].wood);
+        
+        const tools = data.users[userId].tools || {};
+        let toolDisplay = '';
+        for (const [toolType, toolData] of Object.entries(tools)) {
+          if (toolData.level > 0) {
+            toolDisplay += `\n${TOOL_TYPES[toolType].emoji} ${toolType} Lv.${toolData.level} (${toolData.durability} uses)`;
+          }
+        }
+        if (!toolDisplay) toolDisplay = '\nNo tools crafted yet';
+        
+        const invEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`📦 ${message.author.username}'s Inventory`)
+          .addFields(
+            { name: '⛏️ Ores', value: oreDisplay, inline: false },
+            { name: '🌲 Wood', value: woodDisplay, inline: false },
+            { name: '🔧 Tools', value: toolDisplay, inline: false }
+          );
+        
+        await message.reply({ embeds: [invEmbed] });
+        break;
+        
+      case 'market':
+        const marketAction = args[0]?.toLowerCase();
+        
+        if (marketAction === 'list' || marketAction === 'sell') {
+          const itemType = args[1]?.toLowerCase();
+          const itemName = args[2]?.toLowerCase();
+          const quantity = parseInt(args[3]);
+          const price = parseInt(args[4]);
+          
+          if (!itemType || !itemName || !quantity || !price) {
+            await message.reply(
+              '**List Item on Market**\n\n' +
+              'Usage: `!market list <ore/wood> <name> <quantity> <price>`\n\n' +
+              '**Examples:**\n' +
+              '`!market list ore aurelite 10 100` - Sell 10 aurelite for 100 coins\n' +
+              '`!market list wood oak 5 50` - Sell 5 oak wood for 50 coins'
+            );
+            return;
+          }
+          
+          const listResult = listItemOnMarket(data, userId, itemType, itemName, quantity, price);
+          
+          if (!listResult.success) {
+            await message.reply(listResult.message);
+            return;
+          }
+          
+          await message.reply(
+            `✅ Listed ${quantity}x ${itemName} for ${price} coins!\n` +
+            `Listing ID: \`${listResult.listingId}\``
+          );
+          await saveDataImmediate(data);
+        } else if (marketAction === 'buy') {
+          const listingId = args[1];
+          
+          if (!listingId) {
+            await message.reply('Usage: `!market buy <listing ID>`');
+            return;
+          }
+          
+          const buyResult = buyFromMarket(data, userId, listingId);
+          
+          if (!buyResult.success) {
+            await message.reply(buyResult.message);
+            return;
+          }
+          
+          await message.reply(
+            `✅ Bought ${buyResult.quantity}x ${buyResult.itemName} for ${buyResult.price} coins!`
+          );
+          await saveDataImmediate(data);
+        } else if (marketAction === 'cancel') {
+          const listingId = args[1];
+          
+          if (!listingId) {
+            await message.reply('Usage: `!market cancel <listing ID>`');
+            return;
+          }
+          
+          const cancelResult = cancelListing(data, userId, listingId);
+          
+          if (!cancelResult.success) {
+            await message.reply(cancelResult.message);
+            return;
+          }
+          
+          await message.reply('✅ Listing cancelled and items returned!');
+          await saveDataImmediate(data);
+        } else {
+          const listings = getMarketListings(data);
+          
+          if (listings.length === 0) {
+            await message.reply('📭 The market is empty! Use `!market list` to sell items.');
+            return;
+          }
+          
+          const listingText = listings.slice(0, 10).map(listing => {
+            const emoji = ORES[listing.itemName]?.emoji || WOOD_TYPES[listing.itemName]?.emoji || '•';
+            return `\`${listing.id.slice(0, 8)}\` - ${emoji} ${listing.quantity}x ${listing.itemName} - ${listing.price} coins (${listing.sellerName})`;
+          }).join('\n');
+          
+          const marketEmbed = new EmbedBuilder()
+            .setColor('#00D9FF')
+            .setTitle('🏪 Market Listings')
+            .setDescription(listingText + (listings.length > 10 ? '\n\n...and more' : ''))
+            .setFooter({ text: 'Use !market buy <ID> to purchase' });
+          
+          await message.reply({ embeds: [marketEmbed] });
+        }
+        break;
+        
+      case 'auction':
+        const auctionAction = args[0]?.toLowerCase();
+        
+        if (auctionAction === 'create' || auctionAction === 'start') {
+          const itemType = args[1]?.toLowerCase();
+          const itemName = args[2]?.toLowerCase();
+          const quantity = parseInt(args[3]);
+          const startingBid = parseInt(args[4]);
+          const durationHours = parseInt(args[5]) || 24;
+          
+          if (!itemType || !itemName || !quantity || !startingBid) {
+            await message.reply(
+              '**Create Auction**\n\n' +
+              'Usage: `!auction create <ore/wood> <name> <quantity> <starting bid> [hours]`\n\n' +
+              '**Examples:**\n' +
+              '`!auction create ore voidinite 5 500` - Auction 5 voidinite starting at 500 coins (24h)\n' +
+              '`!auction create wood celestial 3 300 12` - Auction for 12 hours'
+            );
+            return;
+          }
+          
+          const duration = durationHours * 3600000;
+          const createResult = createAuction(data, userId, itemType, itemName, quantity, startingBid, duration);
+          
+          if (!createResult.success) {
+            await message.reply(createResult.message);
+            return;
+          }
+          
+          await message.reply(
+            `✅ Auction created!\n` +
+            `Auction ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
+            `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`
+          );
+          await saveDataImmediate(data);
+        } else if (auctionAction === 'bid') {
+          const auctionId = args[1];
+          const bidAmount = parseInt(args[2]);
+          
+          if (!auctionId || !bidAmount) {
+            await message.reply('Usage: `!auction bid <auction ID> <amount>`');
+            return;
+          }
+          
+          const bidResult = placeBid(data, userId, auctionId, bidAmount);
+          
+          if (!bidResult.success) {
+            await message.reply(bidResult.message);
+            return;
+          }
+          
+          await message.reply(`✅ Bid placed! Current bid: ${bidResult.newBid} coins`);
+          await saveDataImmediate(data);
+        } else {
+          const activeAuctions = getActiveAuctions(data);
+          
+          if (activeAuctions.length === 0) {
+            await message.reply('📭 No active auctions! Use `!auction create` to start one.');
+            return;
+          }
+          
+          const auctionText = activeAuctions.slice(0, 5).map(auction => {
+            const emoji = ORES[auction.itemName]?.emoji || WOOD_TYPES[auction.itemName]?.emoji || '•';
+            const bidder = auction.currentBidderName || 'No bids';
+            return `\`${auction.id.slice(0, 8)}\` - ${emoji} ${auction.quantity}x ${auction.itemName}\n` +
+                   `Current bid: ${auction.currentBid} (${bidder})\n` +
+                   `Ends: <t:${Math.floor(auction.endsAt / 1000)}:R>`;
+          }).join('\n\n');
+          
+          const auctionEmbed = new EmbedBuilder()
+            .setColor('#FFD700')
+            .setTitle('🎯 Active Auctions')
+            .setDescription(auctionText)
+            .setFooter({ text: 'Use !auction bid <ID> <amount> to bid' });
+          
+          await message.reply({ embeds: [auctionEmbed] });
         }
         break;
     }
