@@ -16,8 +16,12 @@ function initializeWorkData(userData) {
     userData.work = {
       lastWorkTime: 0,
       currentJob: null,
-      jobStartTime: 0
+      jobStartTime: 0,
+      firstWorkCompleted: false
     };
+  }
+  if (userData.work.firstWorkCompleted === undefined) {
+    userData.work.firstWorkCompleted = false;
   }
   if (!userData.ores) {
     userData.ores = {
@@ -61,17 +65,28 @@ function canWork(userData) {
 }
 
 function assignRandomJob(userData) {
-  const randomJob = JOB_LIST[Math.floor(Math.random() * JOB_LIST.length)];
   const work = initializeWorkData(userData);
+  
+  let randomJob;
+  if (!work.firstWorkCompleted) {
+    randomJob = 'caretaker';
+  } else {
+    randomJob = JOB_LIST[Math.floor(Math.random() * JOB_LIST.length)];
+  }
   
   work.currentJob = randomJob;
   work.jobStartTime = Date.now();
-  work.lastWorkTime = Date.now();
   
   return {
     job: randomJob,
     jobData: JOBS[randomJob]
   };
+}
+
+function completeWork(userData) {
+  const work = initializeWorkData(userData);
+  work.lastWorkTime = Date.now();
+  work.firstWorkCompleted = true;
 }
 
 function handleMinerJob(userData) {
@@ -117,6 +132,8 @@ function handleMinerJob(userData) {
 function handleCaretakerJob(userData) {
   const house = userData.caretakingHouse;
   const level = house.level;
+  const work = userData.work || {};
+  const isFirstWork = !work.firstWorkCompleted;
   
   const baseTokens = 10 + level * 5;
   const tokens = baseTokens + Math.floor(Math.random() * level * 3);
@@ -133,9 +150,29 @@ function handleCaretakerJob(userData) {
   
   house.animalsCount += Math.floor(1 + Math.random() * level);
   
+  const rewards = { tokens, coins, gems, ores: {}, wood: {} };
+  
+  const ores = userData.ores;
+  const wood = userData.wood;
+  
+  if (isFirstWork) {
+    wood.oak += 2;
+    rewards.wood.oak = 2;
+    ores.aurelite += 3;
+    rewards.ores.aurelite = 3;
+  } else {
+    const oakAmount = 2 + Math.floor(Math.random() * 3);
+    wood.oak += oakAmount;
+    rewards.wood.oak = oakAmount;
+    
+    const aureliteAmount = 2 + Math.floor(Math.random() * 2);
+    ores.aurelite += aureliteAmount;
+    rewards.ores.aurelite = aureliteAmount;
+  }
+  
   return {
     success: true,
-    rewards: { tokens, coins, gems },
+    rewards,
     houseLevel: level
   };
 }
@@ -257,6 +294,7 @@ module.exports = {
   initializeWorkData,
   canWork,
   assignRandomJob,
+  completeWork,
   handleMinerJob,
   handleCaretakerJob,
   handleFarmerJob,

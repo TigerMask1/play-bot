@@ -52,8 +52,8 @@ function useTool(userData, toolType) {
   const tools = initializeTools(userData);
   const tool = tools[toolType];
   
-  if (tool.level === 0) return { success: false, message: `You don't have a ${toolType}! Craft one with \`!craft ${toolType}\`` };
-  if (tool.durability <= 0) return { success: false, message: `Your ${TOOL_TYPES[toolType].emoji} ${toolType} broke! Craft a new one with \`!craft ${toolType}\`` };
+  if (tool.level === 0) return { success: false, message: `You don't have a ${toolType}! Craft one with \`!crafttool ${toolType}\`` };
+  if (tool.durability <= 0) return { success: false, message: `Your ${TOOL_TYPES[toolType].emoji} ${toolType} broke! Craft a new one with \`!crafttool ${toolType}\`` };
   
   tool.durability--;
   

@@ -137,7 +137,7 @@ const {
 } = require('./triviaSystem.js');
 const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
-const { JOBS, initializeWorkData, canWork, assignRandomJob, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
+const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const { listItemOnMarket, buyFromMarket, cancelListing, getMarketListings } = require('./marketSystem.js');
 const { createAuction, placeBid, getActiveAuctions } = require('./auctionSystem.js');
@@ -3804,6 +3804,8 @@ client.on('messageCreate', async (message) => {
         if (jobResult.durability !== undefined) {
           rewardText += `\n\n🔧 Tool durability: ${jobResult.durability}`;
         }
+        
+        completeWork(data.users[userId]);
         
         const workEmbed = new EmbedBuilder()
           .setColor('#00D9FF')
