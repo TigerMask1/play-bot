@@ -588,26 +588,19 @@ async function promptTurn(battle, channel, data) {
         const result = handleEquipmentButton(battle, interaction.customId);
         
         try {
+          const messageFlags = result.ephemeral ? 64 : 0;
           await interaction.editReply({ content: result.message, embeds: [], components: [] }).catch(async () => {
-            await interaction.followUp({ content: result.message, flags: 64 });
+            await interaction.followUp({ content: result.message, flags: messageFlags });
           });
         } catch (err) {
           console.error('Error showing equipment message:', err);
         }
         
-        if (result.success) {
-          setTimeout(() => {
-            if (activeBattles.has(battle.player1)) {
-              promptTurn(battle, channel, data);
-            }
-          }, 1500);
-        } else {
-          setTimeout(() => {
-            if (activeBattles.has(battle.player1)) {
-              promptTurn(battle, channel, data);
-            }
-          }, 1000);
-        }
+        setTimeout(() => {
+          if (activeBattles.has(battle.player1)) {
+            promptTurn(battle, channel, data);
+          }
+        }, result.success ? 1500 : 1000);
         return;
       } else if (interaction.customId.startsWith('move_')) {
         const moveIndex = parseInt(interaction.customId.split('_')[1]);
@@ -835,7 +828,7 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
   const opponentSlot = isPlayer1 ? 'player2' : 'player1';
   const vanishDrain = onOpponentMove(battle, playerSlot, energyCost);
   if (vanishDrain > 0) {
-    await channel.send(`💍 **Vanish-Ring**: ${opponentChar.emoji} ${opponentChar.name} lost ${vanishDrain} extra energy!`);
+    await channel.send(`💍 **Vanish-Ring**: ${currentChar.emoji} ${currentChar.name} lost ${vanishDrain} extra energy from opponent's Vanish-Ring!`);
   }
   
   if (currentAbility && currentAbility.effect.specialEnergyRefund && isSpecial) {
@@ -925,9 +918,12 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
     let opponentShield = isPlayer1 ? battle.player2Shield : battle.player1Shield;
     
     const opponentSlot = isPlayer1 ? 'player2' : 'player1';
-    if (checkMistDodge(battle, opponentSlot)) {
+    const mistDodgeResult = checkMistDodge(battle, opponentSlot);
+    if (mistDodgeResult.message) {
+      await channel.send(mistDodgeResult.message);
+    }
+    if (mistDodgeResult.dodged) {
       baseDamage = 0;
-      await channel.send(`🌫️ **Mist-Dodge**: ${opponentChar.emoji} ${opponentChar.name} completely avoided the attack!`);
     }
     
     if (opponentAbility && opponentAbility.effect.dodgeChance && Math.random() < opponentAbility.effect.dodgeChance) {
@@ -982,9 +978,24 @@ async function executeMove(interaction, battle, channel, data, moveIndex, isPlay
       await channel.send(`💉 **Med-Drop**: ${currentChar.emoji} ${currentChar.name} healed for ${medDropHeal} HP!`);
     }
     
-    const reflectedDamage = calculateReflectedDamage(battle, playerSlot, opponentSlot, finalDamage);
-    if (reflectedDamage > 0) {
-      await channel.send(`🪞 **Reflected Damage**: ${currentChar.emoji} ${currentChar.name} took ${reflectedDamage} damage!`);
+    const reflectionResult = calculateReflectedDamage(battle, playerSlot, opponentSlot, finalDamage);
+    if (reflectionResult.damage > 0) {
+      await channel.send(`🪞 **Reflected Damage**: ${currentChar.emoji} ${currentChar.name} took ${reflectionResult.damage} reflected damage!`);
+      
+      // Check if reflected damage caused a knockout
+      if (reflectionResult.causedKnockout) {
+        const revived = checkDefibrillatorRevive(battle, playerSlot);
+        if (revived) {
+          const revivedChar = isPlayer1 ? battle.player1Character : battle.player2Character;
+          const revivedEnergy = isPlayer1 ? battle.player1Energy : battle.player2Energy;
+          await channel.send(`⚡💚 **SELF-DEFIBRILLATOR ACTIVATED!**\n${revivedChar.emoji} ${revivedChar.name} miraculously revived with full HP and ${revivedEnergy} energy after the reflected damage!`);
+        } else {
+          const winner = isPlayer1 ? battle.player2 : battle.player1;
+          await channel.send(`💀 ${currentChar.emoji} **${currentChar.name}** was knocked out by reflected damage!`);
+          await endBattle(battle, channel, data, 'knockout', winner);
+          return;
+        }
+      }
     }
     
     if (currentAbility && currentAbility.effect.lifesteal) {

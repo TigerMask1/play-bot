@@ -144,11 +144,11 @@ function handleEquipmentButton(battle, buttonId) {
   // Leech-Suck activation
   if (buttonId.includes('leech')) {
     if (state.leechSuckUsed) {
-      return { success: false, message: '❌ Leech-Suck already used!' };
+      return { success: false, message: '❌ Leech-Suck already used!', ephemeral: false };
     }
     
     if (!item || item.id !== 'leech_suck') {
-      return { success: false, message: '❌ Invalid equipment!' };
+      return { success: false, message: '❌ Invalid equipment!', ephemeral: false };
     }
     
     const opponentSlot = playerSlot === 'player1' ? 'player2' : 'player1';
@@ -167,14 +167,15 @@ function handleEquipmentButton(battle, buttonId) {
     
     return { 
       success: true, 
-      message: `🧛 **Leech-Suck activated!** Drained ${drainAmount} HP (${drainPercent.toFixed(1)}%) from opponent!`
+      message: `🧛 **Leech-Suck activated!** Drained ${drainAmount} HP (${drainPercent.toFixed(1)}%) from opponent!`,
+      ephemeral: false
     };
   }
   
   // Mist-Dodge activation
   if (buttonId.includes('mist')) {
     if (state.mistDodgeUsed) {
-      return { success: false, message: '❌ Mist-Dodge already used!' };
+      return { success: false, message: '❌ Mist-Dodge already used!', ephemeral: false };
     }
     
     state.mistDodgeActive = true;
@@ -182,14 +183,15 @@ function handleEquipmentButton(battle, buttonId) {
     
     return { 
       success: true, 
-      message: `🌫️ **Mist-Dodge activated!** Next opponent attack may miss!`
+      message: `🌫️ **Mist-Dodge activated!** Your next incoming attack has a chance to miss!`,
+      ephemeral: false
     };
   }
   
   // Fire-Fang activation
   if (buttonId.includes('fire')) {
     if (state.fireFangUsed) {
-      return { success: false, message: '❌ Fire-Fang already used!' };
+      return { success: false, message: '❌ Fire-Fang already used!', ephemeral: false };
     }
     
     state.fireFangArmed = !state.fireFangArmed;
@@ -198,14 +200,15 @@ function handleEquipmentButton(battle, buttonId) {
       success: true, 
       message: state.fireFangArmed 
         ? `🔥 **Fire-Fang armed!** Use your special ability, then opponent's next move will reflect damage!`
-        : `🔥 Fire-Fang disarmed.`
+        : `🔥 Fire-Fang disarmed.`,
+      ephemeral: false
     };
   }
   
   // Reflective-Mirror activation (hidden)
   if (buttonId.includes('mirror')) {
     if (state.reflectiveMirrorUsed) {
-      return { success: false, message: '❌ Reflective-Mirror already used!' };
+      return { success: false, message: '❌ Reflective-Mirror already used!', ephemeral: true };
     }
     
     state.reflectiveMirrorArmed = true;
@@ -213,23 +216,26 @@ function handleEquipmentButton(battle, buttonId) {
     
     return { 
       success: true, 
-      message: `🪞 **Reflective-Mirror set!** (Hidden activation - opponent won't see this)`
+      message: `🪞 **Reflective-Mirror armed!** Your next incoming attack will be reflected! (This message is hidden from your opponent)`,
+      ephemeral: true
     };
   }
   
   // Energy-Smash activation
   if (buttonId.includes('smash')) {
     if (state.energySmashUsed) {
-      return { success: false, message: '❌ Energy-Smash already used!' };
+      return { success: false, message: '❌ Energy-Smash already used!', ephemeral: false };
     }
     
+    // Toggle the armed state
     state.energySmashArmed = !state.energySmashArmed;
     
     return { 
       success: true, 
       message: state.energySmashArmed 
-        ? `⚡ **Energy-Smash armed!** Your next move will refund energy!`
-        : `⚡ Energy-Smash disarmed.`
+        ? `⚡ **Energy-Smash armed!** Your next move will refund ${70}%-${90}% of its energy cost!`
+        : `⚡ Energy-Smash disarmed.`,
+      ephemeral: false
     };
   }
   
@@ -302,9 +308,12 @@ function onOpponentMove(battle, opponentSlot, energyUsed) {
 }
 
 // Hook: Check if Mist-Dodge should trigger
+// Returns { dodged: boolean, message: string }
 function checkMistDodge(battle, defenderSlot) {
   const equipmentData = battle[`${defenderSlot}Equipment`];
-  if (!equipmentData || !equipmentData.item || !equipmentData.state) return false;
+  if (!equipmentData || !equipmentData.item || !equipmentData.state) {
+    return { dodged: false, message: '' };
+  }
   
   const { item, state } = equipmentData;
   
@@ -315,17 +324,22 @@ function checkMistDodge(battle, defenderSlot) {
     state.mistDodgeActive = false;
     
     if (Math.random() * 100 < dodgeChance) {
-      return true;
+      return { dodged: true, message: `🌫️ **Mist-Dodge activated!** The attack missed! (${dodgeChance}% chance)` };
+    } else {
+      return { dodged: false, message: `🌫️ Mist-Dodge failed to activate... (${dodgeChance}% chance)` };
     }
   }
   
-  return false;
+  return { dodged: false, message: '' };
 }
 
 // Hook: Calculate reflected damage (Fire-Fang & Reflective-Mirror)
+// Returns { damage: number, causedKnockout: boolean }
 function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDamage) {
   const defenderEquipment = battle[`${defenderSlot}Equipment`];
-  if (!defenderEquipment || !defenderEquipment.item || !defenderEquipment.state) return 0;
+  if (!defenderEquipment || !defenderEquipment.item || !defenderEquipment.state) {
+    return { damage: 0, causedKnockout: false };
+  }
   
   const { item, state } = defenderEquipment;
   let reflectedDamage = 0;
@@ -338,8 +352,13 @@ function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDa
     state.reflectiveMirrorArmed = false;
     
     const currentHP = battle[`${attackerSlot}HP`];
-    battle[`${attackerSlot}HP`] = Math.max(0, currentHP - reflectedDamage);
-    return reflectedDamage;
+    const newHP = Math.max(0, currentHP - reflectedDamage);
+    battle[`${attackerSlot}HP`] = newHP;
+    
+    return { 
+      damage: reflectedDamage, 
+      causedKnockout: newHP <= 0 
+    };
   }
   
   // Fire-Fang: 20-35% reflection after special ability
@@ -351,11 +370,16 @@ function calculateReflectedDamage(battle, attackerSlot, defenderSlot, incomingDa
     state.fireFangUsed = true;
     
     const currentHP = battle[`${attackerSlot}HP`];
-    battle[`${attackerSlot}HP`] = Math.max(0, currentHP - reflectedDamage);
-    return reflectedDamage;
+    const newHP = Math.max(0, currentHP - reflectedDamage);
+    battle[`${attackerSlot}HP`] = newHP;
+    
+    return { 
+      damage: reflectedDamage, 
+      causedKnockout: newHP <= 0 
+    };
   }
   
-  return 0;
+  return { damage: 0, causedKnockout: false };
 }
 
 // Hook: Check for Self-Defibrillator revival
