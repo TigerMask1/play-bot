@@ -1,7 +1,7 @@
 const { getCollection } = require('./mongoManager.js');
 
 const MAIN_SERVER_ID = '1430516117851340893';
-const SUPER_ADMINS = ['1296110901057032202', '1296109674361520146'];
+const SUPER_ADMINS = ['1296110901057032202', '1296109674361520146','1178728978488504400'];
 
 let serverConfigs = {};
 
