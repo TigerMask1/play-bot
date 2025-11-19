@@ -118,12 +118,12 @@ function createEquipmentButtons(equipmentData, playerSlot, battleId) {
       .setStyle(ButtonStyle.Secondary));
   }
   
-  // Energy-Smash button
-  if (item.id === 'energy_smash' && state.energySmashAvailable && !state.energySmashUsed) {
+  // Energy-Smash button (only show if not armed and not used)
+  if (item.id === 'energy_smash' && state.energySmashAvailable && !state.energySmashUsed && !state.energySmashArmed) {
     buttons.push(new ButtonBuilder()
       .setCustomId(`equip_smash_${playerSlot}_${battleId}`)
-      .setLabel(`${item.emoji} ${state.energySmashArmed ? '⚡ ' : ''}E-Smash`)
-      .setStyle(state.energySmashArmed ? ButtonStyle.Success : ButtonStyle.Primary));
+      .setLabel(`${item.emoji} E-Smash`)
+      .setStyle(ButtonStyle.Primary));
   }
   
   return buttons;
@@ -227,14 +227,16 @@ function handleEquipmentButton(battle, buttonId) {
       return { success: false, message: '❌ Energy-Smash already used!', ephemeral: false };
     }
     
-    // Toggle the armed state
-    state.energySmashArmed = !state.energySmashArmed;
+    if (state.energySmashArmed) {
+      return { success: false, message: '❌ Energy-Smash is already armed! Use a move to trigger the refund.', ephemeral: false };
+    }
+    
+    // Arm the item (one-time use)
+    state.energySmashArmed = true;
     
     return { 
       success: true, 
-      message: state.energySmashArmed 
-        ? `⚡ **Energy-Smash armed!** Your next move will refund ${70}%-${90}% of its energy cost!`
-        : `⚡ Energy-Smash disarmed.`,
+      message: `⚡ **Energy-Smash armed!** Your next move will refund 70%-90% of its energy cost!`,
       ephemeral: false
     };
   }
