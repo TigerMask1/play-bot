@@ -70,6 +70,7 @@ function assignRandomJob(userData) {
   let randomJob;
   if (!work.firstWorkCompleted) {
     randomJob = 'caretaker';
+    giveStarterTool(userData);
   } else {
     randomJob = JOB_LIST[Math.floor(Math.random() * JOB_LIST.length)];
   }
@@ -81,6 +82,17 @@ function assignRandomJob(userData) {
     job: randomJob,
     jobData: JOBS[randomJob]
   };
+}
+
+function giveStarterTool(userData) {
+  const { initializeTools } = require('./toolSystem.js');
+  const tools = initializeTools(userData);
+  
+  if (tools.drill.level === 0 && tools.axe.level === 0 && 
+      tools.whistle.level === 0 && tools.binoculars.level === 0) {
+    tools.drill.level = 1;
+    tools.drill.durability = 20;
+  }
 }
 
 function completeWork(userData) {
@@ -144,13 +156,21 @@ function handleCaretakerJob(userData) {
   const baseGems = 8 + level * 4;
   const gems = baseGems + Math.floor(Math.random() * level * 2);
   
-  userData.pendingTokens = (userData.pendingTokens || 0) + tokens;
+  let grantedCharacter = null;
+  if (userData.characters && userData.characters.length > 0) {
+    const randomChar = userData.characters[Math.floor(Math.random() * userData.characters.length)];
+    randomChar.tokens = (randomChar.tokens || 0) + tokens;
+    grantedCharacter = randomChar.name;
+  } else {
+    userData.pendingTokens = (userData.pendingTokens || 0) + tokens;
+  }
+  
   userData.coins += coins;
   userData.gems += gems;
   
   house.animalsCount += Math.floor(1 + Math.random() * level);
   
-  const rewards = { tokens, coins, gems, ores: {}, wood: {} };
+  const rewards = { tokens, coins, gems, ores: {}, wood: {}, grantedTo: grantedCharacter };
   
   const ores = userData.ores;
   const wood = userData.wood;

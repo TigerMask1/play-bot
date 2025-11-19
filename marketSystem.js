@@ -117,7 +117,15 @@ function initializeMarketData(data) {
   if (!data.globalMarket) {
     data.globalMarket = [];
   }
+  if (!data.marketIdCounter) {
+    data.marketIdCounter = 0;
+  }
   return data.globalMarket;
+}
+
+function generateMarketId(data) {
+  data.marketIdCounter = (data.marketIdCounter || 0) + 1;
+  return `M${String(data.marketIdCounter).padStart(3, '0')}`;
 }
 
 function getItemInfo(category, itemName) {
@@ -156,7 +164,7 @@ async function listItemOnMarket(data, sellerId, category, itemName, quantity, pr
   initializeMarketData(data);
   
   const listing = {
-    id: Date.now() + Math.random().toString(36).substr(2, 9),
+    id: generateMarketId(data),
     sellerId,
     sellerName: seller.username,
     category,
@@ -275,6 +283,7 @@ async function clearMarket(data) {
 module.exports = {
   ITEM_CATEGORIES,
   initializeMarketData,
+  generateMarketId,
   getItemInfo,
   listItemOnMarket,
   buyFromMarket,

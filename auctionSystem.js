@@ -5,7 +5,15 @@ function initializeAuctionData(data) {
   if (!data.globalAuctions) {
     data.globalAuctions = [];
   }
+  if (!data.auctionIdCounter) {
+    data.auctionIdCounter = 0;
+  }
   return data.globalAuctions;
+}
+
+function generateAuctionId(data) {
+  data.auctionIdCounter = (data.auctionIdCounter || 0) + 1;
+  return `A${String(data.auctionIdCounter).padStart(3, '0')}`;
 }
 
 async function createAuction(data, sellerId, category, itemName, quantity, startingBid, duration) {
@@ -30,7 +38,7 @@ async function createAuction(data, sellerId, category, itemName, quantity, start
   initializeAuctionData(data);
   
   const auction = {
-    id: Date.now() + Math.random().toString(36).substr(2, 9),
+    id: generateAuctionId(data),
     sellerId,
     sellerName: seller.username,
     category,
@@ -228,6 +236,7 @@ async function clearAllAuctions(data) {
 
 module.exports = {
   initializeAuctionData,
+  generateAuctionId,
   createAuction,
   placeBid,
   endAuction,

@@ -82,6 +82,9 @@ async function loadData() {
     });
     
     const clanWarsConfig = await configCollection.findOne({ _id: 'clan_wars' });
+    const marketConfig = await configCollection.findOne({ _id: 'market_data' });
+    const auctionConfig = await configCollection.findOne({ _id: 'auction_data' });
+    const workImagesConfig = await configCollection.findOne({ _id: 'work_images' });
     
     return {
       users: userData,
@@ -91,6 +94,11 @@ async function loadData() {
         lastReset: Date.now(),
         weekNumber: 1
       },
+      globalMarket: marketConfig?.globalMarket || [],
+      globalAuctions: auctionConfig?.globalAuctions || [],
+      marketIdCounter: marketConfig?.marketIdCounter || 0,
+      auctionIdCounter: auctionConfig?.auctionIdCounter || 0,
+      workImages: workImagesConfig?.images || {},
       dropChannelId: config?.dropChannelId || null,
       battleChannelId: config?.battleChannelId || null,
       eventChannelId: config?.eventChannelId || null
@@ -105,6 +113,11 @@ async function loadData() {
         lastReset: Date.now(),
         weekNumber: 1
       },
+      globalMarket: [],
+      globalAuctions: [],
+      marketIdCounter: 0,
+      auctionIdCounter: 0,
+      workImages: {},
       dropChannelId: null,
       battleChannelId: null,
       eventChannelId: null
@@ -177,6 +190,40 @@ async function saveData(data) {
       await configCollection.updateOne(
         { _id: 'clan_wars' },
         { $set: data.clanWars },
+        { upsert: true }
+      );
+    }
+    
+    if (data.globalMarket !== undefined) {
+      await configCollection.updateOne(
+        { _id: 'market_data' },
+        { 
+          $set: { 
+            globalMarket: data.globalMarket,
+            marketIdCounter: data.marketIdCounter || 0
+          } 
+        },
+        { upsert: true }
+      );
+    }
+    
+    if (data.globalAuctions !== undefined) {
+      await configCollection.updateOne(
+        { _id: 'auction_data' },
+        { 
+          $set: { 
+            globalAuctions: data.globalAuctions,
+            auctionIdCounter: data.auctionIdCounter || 0
+          } 
+        },
+        { upsert: true }
+      );
+    }
+    
+    if (data.workImages !== undefined) {
+      await configCollection.updateOne(
+        { _id: 'work_images' },
+        { $set: { images: data.workImages } },
         { upsert: true }
       );
     }

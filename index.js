@@ -1954,6 +1954,141 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [uploadEmbed] });
         break;
         
+      case 'setworkimage':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const workJob = args[0]?.toLowerCase();
+        const workImageUrl = args[1];
+        
+        if (!workJob || !workImageUrl) {
+          await message.reply(
+            '**Set Work Image**\n\n' +
+            'Usage: `!setworkimage <job> <image_url>`\n\n' +
+            '**Available jobs:** drill, room, axe, whistle, binoculars\n' +
+            '**Examples:**\n' +
+            '`!setworkimage drill https://example.com/drill.png`\n' +
+            '`!setworkimage room https://example.com/caretaker.png`'
+          );
+          return;
+        }
+        
+        const validJobs = ['drill', 'room', 'axe', 'whistle', 'binoculars'];
+        if (!validJobs.includes(workJob)) {
+          await message.reply(`❌ Invalid job! Available: ${validJobs.join(', ')}`);
+          return;
+        }
+        
+        if (!data.workImages) {
+          data.workImages = {};
+        }
+        
+        data.workImages[workJob] = workImageUrl;
+        await saveDataImmediate(data);
+        
+        const workImageEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle(`✅ Work Image Set!`)
+          .setDescription(`Set image for **${workJob}** work type!`)
+          .setImage(workImageUrl)
+          .setFooter({ text: `Users can view with !showwork ${workJob}` });
+        
+        await message.reply({ embeds: [workImageEmbed] });
+        break;
+        
+      case 'showwork':
+        const showJob = args[0]?.toLowerCase();
+        
+        if (!showJob) {
+          await message.reply(
+            '**Show Work Images**\n\n' +
+            'Usage: `!showwork <job>`\n\n' +
+            '**Available jobs:**\n' +
+            '• drill - Mining drill\n' +
+            '• room - Caretaker room\n' +
+            '• axe - Farming axe\n' +
+            '• whistle - Zookeeper whistle\n' +
+            '• binoculars - Ranger binoculars\n\n' +
+            '**Example:** `!showwork drill`'
+          );
+          return;
+        }
+        
+        const jobMapping = {
+          'drill': 'Miner - Drill ⛏️',
+          'room': 'Caretaker - Room 🏠',
+          'axe': 'Farmer - Axe 🌾',
+          'whistle': 'Zookeeper - Whistle 🦁',
+          'binoculars': 'Ranger - Binoculars 🔭'
+        };
+        
+        if (!jobMapping[showJob]) {
+          await message.reply(`❌ Invalid job! Available: ${Object.keys(jobMapping).join(', ')}`);
+          return;
+        }
+        
+        if (!data.workImages || !data.workImages[showJob]) {
+          await message.reply(`❌ No image set for **${showJob}**!\n\n✨ Admins can set one with: \`!setworkimage ${showJob} <image_url>\``);
+          return;
+        }
+        
+        const showWorkEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle(jobMapping[showJob])
+          .setImage(data.workImages[showJob])
+          .setFooter({ text: 'Work images set by admins' });
+        
+        await message.reply({ embeds: [showWorkEmbed] });
+        break;
+        
+      case 'assignwork':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const assignUser = message.mentions.users.first();
+        const assignJob = args[1]?.toLowerCase();
+        
+        if (!assignUser || !assignJob) {
+          await message.reply(
+            '**Assign Work**\n\n' +
+            'Usage: `!assignwork @user <job>`\n\n' +
+            '**Available jobs:** miner, caretaker, farmer, zookeeper, ranger\n' +
+            '**Example:** `!assignwork @user miner`'
+          );
+          return;
+        }
+        
+        if (!data.users[assignUser.id]) {
+          await message.reply('❌ That user hasn\'t started yet!');
+          return;
+        }
+        
+        if (!JOBS[assignJob]) {
+          await message.reply(`❌ Invalid job! Available: ${JOB_LIST.join(', ')}`);
+          return;
+        }
+        
+        initializeWorkData(data.users[assignUser.id]);
+        
+        const assignWorkCheck = canWork(data.users[assignUser.id]);
+        if (!assignWorkCheck.canWork) {
+          await message.reply(`⏰ <@${assignUser.id}> is tired! They must rest for ${assignWorkCheck.timeLeft}`);
+          return;
+        }
+        
+        data.users[assignUser.id].work.currentJob = assignJob;
+        data.users[assignUser.id].work.jobStartTime = Date.now();
+        
+        await saveDataImmediate(data);
+        
+        const assignedJob = JOBS[assignJob];
+        await message.reply(`✅ Assigned **${assignedJob.emoji} ${assignedJob.name}** job to <@${assignUser.id}>!\n\nThey can complete it with \`!work\``);
+        break;
+        
       case 'equipskin':
         const equipCharName = args[0];
         const equipSkinName = args[1];
@@ -3783,7 +3918,11 @@ client.on('messageCreate', async (message) => {
         }
         
         if (jobResult.rewards.tokens) {
-          rewardText += `\n🎫 ${jobResult.rewards.tokens} tokens`;
+          if (jobResult.rewards.grantedTo) {
+            rewardText += `\n🎫 ${jobResult.rewards.tokens} tokens → ${jobResult.rewards.grantedTo}`;
+          } else {
+            rewardText += `\n🎫 ${jobResult.rewards.tokens} tokens (pending - will be granted to your first character)`;
+          }
         }
         
         if (jobResult.rewards.crates && Object.keys(jobResult.rewards.crates).length > 0) {
