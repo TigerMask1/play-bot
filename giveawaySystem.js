@@ -485,8 +485,10 @@ async function endGiveaway() {
     } else {
       const { loadData } = require('./dataManager.js');
       const data = await loadData();
-      data.giveaway = activeGiveaway;
-      await saveDataImmediate(data);
+      
+      saveData.giveaway = activeGiveaway;
+      saveData.users = data.users; // preserve updated rewards
+      await saveDataImmediate(saveData);
     }
 
     return { success: false, message: '❌ Error ending giveaway.' };
