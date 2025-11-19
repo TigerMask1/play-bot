@@ -139,8 +139,8 @@ const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('.
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
-const { listItemOnMarket, buyFromMarket, cancelListing, getMarketListings } = require('./marketSystem.js');
-const { createAuction, placeBid, getActiveAuctions } = require('./auctionSystem.js');
+const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket } = require('./marketSystem.js');
+const { createAuction, placeBid, getActiveAuctions, forceEndAuction, clearAllAuctions } = require('./auctionSystem.js');
 
 const PREFIX = '!';
 let data;
@@ -3971,34 +3971,37 @@ client.on('messageCreate', async (message) => {
         const marketAction = args[0]?.toLowerCase();
         
         if (marketAction === 'list' || marketAction === 'sell') {
-          const itemType = args[1]?.toLowerCase();
+          const category = args[1]?.toLowerCase();
           const itemName = args[2]?.toLowerCase();
           const quantity = parseInt(args[3]);
           const price = parseInt(args[4]);
           
-          if (!itemType || !itemName || !quantity || !price) {
+          if (!category || !itemName || !quantity || !price) {
             await message.reply(
               '**List Item on Market**\n\n' +
-              'Usage: `!market list <ore/wood> <name> <quantity> <price>`\n\n' +
+              'Usage: `!market list <category> <name> <quantity> <price>`\n\n' +
+              '**Categories:** ore, wood, crate, key, resource\n\n' +
               '**Examples:**\n' +
-              '`!market list ore aurelite 10 100` - Sell 10 aurelite for 100 coins\n' +
-              '`!market list wood oak 5 50` - Sell 5 oak wood for 50 coins'
+              '`!market list ore aurelite 10 100`\n' +
+              '`!market list crate gold 2 500`\n' +
+              '`!market list resource shards 50 300`\n' +
+              '`!market list key key 1 1000`'
             );
             return;
           }
           
-          const listResult = listItemOnMarket(data, userId, itemType, itemName, quantity, price);
+          const listResult = await listItemOnMarket(data, userId, category, itemName, quantity, price);
           
           if (!listResult.success) {
             await message.reply(listResult.message);
             return;
           }
           
+          const itemInfo = getItemInfo(category, itemName);
           await message.reply(
-            `✅ Listed ${quantity}x ${itemName} for ${price} coins!\n` +
-            `Listing ID: \`${listResult.listingId}\``
+            `✅ Listed ${itemInfo.emoji} ${quantity}x ${itemName} for ${price} coins!\n` +
+            `ID: \`${listResult.listingId.slice(0, 8)}\``
           );
-          await saveDataImmediate(data);
         } else if (marketAction === 'buy') {
           const listingId = args[1];
           
@@ -4007,17 +4010,17 @@ client.on('messageCreate', async (message) => {
             return;
           }
           
-          const buyResult = buyFromMarket(data, userId, listingId);
+          const buyResult = await buyFromMarket(data, userId, listingId);
           
           if (!buyResult.success) {
             await message.reply(buyResult.message);
             return;
           }
           
+          const itemInfo = getItemInfo(buyResult.category, buyResult.itemName);
           await message.reply(
-            `✅ Bought ${buyResult.quantity}x ${buyResult.itemName} for ${buyResult.price} coins!`
+            `✅ Bought ${itemInfo.emoji} ${buyResult.quantity}x ${buyResult.itemName} for ${buyResult.price} coins!`
           );
-          await saveDataImmediate(data);
         } else if (marketAction === 'cancel') {
           const listingId = args[1];
           
@@ -4026,33 +4029,32 @@ client.on('messageCreate', async (message) => {
             return;
           }
           
-          const cancelResult = cancelListing(data, userId, listingId);
+          const cancelResult = await cancelListing(data, userId, listingId);
           
           if (!cancelResult.success) {
             await message.reply(cancelResult.message);
             return;
           }
           
-          await message.reply('✅ Listing cancelled and items returned!');
-          await saveDataImmediate(data);
+          await message.reply('✅ Listing cancelled!');
         } else {
           const listings = getMarketListings(data);
           
           if (listings.length === 0) {
-            await message.reply('📭 The market is empty! Use `!market list` to sell items.');
+            await message.reply('📭 Market is empty! Use `!market list` to sell.');
             return;
           }
           
           const listingText = listings.slice(0, 10).map(listing => {
-            const emoji = ORES[listing.itemName]?.emoji || WOOD_TYPES[listing.itemName]?.emoji || '•';
-            return `\`${listing.id.slice(0, 8)}\` - ${emoji} ${listing.quantity}x ${listing.itemName} - ${listing.price} coins (${listing.sellerName})`;
+            const itemInfo = getItemInfo(listing.category, listing.itemName);
+            return `\`${listing.id.slice(0, 8)}\` ${itemInfo.emoji} ${listing.quantity}x ${listing.itemName} - ${listing.price} coins (${listing.sellerName})`;
           }).join('\n');
           
           const marketEmbed = new EmbedBuilder()
             .setColor('#00D9FF')
             .setTitle('🏪 Market Listings')
-            .setDescription(listingText + (listings.length > 10 ? '\n\n...and more' : ''))
-            .setFooter({ text: 'Use !market buy <ID> to purchase' });
+            .setDescription(listingText + (listings.length > 10 ? '\n\n...more listings available' : ''))
+            .setFooter({ text: '!market buy <ID> to purchase' });
           
           await message.reply({ embeds: [marketEmbed] });
         }
@@ -4062,37 +4064,40 @@ client.on('messageCreate', async (message) => {
         const auctionAction = args[0]?.toLowerCase();
         
         if (auctionAction === 'create' || auctionAction === 'start') {
-          const itemType = args[1]?.toLowerCase();
+          const category = args[1]?.toLowerCase();
           const itemName = args[2]?.toLowerCase();
           const quantity = parseInt(args[3]);
           const startingBid = parseInt(args[4]);
           const durationHours = parseInt(args[5]) || 24;
           
-          if (!itemType || !itemName || !quantity || !startingBid) {
+          if (!category || !itemName || !quantity || !startingBid) {
             await message.reply(
               '**Create Auction**\n\n' +
-              'Usage: `!auction create <ore/wood> <name> <quantity> <starting bid> [hours]`\n\n' +
+              'Usage: `!auction create <category> <name> <quantity> <bid> [hours]`\n\n' +
+              '**Categories:** ore, wood, crate, key, resource\n\n' +
               '**Examples:**\n' +
-              '`!auction create ore voidinite 5 500` - Auction 5 voidinite starting at 500 coins (24h)\n' +
-              '`!auction create wood celestial 3 300 12` - Auction for 12 hours'
+              '`!auction create ore voidinite 5 500`\n' +
+              '`!auction create crate legendary 1 1000 12`\n' +
+              '`!auction create resource shards 100 400`'
             );
             return;
           }
           
           const duration = durationHours * 3600000;
-          const createResult = createAuction(data, userId, itemType, itemName, quantity, startingBid, duration);
+          const createResult = await createAuction(data, userId, category, itemName, quantity, startingBid, duration);
           
           if (!createResult.success) {
             await message.reply(createResult.message);
             return;
           }
           
+          const itemInfo = getItemInfo(category, itemName);
           await message.reply(
             `✅ Auction created!\n` +
-            `Auction ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
+            `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
+            `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
             `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`
           );
-          await saveDataImmediate(data);
         } else if (auctionAction === 'bid') {
           const auctionId = args[1];
           const bidAmount = parseInt(args[2]);
@@ -4102,39 +4107,258 @@ client.on('messageCreate', async (message) => {
             return;
           }
           
-          const bidResult = placeBid(data, userId, auctionId, bidAmount);
+          const bidResult = await placeBid(data, userId, auctionId, bidAmount);
           
           if (!bidResult.success) {
             await message.reply(bidResult.message);
             return;
           }
           
-          await message.reply(`✅ Bid placed! Current bid: ${bidResult.newBid} coins`);
-          await saveDataImmediate(data);
+          await message.reply(`✅ Bid placed! Current: ${bidResult.newBid} coins`);
         } else {
-          const activeAuctions = getActiveAuctions(data);
+          const activeAuctions = await getActiveAuctions(data);
           
           if (activeAuctions.length === 0) {
-            await message.reply('📭 No active auctions! Use `!auction create` to start one.');
+            await message.reply('📭 No active auctions!');
             return;
           }
           
           const auctionText = activeAuctions.slice(0, 5).map(auction => {
-            const emoji = ORES[auction.itemName]?.emoji || WOOD_TYPES[auction.itemName]?.emoji || '•';
+            const itemInfo = getItemInfo(auction.category, auction.itemName);
             const bidder = auction.currentBidderName || 'No bids';
-            return `\`${auction.id.slice(0, 8)}\` - ${emoji} ${auction.quantity}x ${auction.itemName}\n` +
-                   `Current bid: ${auction.currentBid} (${bidder})\n` +
-                   `Ends: <t:${Math.floor(auction.endsAt / 1000)}:R>`;
+            return `\`${auction.id.slice(0, 8)}\` ${itemInfo.emoji} ${auction.quantity}x ${auction.itemName}\n` +
+                   `Bid: ${auction.currentBid} (${bidder}) | Ends: <t:${Math.floor(auction.endsAt / 1000)}:R>`;
           }).join('\n\n');
           
           const auctionEmbed = new EmbedBuilder()
             .setColor('#FFD700')
             .setTitle('🎯 Active Auctions')
             .setDescription(auctionText)
-            .setFooter({ text: 'Use !auction bid <ID> <amount> to bid' });
+            .setFooter({ text: '!auction bid <ID> <amount>' });
           
           await message.reply({ embeds: [auctionEmbed] });
         }
+        break;
+        
+      case 'clearmarket':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const clearMarketResult = await clearMarket(data);
+        await message.reply(`✅ Cleared ${clearMarketResult.count} market listings! All items returned to sellers.`);
+        break;
+        
+      case 'clearauctions':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const clearAuctionResult = await clearAllAuctions(data);
+        await message.reply(`✅ Cleared ${clearAuctionResult.count} auctions! All items and bids returned.`);
+        break;
+        
+      case 'endauction':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const forceAuctionId = args[0];
+        if (!forceAuctionId) {
+          await message.reply('Usage: `!endauction <auction ID>`');
+          return;
+        }
+        
+        const forceEndResult = await forceEndAuction(data, forceAuctionId);
+        
+        if (!forceEndResult.success) {
+          await message.reply(forceEndResult.message);
+          return;
+        }
+        
+        await message.reply('✅ Auction force-ended!');
+        break;
+        
+      case 'giveores':
+      case 'giveore':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const oreTarget = message.mentions.users.first();
+        const oreName = args[1]?.toLowerCase();
+        const oreAmount = parseInt(args[2]) || 1;
+        
+        if (!oreTarget || !oreName) {
+          await message.reply(
+            'Usage: `!giveores @user <ore> [amount]`\n\n' +
+            'Ores: aurelite, kryonite, zyronite, rubinite, voidinite'
+          );
+          return;
+        }
+        
+        if (!ORES[oreName]) {
+          await message.reply('❌ Invalid ore type!');
+          return;
+        }
+        
+        const targetData = data.users[oreTarget.id];
+        if (!targetData) {
+          await message.reply('❌ User not found!');
+          return;
+        }
+        
+        initializeWorkData(targetData);
+        targetData.ores[oreName] += oreAmount;
+        
+        await saveDataImmediate(data);
+        await message.reply(`✅ Gave ${ORES[oreName].emoji} ${oreAmount}x ${oreName} to ${oreTarget.username}!`);
+        break;
+        
+      case 'givewood':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const woodTarget = message.mentions.users.first();
+        const woodName = args[1]?.toLowerCase();
+        const woodAmount = parseInt(args[2]) || 1;
+        
+        if (!woodTarget || !woodName) {
+          await message.reply(
+            'Usage: `!givewood @user <wood> [amount]`\n\n' +
+            'Wood: oak, maple, ebony, celestial'
+          );
+          return;
+        }
+        
+        if (!WOOD_TYPES[woodName]) {
+          await message.reply('❌ Invalid wood type!');
+          return;
+        }
+        
+        const woodTargetData = data.users[woodTarget.id];
+        if (!woodTargetData) {
+          await message.reply('❌ User not found!');
+          return;
+        }
+        
+        initializeWorkData(woodTargetData);
+        woodTargetData.wood[woodName] += woodAmount;
+        
+        await saveDataImmediate(data);
+        await message.reply(`✅ Gave ${WOOD_TYPES[woodName].emoji} ${woodAmount}x ${woodName} to ${woodTarget.username}!`);
+        break;
+        
+      case 'givetool':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const toolTarget = message.mentions.users.first();
+        const giveToolName = args[1]?.toLowerCase();
+        const giveToolLevel = parseInt(args[2]) || 1;
+        
+        if (!toolTarget || !giveToolName) {
+          await message.reply(
+            'Usage: `!givetool @user <drill/axe/whistle/binoculars> [level]`'
+          );
+          return;
+        }
+        
+        if (!TOOL_TYPES[giveToolName]) {
+          await message.reply('❌ Invalid tool!');
+          return;
+        }
+        
+        if (giveToolLevel < 1 || giveToolLevel > 5) {
+          await message.reply('❌ Level must be 1-5!');
+          return;
+        }
+        
+        const toolTargetData = data.users[toolTarget.id];
+        if (!toolTargetData) {
+          await message.reply('❌ User not found!');
+          return;
+        }
+        
+        initializeWorkData(toolTargetData);
+        
+        if (!toolTargetData.tools) {
+          toolTargetData.tools = {};
+        }
+        
+        toolTargetData.tools[giveToolName] = {
+          level: giveToolLevel,
+          durability: TOOL_TYPES[giveToolName].durabilityPerLevel[giveToolLevel - 1]
+        };
+        
+        await saveDataImmediate(data);
+        await message.reply(`✅ Gave ${TOOL_TYPES[giveToolName].emoji} ${giveToolName} Lv.${giveToolLevel} to ${toolTarget.username}!`);
+        break;
+        
+      case 'viewmarket':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const allListings = getMarketListings(data);
+        
+        if (allListings.length === 0) {
+          await message.reply('📭 Market is empty!');
+          return;
+        }
+        
+        const adminListingText = allListings.slice(0, 20).map(listing => {
+          const itemInfo = getItemInfo(listing.category, listing.itemName);
+          return `\`${listing.id.slice(0, 8)}\` ${itemInfo.emoji} ${listing.quantity}x ${listing.itemName} - ${listing.price} coins\nSeller: ${listing.sellerName} (${listing.sellerId})`;
+        }).join('\n\n');
+        
+        const adminMarketEmbed = new EmbedBuilder()
+          .setColor('#FF0000')
+          .setTitle('🛡️ Admin Market View')
+          .setDescription(`Total: ${allListings.length} listings\n\n${adminListingText}`)
+          .setFooter({ text: 'Admin view - showing first 20' });
+        
+        await message.reply({ embeds: [adminMarketEmbed] });
+        break;
+        
+      case 'viewauctions':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ Super Admin only!');
+          return;
+        }
+        
+        const allAuctions = await getActiveAuctions(data);
+        
+        if (allAuctions.length === 0) {
+          await message.reply('📭 No active auctions!');
+          return;
+        }
+        
+        const adminAuctionText = allAuctions.slice(0, 15).map(auction => {
+          const itemInfo = getItemInfo(auction.category, auction.itemName);
+          const bidder = auction.currentBidderName || 'No bids';
+          return `\`${auction.id.slice(0, 8)}\` ${itemInfo.emoji} ${auction.quantity}x ${auction.itemName}\n` +
+                 `Seller: ${auction.sellerName} (${auction.sellerId})\n` +
+                 `Bid: ${auction.currentBid} (${bidder})\n` +
+                 `Ends: <t:${Math.floor(auction.endsAt / 1000)}:R>`;
+        }).join('\n\n');
+        
+        const adminAuctionEmbed = new EmbedBuilder()
+          .setColor('#FF0000')
+          .setTitle('🛡️ Admin Auction View')
+          .setDescription(`Total: ${allAuctions.length} auctions\n\n${adminAuctionText}`)
+          .setFooter({ text: 'Admin view - showing first 15' });
+        
+        await message.reply({ embeds: [adminAuctionEmbed] });
         break;
     }
   } catch (error) {

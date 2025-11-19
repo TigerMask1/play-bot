@@ -43,8 +43,9 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Resource Economy (NEW):** 5 ore types (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite) and 4 wood types (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial) used for crafting and trading.
 - **Tool Crafting (NEW):** 4 tool types (⛏️ Drill, 🪓 Axe, 📢 Whistle, 🔭 Binoculars) with 5 levels each. Tools have durability and are crafted from ores and wood. Higher level tools = better job rewards.
 - **Caretaking House (NEW):** 5-level upgrade system for caretaker job, requiring coins, gems, and resources. Higher levels provide better rewards when working.
-- **Market System (NEW):** Global marketplace where players can list, buy, and sell ores and wood for coins.
-- **Auction System (NEW):** Time-based auction system for resources with bidding mechanics and automatic settlement.
+- **Market System (NEW):** Universal marketplace supporting all item types (ores, wood, crates, keys, resources). Players can list, buy, and sell items for coins with MongoDB persistence.
+- **Auction System (NEW):** Time-based auction system supporting all item types with bidding mechanics, automatic settlement, and instant MongoDB saves.
+- **Admin Economy Tools (NEW):** Super admin commands for resource management (!giveores, !givewood, !givetool), market control (!clearmarket, !viewmarket), and auction management (!clearauctions, !viewauctions, !endauction).
 
 **System Design Choices:**
 - **Modularity & Scalability:** Core functionalities are separated into dedicated files, designed with MongoDB integration for production.
