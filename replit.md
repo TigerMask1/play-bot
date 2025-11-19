@@ -39,13 +39,15 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **AI Battle Scaling:** Dynamic AI difficulty scaling for hard mode that adjusts level (1.2× + 3-5 bonus) and ST (minimum 90, up to 115 cap) based on challenger stats, with interpolated scaling for low-ST players and HP multipliers for high-ST players to maintain competitive balance.
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
-- **Work/Job System (NEW):** Engaging work system with 5 job types (Miner, Caretaker, Farmer, Zookeeper, Ranger) on 15-minute cooldown. Jobs reward coins, gems, ores, wood, tokens, crates, keys, and shards. First work is always caretaker to bootstrap new players.
-- **Resource Economy (NEW):** 5 ore types (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite) and 4 wood types (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial) used for crafting and trading.
-- **Tool Crafting (NEW):** 4 tool types (⛏️ Drill, 🪓 Axe, 📢 Whistle, 🔭 Binoculars) with 5 levels each. Tools have durability and are crafted from ores and wood. Higher level tools = better job rewards.
-- **Caretaking House (NEW):** 5-level upgrade system for caretaker job, requiring coins, gems, and resources. Higher levels provide better rewards when working.
-- **Market System (NEW):** Universal marketplace supporting all item types (ores, wood, crates, keys, resources). Players can list, buy, and sell items for coins with MongoDB persistence.
-- **Auction System (NEW):** Time-based auction system supporting all item types with bidding mechanics, automatic settlement, and instant MongoDB saves.
-- **Admin Economy Tools (NEW):** Super admin commands for resource management (!giveores, !givewood, !givetool), market control (!clearmarket, !viewmarket), and auction management (!clearauctions, !viewauctions, !endauction).
+- **Work/Job System (UPDATED):** Engaging work system with 5 job types (Miner, Caretaker, Farmer, Zookeeper, Ranger) on 15-minute cooldown. Jobs reward coins, gems, ores, wood, tokens, crates, keys, and shards. First work is always caretaker to bootstrap new players. **FREE STARTER PACK:** All new workers receive level 1 drill, axe, whistle, binoculars, and caretaker house automatically - no grinding required to start!
+- **Resource Economy:** 5 ore types (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite) and 4 wood types (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial) used for crafting and trading.
+- **Tool Crafting:** 4 tool types (⛏️ Drill, 🪓 Axe, 📢 Whistle, 🔭 Binoculars) with 5 levels each. Tools have durability and are crafted from ores and wood. Higher level tools = better job rewards. Legacy users automatically receive missing starter tools.
+- **Caretaking House:** 5-level upgrade system for caretaker job, requiring coins, gems, and resources. Higher levels provide better rewards when working. Starts at level 1 for free.
+- **Market System (UPDATED):** Universal marketplace supporting all item types (ores, wood, crates, keys, resources). Players can list, buy, and sell items for coins with MongoDB persistence. Uses clean sequential IDs (M001, M002, M003, etc.) for easy reference.
+- **Auction System (UPDATED):** Time-based auction system supporting all item types with bidding mechanics, automatic settlement, and instant MongoDB saves. Uses clean sequential IDs (A001, A002, A003, etc.) for easy reference.
+- **Work Guide System (NEW):** Comprehensive in-bot documentation via !workguide command explaining all jobs, tools, rewards, crafting, market, and strategy tips. Makes the work system accessible to all players.
+- **Work Image System (NEW):** CDN-hosted custom images for each work type (drill, room, axe, whistle, binoculars). Admins can customize with !setworkimage, users can view with !showwork.
+- **Admin Economy Tools (UPDATED):** Super admin commands for resource management (!giveores, !givewood, !givetool), market control (!clearmarket, !viewmarket), auction management (!clearauctions, !viewauctions, !endauction), work assignment (!assignwork), and work image customization (!setworkimage).
 
 **System Design Choices:**
 - **Modularity & Scalability:** Core functionalities are separated into dedicated files, designed with MongoDB integration for production.
