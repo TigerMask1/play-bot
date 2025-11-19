@@ -39,6 +39,12 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **AI Battle Scaling:** Dynamic AI difficulty scaling for hard mode that adjusts level (1.2× + 3-5 bonus) and ST (minimum 90, up to 115 cap) based on challenger stats, with interpolated scaling for low-ST players and HP multipliers for high-ST players to maintain competitive balance.
 - **Mail System:** Inbox clearing functionality for users.
 - **Help Documentation:** Comprehensive in-bot help and command reference.
+- **Work/Job System (NEW):** Engaging work system with 5 job types (Miner, Caretaker, Farmer, Zookeeper, Ranger) on 15-minute cooldown. Jobs reward coins, gems, ores, wood, tokens, crates, keys, and shards. First work is always caretaker to bootstrap new players.
+- **Resource Economy (NEW):** 5 ore types (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite) and 4 wood types (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial) used for crafting and trading.
+- **Tool Crafting (NEW):** 4 tool types (⛏️ Drill, 🪓 Axe, 📢 Whistle, 🔭 Binoculars) with 5 levels each. Tools have durability and are crafted from ores and wood. Higher level tools = better job rewards.
+- **Caretaking House (NEW):** 5-level upgrade system for caretaker job, requiring coins, gems, and resources. Higher levels provide better rewards when working.
+- **Market System (NEW):** Global marketplace where players can list, buy, and sell ores and wood for coins.
+- **Auction System (NEW):** Time-based auction system for resources with bidding mechanics and automatic settlement.
 
 **System Design Choices:**
 - **Modularity & Scalability:** Core functionalities are separated into dedicated files, designed with MongoDB integration for production.
