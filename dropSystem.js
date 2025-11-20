@@ -6,6 +6,7 @@ const { isMainServer, getServerConfig, getDropInterval, isServerSetup, saveServe
 let dropIntervals = new Map();
 let activeClient = null;
 let activeData = null;
+let serverInactivityStatus = new Map();
 
 const MAIN_SERVER_ID = '1430516117851340893';
 const MAIN_DROP_CHANNEL = '1430525383635107850';
@@ -13,6 +14,7 @@ const MAIN_DROP_CHANNEL = '1430525383635107850';
 const DROP_CODES = ['tyrant', 'zooba', 'zoo', 'catch', 'grab', 'quick', 'fast', 'win', 'get', 'take'];
 const DROP_DURATION = 3 * 3600000; // 3 hours in milliseconds
 const DROP_COST = 100; // gems
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes of inactivity before pause
 
 // ======================================================
 //  DROP PAYMENT & STATUS FUNCTIONS
@@ -212,6 +214,18 @@ async function executeDrop(serverId) {
   if (!activeClient || !activeData) return;
 
   try {
+    // Check if drops are paused due to inactivity
+    if (isDropsPaused(serverId)) {
+      console.log(`⏸️ Server ${serverId}: Drops paused, skipping execution`);
+      return;
+    }
+    
+    // Check for inactivity and pause if needed
+    if (checkInactivity(serverId)) {
+      await pauseDropsForInactivity(serverId);
+      return;
+    }
+    
     // Check if payment is still valid
     if (!areDropsActive(serverId)) {
       await stopDropsForServer(serverId, true); // Send expiry notification
@@ -320,6 +334,143 @@ function getActiveClient() {
   return activeClient;
 }
 
+function recordCatchAttempt(serverId) {
+  if (!serverInactivityStatus.has(serverId)) {
+    serverInactivityStatus.set(serverId, {
+      lastCatchAttempt: Date.now(),
+      paused: false
+    });
+  } else {
+    const status = serverInactivityStatus.get(serverId);
+    status.lastCatchAttempt = Date.now();
+    
+    if (status.paused) {
+      status.paused = false;
+      console.log(`✅ Server ${serverId}: Inactivity pause cleared due to catch attempt`);
+    }
+  }
+}
+
+function getLastCatchAttempt(serverId) {
+  if (!serverInactivityStatus.has(serverId)) {
+    return null;
+  }
+  return serverInactivityStatus.get(serverId).lastCatchAttempt;
+}
+
+function ensureInactivityStatus(serverId) {
+  if (!serverInactivityStatus.has(serverId)) {
+    serverInactivityStatus.set(serverId, {
+      lastCatchAttempt: Date.now(),
+      paused: false
+    });
+  }
+}
+
+async function pauseDropsForInactivity(serverId) {
+  if (!serverInactivityStatus.has(serverId)) {
+    serverInactivityStatus.set(serverId, {
+      lastCatchAttempt: Date.now(),
+      paused: false
+    });
+  }
+  
+  const status = serverInactivityStatus.get(serverId);
+  
+  if (status.paused) return;
+  
+  status.paused = true;
+  
+  if (dropIntervals.has(serverId)) {
+    clearInterval(dropIntervals.get(serverId));
+    dropIntervals.delete(serverId);
+    console.log(`⏸️ Drops paused for server ${serverId} due to inactivity`);
+    
+    if (activeClient) {
+      try {
+        let dropChannelId;
+        if (isMainServer(serverId)) {
+          dropChannelId = MAIN_DROP_CHANNEL;
+        } else {
+          const config = getServerConfig(serverId);
+          dropChannelId = config?.dropChannelId;
+        }
+        
+        if (dropChannelId) {
+          const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
+          if (channel) {
+            const pauseEmbed = new EmbedBuilder()
+              .setColor('#FFA500')
+              .setTitle('⏸️ Drops Paused (Inactivity)')
+              .setDescription(`Drops have been paused due to 5 minutes of inactivity.\n\n💡 Use \`!revive\` to resume drops!\n\n**Note:** Your paid drop time is still running. This pause is just to reduce lag when no one is playing.`)
+              .setFooter({ text: 'Type !revive to resume drops' });
+            
+            await channel.send({ embeds: [pauseEmbed] });
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error sending pause notification for server ${serverId}:`, error);
+      }
+    }
+  }
+}
+
+async function reviveDrops(serverId) {
+  if (!serverInactivityStatus.has(serverId)) {
+    return { success: false, message: '❌ Drops are not paused!' };
+  }
+  
+  const status = serverInactivityStatus.get(serverId);
+  
+  if (!status.paused) {
+    return { success: false, message: '❌ Drops are already active!' };
+  }
+  
+  if (!areDropsActive(serverId)) {
+    return { success: false, message: '❌ Drops have expired! Use `!paydrops` to activate them again.' };
+  }
+  
+  status.paused = false;
+  status.lastCatchAttempt = Date.now();
+  
+  startDropsForServer(serverId);
+  
+  return { success: true, message: '✅ Drops revived! They will start spawning again.' };
+}
+
+function isDropsPaused(serverId) {
+  if (!serverInactivityStatus.has(serverId)) return false;
+  return serverInactivityStatus.get(serverId).paused;
+}
+
+function checkInactivity(serverId) {
+  if (isMainServer(serverId)) return false;
+  
+  if (!serverInactivityStatus.has(serverId)) {
+    return false;
+  }
+  
+  const status = serverInactivityStatus.get(serverId);
+  
+  if (status.paused) {
+    return true;
+  }
+  
+  const lastCatch = getLastCatchAttempt(serverId);
+  
+  if (lastCatch === null) {
+    return false;
+  }
+  
+  const timeSinceLastCatch = Date.now() - lastCatch;
+  
+  if (timeSinceLastCatch > INACTIVITY_TIMEOUT && !status.paused) {
+    return true;
+  }
+  
+  return false;
+}
+
 module.exports = { 
   startDropSystem, 
   stopDropSystem,
@@ -329,5 +480,10 @@ module.exports = {
   getActiveClient,
   payForDrops,
   areDropsActive,
-  getDropsTimeRemaining
+  getDropsTimeRemaining,
+  recordCatchAttempt,
+  pauseDropsForInactivity,
+  reviveDrops,
+  isDropsPaused,
+  checkInactivity
 };

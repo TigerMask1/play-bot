@@ -219,4 +219,151 @@ async function openCrate(data, userId, crateType, client = null) {
   };
 }
 
-module.exports = { openCrate, buyCrate, CRATE_TYPES };
+async function openCratesInBulk(data, userId, crateType, quantity, client = null) {
+  const crate = CRATE_TYPES[crateType];
+  const user = data.users[userId];
+  
+  if (!crate) {
+    return {
+      success: false,
+      message: `Invalid crate type! Available: bronze, silver, gold, emerald, legendary, tyrant`
+    };
+  }
+  
+  if (quantity < 1 || quantity > 50) {
+    return {
+      success: false,
+      message: 'Quantity must be between 1 and 50!'
+    };
+  }
+  
+  const crateKey = `${crateType}Crates`;
+  const userCrates = user[crateKey] || 0;
+  
+  if (userCrates < quantity) {
+    return {
+      success: false,
+      message: `You only have ${userCrates} ${crateType} crate${userCrates === 1 ? '' : 's'}! You need ${quantity}.`
+    };
+  }
+  
+  let totalCoins = 0;
+  let totalTokens = 0;
+  let charactersGained = [];
+  let totalGems = 0;
+  
+  user[crateKey] -= quantity;
+  
+  for (let i = 0; i < quantity; i++) {
+    totalCoins += crate.coins;
+    
+    if (user.characters.length > 0) {
+      const randomOwnedChar = user.characters[Math.floor(Math.random() * user.characters.length)];
+      randomOwnedChar.tokens += crate.tokens;
+      totalTokens += crate.tokens;
+    } else {
+      user.pendingTokens = (user.pendingTokens || 0) + crate.tokens;
+      totalTokens += crate.tokens;
+    }
+    
+    const roll = Math.random() * 100;
+    
+    if (roll < crate.charChance) {
+      const crateChars = CHARACTERS.filter(c => c.obtainable === 'crate');
+      const ownedCharNames = user.characters.map(c => c.name);
+      const availableChars = crateChars.filter(c => !ownedCharNames.includes(c.name));
+      
+      if (availableChars.length > 0) {
+        const randomChar = availableChars[Math.floor(Math.random() * availableChars.length)];
+        const newST = generateST();
+        
+        let startingTokens = 0;
+        if (user.characters.length === 0 && user.pendingTokens > 0) {
+          startingTokens = user.pendingTokens;
+          user.pendingTokens = 0;
+        }
+        
+        const newMoves = assignMovesToCharacter(randomChar.name, newST);
+        const newHP = calculateBaseHP(newST);
+        
+        const newCharacter = {
+          name: randomChar.name,
+          emoji: getEmojiForCharacter(randomChar.name),
+          level: 1,
+          tokens: startingTokens,
+          st: newST,
+          moves: newMoves,
+          baseHp: newHP,
+          currentSkin: 'default',
+          ownedSkins: ['default']
+        };
+        
+        user.characters.push(newCharacter);
+        charactersGained.push({ name: randomChar.name, emoji: randomChar.emoji, st: newST, startingTokens });
+        
+        if (!user.questProgress) user.questProgress = {};
+        user.questProgress.charsFromCrates = (user.questProgress.charsFromCrates || 0) + 1;
+      } else {
+        totalGems += 50;
+      }
+    }
+  }
+  
+  user.coins += totalCoins;
+  user.gems = (user.gems || 0) + totalGems;
+  
+  if (!user.questProgress) user.questProgress = {};
+  user.questProgress.cratesOpened = (user.questProgress.cratesOpened || 0) + quantity;
+  user.lastActivity = Date.now();
+  
+  if (crateType === 'tyrant') {
+    user.questProgress.tyrantCratesOpened = (user.questProgress.tyrantCratesOpened || 0) + quantity;
+  }
+  
+  if (client) {
+    try {
+      await eventSystem.recordProgress(userId, user.username, crate.points * quantity, 'crate_master');
+    } catch (error) {
+      console.error('Error recording event progress:', error);
+    }
+    
+    try {
+      const ptData = initializePersonalizedTaskData(user);
+      if (ptData.taskProgress.cratesOpened !== undefined) {
+        const completedTask = checkTaskProgress(user, 'cratesOpened', quantity);
+        if (completedTask) {
+          await completePersonalizedTask(client, userId, data, completedTask);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking personalized tasks:', error);
+    }
+  }
+  
+  let summary = `Opened **${quantity}** ${crate.emoji} ${crateType} crate${quantity > 1 ? 's' : ''}!\n\n`;
+  summary += `💰 Total Coins: ${totalCoins}\n`;
+  summary += `🎫 Total Tokens: ${totalTokens}\n`;
+  
+  if (totalGems > 0) {
+    summary += `💎 Bonus Gems: ${totalGems} (all characters owned!)\n`;
+  }
+  
+  if (charactersGained.length > 0) {
+    summary += `\n🎉 **New Characters Obtained:**\n`;
+    charactersGained.forEach((char, i) => {
+      summary += `${i + 1}. ${char.emoji} ${char.name} (ST: ${char.st}%)`;
+      if (char.startingTokens > 0) {
+        summary += ` +${char.startingTokens} pending tokens`;
+      }
+      summary += `\n`;
+    });
+  }
+  
+  return {
+    success: true,
+    message: summary,
+    charactersGained: charactersGained.length
+  };
+}
+
+module.exports = { openCrate, buyCrate, openCratesInBulk, CRATE_TYPES };

@@ -238,12 +238,49 @@ function formatQuestDisplay(userData, quest) {
   return `**${quest.id}. ${quest.name}** ${status}\n${quest.description}\n${progressBar}\nReward: ${rewards.join(' ')}`;
 }
 
+function claimAllQuests(userData) {
+  const claimableQuests = QUESTS.filter(q => canClaimQuest(userData, q));
+  
+  if (claimableQuests.length === 0) {
+    return { success: false, message: '❌ No quests available to claim!' };
+  }
+  
+  let totalCoins = 0;
+  let totalGems = 0;
+  let totalShards = 0;
+  const claimedQuestNames = [];
+  
+  claimableQuests.forEach(quest => {
+    const result = claimQuest(userData, quest);
+    if (result.success) {
+      claimedQuestNames.push(quest.name);
+      totalCoins += quest.reward.coins || 0;
+      totalGems += quest.reward.gems || 0;
+      totalShards += quest.reward.shards || 0;
+    }
+  });
+  
+  const rewardParts = [];
+  if (totalCoins > 0) rewardParts.push(`💰 ${totalCoins} coins`);
+  if (totalGems > 0) rewardParts.push(`💎 ${totalGems} gems`);
+  if (totalShards > 0) rewardParts.push(`🔷 ${totalShards} shards`);
+  
+  return {
+    success: true,
+    claimedCount: claimedQuestNames.length,
+    totalRewards: { coins: totalCoins, gems: totalGems, shards: totalShards },
+    rewardsText: rewardParts.join(', '),
+    questNames: claimedQuestNames
+  };
+}
+
 module.exports = {
   QUESTS,
   getQuestProgress,
   isQuestCompleted,
   canClaimQuest,
   claimQuest,
+  claimAllQuests,
   getAvailableQuests,
   getCompletedQuests,
   formatQuestDisplay

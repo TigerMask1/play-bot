@@ -44,13 +44,13 @@ const client = new Client({
 const CHARACTERS = require('./characters.js');
 const { loadData, saveData, saveDataImmediate, deleteUser } = require('./dataManager.js');
 const { getLevelRequirements, calculateLevel } = require('./levelSystem.js');
-const { openCrate, buyCrate } = require('./crateSystem.js');
-const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining } = require('./dropSystem.js');
+const { openCrate, buyCrate, openCratesInBulk } = require('./crateSystem.js');
+const { startDropSystem, stopDropSystem, payForDrops, areDropsActive, getDropsTimeRemaining, recordCatchAttempt, reviveDrops, stopDropsForServer } = require('./dropSystem.js');
 const { initiateTrade } = require('./tradeSystem.js');
 const { initiateBattle } = require('./battleSystem.js');
 const { assignMovesToCharacter, calculateBaseHP, getMoveDisplay, calculateEnergyCost } = require('./battleUtils.js');
 const { createLevelProgressBar } = require('./progressBar.js');
-const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
+const { QUESTS, getQuestProgress, canClaimQuest, claimQuest, claimAllQuests, getAvailableQuests, formatQuestDisplay } = require('./questSystem.js');
 const { craftBooster, useBooster, getBoosterInfo, getCharacterBoostCount, MAX_BOOSTS_PER_CHARACTER } = require('./stBoosterSystem.js');
 const { sendMailToAll, addMailToUser, claimMail, getUnclaimedMailCount, formatMailDisplay, clearClaimedMail } = require('./mailSystem.js');
 const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js');
@@ -65,6 +65,7 @@ const { startPromotionSystem } = require('./promotionSystem.js');
 const { initializeGiveawaySystem, setGiveawayData, enableAutoGiveaway, disableAutoGiveaway } = require('./giveawaySystem.js');
 const { initializeLotterySystem, setLotteryData, enableAutoLottery, disableAutoLottery } = require('./lotterySystem.js');
 const { startDropsForServer } = require('./dropSystem.js');
+const { addCommandXP, getAccountLevelDisplay } = require('./accountLevelSystem.js');
 const { 
   PERSONALIZED_TASKS,
   sendPersonalizedTask, 
@@ -1265,6 +1266,36 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [openResultEmbed] });
         break;
         
+      case 'bulkopen':
+      case 'openall':
+      case 'bulkopencrate':
+        const bulkCrateType = args[0]?.toLowerCase();
+        const bulkQuantity = parseInt(args[1]) || 10;
+        
+        if (!bulkCrateType || !['bronze', 'silver', 'gold', 'emerald', 'legendary', 'tyrant'].includes(bulkCrateType)) {
+          await message.reply('Usage: `!bulkopen <type> [quantity]`\n\nExample: `!bulkopen gold 5`\nAvailable types: bronze, silver, gold, emerald, legendary, tyrant\nQuantity: 1-50 (default: 10)');
+          return;
+        }
+        
+        const bulkResult = await openCratesInBulk(data, userId, bulkCrateType, bulkQuantity, client);
+        
+        if (!bulkResult.success) {
+          await message.reply(`❌ ${bulkResult.message}`);
+          return;
+        }
+        
+        await saveDataImmediate(data);
+        
+        const bulkEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`🎁 Bulk Crate Opening!`)
+          .setDescription(bulkResult.message)
+          .setFooter({ text: `Opened by ${message.author.username}` })
+          .setTimestamp();
+        
+        await message.reply({ embeds: [bulkEmbed] });
+        break;
+        
       case 'levelup':
         const charToLevelName = args.join(' ').toLowerCase();
         
@@ -1488,12 +1519,35 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [statusEmbed] });
         break;
         
+      case 'revive':
+      case 'revivedrops':
+        if (!serverId) {
+          await message.reply('❌ This command can only be used in a server!');
+          return;
+        }
+        
+        const reviveResult = await reviveDrops(serverId);
+        
+        if (reviveResult.success) {
+          const reviveEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('✅ Drops Revived!')
+            .setDescription(reviveResult.message);
+          
+          await message.reply({ embeds: [reviveEmbed] });
+        } else {
+          await message.reply(reviveResult.message);
+        }
+        break;
+        
       case 'c':
         const code = args[0]?.toLowerCase();
         
         if (!code) return;
         
         if (!serverId) return;
+        
+        recordCatchAttempt(serverId);
         
         if (!data.serverDrops) data.serverDrops = {};
         
@@ -2425,6 +2479,26 @@ client.on('messageCreate', async (message) => {
         } else {
           await message.reply(`❌ ${claimResult.message}`);
         }
+        break;
+        
+      case 'claimall':
+        const claimAllResult = claimAllQuests(data.users[userId]);
+        
+        if (!claimAllResult.success) {
+          await message.reply(claimAllResult.message);
+          return;
+        }
+        
+        await saveDataImmediate(data);
+        
+        const claimAllEmbed = new EmbedBuilder()
+          .setColor('#2ECC71')
+          .setTitle('🎉 Multiple Quests Completed!')
+          .setDescription(`Successfully claimed **${claimAllResult.claimedCount}** quest${claimAllResult.claimedCount > 1 ? 's' : ''}!\n\n**Total Rewards:**\n${claimAllResult.rewardsText}`)
+          .addFields({ name: 'Claimed Quests:', value: claimAllResult.questNames.map((name, i) => `${i + 1}. ${name}`).join('\n').slice(0, 1024) || 'None', inline: false })
+          .setFooter({ text: 'Great job completing multiple quests!' });
+        
+        await message.reply({ embeds: [claimAllEmbed] });
         break;
         
       case 'shards':
@@ -4595,7 +4669,20 @@ client.on('messageCreate', async (message) => {
         
         await message.reply({ embeds: [adminAuctionEmbed] });
         break;
+        
+      default:
+        return;
     }
+    
+    if (data.users[userId] && data.users[userId].started) {
+      try {
+        await addCommandXP(data.users[userId], command, client, userId);
+        saveData(data);
+      } catch (xpError) {
+        console.error('Error adding XP:', xpError);
+      }
+    }
+    
   } catch (error) {
     console.error('Command error:', error);
     await message.reply('❌ An error occurred while processing your command!');
