@@ -806,7 +806,7 @@ client.on('messageCreate', async (message) => {
           .setColor('#9B59B6')
           .setTitle(`${targetUser.username}'s Profile`)
           .addFields(
-            { name: '💰 Coins', value: `${user.coins}`, inline: true },
+            { name: '<a:emoji_11:1441041389281611846> Coins', value: `${user.coins}`, inline: true },
             { name: '💎 Gems', value: `${user.gems}`, inline: true },
             { name: '🏆 Trophies', value: `${user.trophies || 200}`, inline: true },
             { name: '🎮 Characters', value: `${user.characters.length}/51`, inline: true },
