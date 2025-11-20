@@ -1490,7 +1490,11 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ Only users with the **ZooAdmin** role can activate drops for this server!\n\nAsk a server administrator to give you the "ZooAdmin" role to manage the bot.');
           return;
         }
-        
+        const serverConfig = getServerConfig(serverId);
+         if (!serverConfig.dropTimestamp) {
+         serverConfig.dropTimestamp = Date.now();
+         saveServerConfig(serverId, serverConfig);
+        }
         const payResult = await payForDrops(serverId, userId, data);
         
         if (payResult.success) {
