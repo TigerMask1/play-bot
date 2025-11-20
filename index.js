@@ -3624,9 +3624,9 @@ client.on('messageCreate', async (message) => {
             {
               name: '💼 Available Jobs (15 min cooldown)',
               value:
-                '**⛏️ Miner** - Use drill to mine ores (🟡 Aurelite, 🔵 Kryonite, 🟣 Zyronite, 🔴 Rubinite, ⚫ Voidinite)\n' +
+                '**⛏️ Miner** - Use drill to mine ores (<:emoji_15:1440870514179571712> Aurelite, <:emoji_18:1440870637622132838> Kryonite, <:emoji_18:1440870612875870208> Zyronite, <:emoji_16:1440870557355872287> Rubinite, <:emoji_16:1440870583729655839> Voidinite)\n' +
                 '**🏠 Caretaker** - Care for animals, earn coins, gems, and character tokens\n' +
-                '**🌾 Farmer** - Use axe to chop wood (🟤 Oak, 🟠 Maple, ⚫ Ebony, ✨ Celestial)\n' +
+                '**🌾 Farmer** - Use axe to chop wood ( <:emoji_19:1440870663509508146> Oak, <:emoji_20:1440870689065271420> Maple, <:emoji_21:1440870715787313162> Ebony, <:emoji_23:1440870753472872630> Celestial)\n' +
                 '**🦁 Zookeeper** - Use whistle to wrangle animals for rewards\n' +
                 '**🔭 Ranger** - Use binoculars to scout for rare items'
             },
