@@ -1521,24 +1521,32 @@ client.on('messageCreate', async (message) => {
         
       case 'revive':
       case 'revivedrops':
-        if (!serverId) {
-          await message.reply('❌ This command can only be used in a server!');
-          return;
-        }
-        
-        const reviveResult = await reviveDrops(serverId);
-        
-        if (reviveResult.success) {
-          const reviveEmbed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('✅ Drops Revived!')
-            .setDescription(reviveResult.message);
-          
-          await message.reply({ embeds: [reviveEmbed] });
-        } else {
-          await message.reply(reviveResult.message);
-        }
-        break;
+       if (!serverId) {
+       await message.reply('❌ This command can only be used in a server!');
+       return;
+       }
+
+  // ⬇⬇ ADD THIS HERE — starts inactivity timestamp
+      const serverConfig = getServerConfig(serverId);
+       if (!serverConfig.dropTimestamp) {
+       serverConfig.dropTimestamp = Date.now();
+       saveServerConfig(serverId, serverConfig);
+      }
+  // ⬆⬆ END OF ADDED PART
+
+  const reviveResult = await reviveDrops(serverId);
+
+  if (reviveResult.success) {
+    const reviveEmbed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('✅ Drops Revived!')
+      .setDescription(reviveResult.message);
+
+    await message.reply({ embeds: [reviveEmbed] });
+  } else {
+    await message.reply(reviveResult.message);
+  }
+  break;
         
       case 'c':
         const code = args[0]?.toLowerCase();
