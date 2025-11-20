@@ -399,11 +399,32 @@ async function pauseDropsForInactivity(serverId) {
         if (dropChannelId) {
           const channel = await activeClient.channels.fetch(dropChannelId).catch(() => null);
           if (channel) {
-            const pauseEmbed = new EmbedBuilder()
-              .setColor('#FFA500')
-              .setTitle('⏸️ Drops Paused (Inactivity)')
-              .setDescription(`Drops have been paused due to 5 minutes of inactivity.\n\n💡 Use \`!revive\` to resume drops!\n\n**Note:** Your paid drop time is still running. This pause is just to reduce lag when no one is playing.`)
-              .setFooter({ text: 'Type !revive to resume drops' });
+            let pauseEmbed;
+
+if (isMainServer(serverId)) {
+  // Special message for MAIN SERVER
+  pauseEmbed = new EmbedBuilder()
+    .setColor('#FFA500')
+    .setTitle('⏸️ Main Server Drops Paused')
+    .setDescription(
+      `Drops have been paused due to 5 minutes of inactivity.\n\n` +
+      `💡 Type \`!revive\` to instantly resume drops!\n\n` +
+      `This server has unlimited drops — pausing only helps reduce spam when nobody is active.`
+    )
+    .setFooter({ text: 'Main Server · Type !revive to resume' });
+
+} else {
+  // Message for other servers
+  pauseEmbed = new EmbedBuilder()
+    .setColor('#FFA500')
+    .setTitle('⏸️ Drops Paused (Inactivity)')
+    .setDescription(
+      `Drops have been paused due to 5 minutes of inactivity.\n\n` +
+      `💡 Use \`!revive\` to resume drops!\n\n` +
+      `**Note:** Your paid drop time is still running. This pause only reduces spam when inactive.`
+    )
+    .setFooter({ text: 'Type !revive to resume drops' });
+}
             
             await channel.send({ embeds: [pauseEmbed] });
           }
@@ -444,7 +465,7 @@ function isDropsPaused(serverId) {
 }
 
 function checkInactivity(serverId) {
-  if (isMainServer(serverId)) return false;
+  
   
   if (!serverInactivityStatus.has(serverId)) {
     return false;
