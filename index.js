@@ -1490,14 +1490,13 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ Only users with the **ZooAdmin** role can activate drops for this server!\n\nAsk a server administrator to give you the "ZooAdmin" role to manage the bot.');
           return;
         }
-        const serverConfig = getServerConfig(serverId);
-         if (!serverConfig.dropTimestamp) {
-         serverConfig.dropTimestamp = Date.now();
-         saveServerConfig(serverId, serverConfig);
-        }
+        
+         
         const payResult = await payForDrops(serverId, userId, data);
         
         if (payResult.success) {
+          serverConfig.lastActivityTimestamp = Date.now();
+          saveServerConfig(serverId, serverConfig);
           const payEmbed = new EmbedBuilder()
             .setColor('#00FF00')
             .setTitle('💎 Drops Activated!')
@@ -1531,16 +1530,14 @@ client.on('messageCreate', async (message) => {
        }
 
   // ⬇⬇ ADD THIS HERE — starts inactivity timestamp
-      const serverConfig = getServerConfig(serverId);
-       if (!serverConfig.dropTimestamp) {
-       serverConfig.dropTimestamp = Date.now();
-       saveServerConfig(serverId, serverConfig);
-      }
+      
   // ⬆⬆ END OF ADDED PART
 
   const reviveResult = await reviveDrops(serverId);
 
   if (reviveResult.success) {
+    serverConfig.dropTimestamp = Date.now();
+    saveServerConfig(serverId, serverConfig);
     const reviveEmbed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle('✅ Drops Revived!')
