@@ -1,16 +1,16 @@
 const ORES = {
-  aurelite: { name: 'Aurelite', emoji: '🟡', rarity: 'common', value: 10 },
-  kryonite: { name: 'Kryonite', emoji: '🔵', rarity: 'uncommon', value: 25 },
-  zyronite: { name: 'Zyronite', emoji: '🟣', rarity: 'rare', value: 50 },
-  rubinite: { name: 'Rubinite', emoji: '🔴', rarity: 'epic', value: 100 },
-  voidinite: { name: 'Voidinite', emoji: '⚫', rarity: 'legendary', value: 250 }
+  aurelite: { name: 'Aurelite', emoji: '<:emoji_15:1440870514179571712>', rarity: 'common', value: 10 },
+  kryonite: { name: 'Kryonite', emoji: '<:emoji_18:1440870637622132838>', rarity: 'uncommon', value: 25 },
+  zyronite: { name: 'Zyronite', emoji: '<:emoji_18:1440870612875870208>', rarity: 'rare', value: 50 },
+  rubinite: { name: 'Rubinite', emoji: '<:emoji_16:1440870557355872287>', rarity: 'epic', value: 100 },
+  voidinite: { name: 'Voidinite', emoji: '<:emoji_16:1440870583729655839>', rarity: 'legendary', value: 250 }
 };
 
 const WOOD_TYPES = {
-  oak: { name: 'Oak Wood', emoji: '🟤', rarity: 'common', value: 8 },
-  maple: { name: 'Maple Wood', emoji: '🟠', rarity: 'uncommon', value: 20 },
-  ebony: { name: 'Ebony Wood', emoji: '⚫', rarity: 'rare', value: 45 },
-  celestial: { name: 'Celestial Wood', emoji: '✨', rarity: 'epic', value: 120 }
+  oak: { name: 'Oak Wood', emoji: '<:emoji_19:1440870663509508146>', rarity: 'common', value: 8 },
+  maple: { name: 'Maple Wood', emoji: '<:emoji_20:1440870689065271420>', rarity: 'uncommon', value: 20 },
+  ebony: { name: 'Ebony Wood', emoji: '<:emoji_21:1440870715787313162>', rarity: 'rare', value: 45 },
+  celestial: { name: 'Celestial Wood', emoji: '<:emoji_23:1440870753472872630>', rarity: 'epic', value: 120 }
 };
 
 function getOreByRarity(rarity) {
