@@ -12,7 +12,7 @@ module.exports = {
   },
   
   currency: {
-    coin: '💰',
+    coin: '<a:emoji_11:1441041389281611846>',
     gem: '💎',
     token: '🎫',
     ticket: '🎟️'
@@ -119,7 +119,7 @@ module.exports = {
   drops: {
     dropAppeared: '🎁',
     timeRemaining: '⏰',
-    coinDrop: '💰',
+    coinDrop: '<a:emoji_11:1441041389281611846>',
     gemDrop: '💎',
     tokenDrop: '🎫'
   }
