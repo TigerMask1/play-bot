@@ -1,5 +1,12 @@
 const { ORES, WOOD_TYPES } = require('./resourceSystem.js');
 const { saveDataImmediate } = require('./dataManager.js');
+const { EmbedBuilder } = require('discord.js');
+
+let botClient = null;
+
+function init(client) {
+  botClient = client;
+}
 
 const ITEM_CATEGORIES = {
   ore: { 
@@ -142,7 +149,7 @@ function getItemInfo(category, itemName) {
   };
 }
 
-async function listItemOnMarket(data, sellerId, category, itemName, quantity, price) {
+async function listItemOnMarket(data, sellerId, category, itemName, quantity, price, currency = 'coins') {
   const seller = data.users[sellerId];
   const categoryData = ITEM_CATEGORIES[category];
   
@@ -159,6 +166,10 @@ async function listItemOnMarket(data, sellerId, category, itemName, quantity, pr
     return { success: false, message: `You don't have enough ${itemName}!` };
   }
   
+  if (currency !== 'coins' && currency !== 'gems') {
+    return { success: false, message: 'Currency must be either "coins" or "gems"!' };
+  }
+  
   categoryData.removeUserInventory(seller, itemName, quantity);
   
   initializeMarketData(data);
@@ -171,6 +182,7 @@ async function listItemOnMarket(data, sellerId, category, itemName, quantity, pr
     itemName,
     quantity,
     price,
+    currency,
     listedAt: Date.now()
   };
   
@@ -195,19 +207,76 @@ async function buyFromMarket(data, buyerId, listingId) {
     return { success: false, message: 'You can\'t buy your own listing!' };
   }
   
-  if (buyer.coins < listing.price) {
-    return { success: false, message: `You need ${listing.price} coins!` };
+  const currency = listing.currency || 'coins';
+  const currencyEmoji = currency === 'gems' ? '💎' : '💰';
+  const buyerBalance = currency === 'gems' ? (buyer.gems || 0) : (buyer.coins || 0);
+  
+  if (buyerBalance < listing.price) {
+    return { success: false, message: `You need ${listing.price} ${currency}!` };
   }
   
-  buyer.coins -= listing.price;
+  if (currency === 'gems') {
+    buyer.gems = (buyer.gems || 0) - listing.price;
+  } else {
+    buyer.coins = (buyer.coins || 0) - listing.price;
+  }
   
   const seller = data.users[listing.sellerId];
   if (seller) {
-    seller.coins += listing.price;
+    if (currency === 'gems') {
+      seller.gems = (seller.gems || 0) + listing.price;
+    } else {
+      seller.coins = (seller.coins || 0) + listing.price;
+    }
+    
+    if (botClient) {
+      try {
+        const sellerUser = await botClient.users.fetch(listing.sellerId);
+        const sellerEmbed = new EmbedBuilder()
+          .setColor('#00FF00')
+          .setTitle('✅ Market Item Sold!')
+          .setDescription(
+            `Your market listing has been purchased!\n\n` +
+            `**Item:** ${listing.quantity}x ${listing.itemName}\n` +
+            `**Buyer:** ${buyer.username}\n` +
+            `**Price:** ${listing.price} ${currencyEmoji}\n\n` +
+            `The ${listing.price} ${currency} have been added to your balance!`
+          )
+          .setTimestamp();
+        
+        await sellerUser.send({ embeds: [sellerEmbed] }).catch(() => {
+          console.log(`Could not send market sold notification to ${seller.username}`);
+        });
+      } catch (error) {
+        console.log(`Error sending seller notification: ${error.message}`);
+      }
+    }
   }
   
   const categoryData = ITEM_CATEGORIES[listing.category];
   categoryData.setUserInventory(buyer, listing.itemName, listing.quantity);
+  
+  if (botClient) {
+    try {
+      const buyerUser = await botClient.users.fetch(buyerId);
+      const buyerEmbed = new EmbedBuilder()
+        .setColor('#00D9FF')
+        .setTitle('🛒 Purchase Complete!')
+        .setDescription(
+          `You successfully purchased from the market!\n\n` +
+          `**Item:** ${listing.quantity}x ${listing.itemName}\n` +
+          `**Price:** ${listing.price} ${currencyEmoji}\n\n` +
+          `The items have been added to your inventory!`
+        )
+        .setTimestamp();
+      
+      await buyerUser.send({ embeds: [buyerEmbed] }).catch(() => {
+        console.log(`Could not send purchase notification to ${buyer.username}`);
+      });
+    } catch (error) {
+      console.log(`Error sending buyer notification: ${error.message}`);
+    }
+  }
   
   data.globalMarket.splice(listingIndex, 1);
   
@@ -218,7 +287,8 @@ async function buyFromMarket(data, buyerId, listingId) {
     category: listing.category,
     itemName: listing.itemName,
     quantity: listing.quantity,
-    price: listing.price
+    price: listing.price,
+    currency
   };
 }
 
@@ -242,8 +312,21 @@ async function cancelListing(data, userId, listingId) {
   return { success: true };
 }
 
-function getMarketListings(data, filters = {}) {
+async function getMarketListings(data, filters = {}) {
   if (!data.globalMarket) return [];
+  
+  let needsSave = false;
+  for (const listing of data.globalMarket) {
+    if (!listing.currency) {
+      listing.currency = 'coins';
+      needsSave = true;
+    }
+  }
+  
+  if (needsSave) {
+    await saveDataImmediate(data);
+    console.log('✅ Normalized legacy market currency fields to coins');
+  }
   
   let listings = [...data.globalMarket];
   
@@ -265,6 +348,10 @@ async function clearMarket(data) {
   
   if (data.globalMarket) {
     for (const listing of data.globalMarket) {
+      if (!listing.currency) {
+        listing.currency = 'coins';
+      }
+      
       const seller = data.users[listing.sellerId];
       if (seller) {
         const categoryData = ITEM_CATEGORIES[listing.category];
@@ -281,6 +368,7 @@ async function clearMarket(data) {
 }
 
 module.exports = {
+  init,
   ITEM_CATEGORIES,
   initializeMarketData,
   generateMarketId,

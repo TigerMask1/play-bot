@@ -140,8 +140,10 @@ const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('.
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
-const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket } = require('./marketSystem.js');
-const { createAuction, placeBid, getActiveAuctions, forceEndAuction, clearAllAuctions } = require('./auctionSystem.js');
+const marketSystem = require('./marketSystem.js');
+const auctionSystem = require('./auctionSystem.js');
+const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket } = marketSystem;
+const { createAuction, placeBid, getActiveAuctions, forceEndAuction, clearAllAuctions } = auctionSystem;
 
 const PREFIX = '!';
 let data;
@@ -226,6 +228,8 @@ client.on('clientReady', async () => {
   await initializeBot();
   await loadServerConfigs();
   initializeClanData(data);
+  marketSystem.init(client);
+  auctionSystem.init(client);
   await initializeGiveawaySystem(client, data);
   await initializeLotterySystem(client, data);
   await eventSystem.init(client, data);

@@ -26,6 +26,7 @@ let botClient = null;
 let eventChannelId = null;
 let scheduleCheckInterval = null;
 let sharedData = null;
+let isTransitioning = false;
 
 // ✅ Fixed permanent channel ID
 const FIXED_CHANNEL_ID = '1432171168168808620';
@@ -77,16 +78,30 @@ async function checkAndStartScheduledEvent() {
     const now = new Date();
     
     if (!lastRun || (now - lastRun) > 60 * 1000) {
-      const activeEvent = await mongoManager.getCurrentEvent();
-      
-      if (activeEvent && activeEvent.status === 'active') {
-        console.log('🛑 Stopping current event before starting scheduled event');
-        await endEvent(activeEvent);
+      while (isTransitioning) {
+        console.log('⏰ Waiting for ongoing event transition to complete...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
-      await startNextEvent();
-      await mongoManager.upsertEventSchedule({ ...schedule, lastRun: now });
-      console.log(`⏰ Started scheduled event at ${schedule.startTime} IST`);
+      isTransitioning = true;
+      try {
+        const activeEvent = await mongoManager.getCurrentEvent();
+        
+        if (activeEvent && activeEvent.status === 'active') {
+          console.log('🛑 Stopping current event before starting scheduled event');
+          if (currentEventTimer) {
+            clearTimeout(currentEventTimer);
+            currentEventTimer = null;
+          }
+          await endEvent(activeEvent);
+        }
+        
+        await startNextEvent();
+        await mongoManager.upsertEventSchedule({ ...schedule, lastRun: now });
+        console.log(`⏰ Started scheduled event at ${schedule.startTime} IST`);
+      } finally {
+        isTransitioning = false;
+      }
     }
   }
 }
@@ -163,8 +178,22 @@ function scheduleEventEnd(event, timeUntilEnd) {
   }
 
   currentEventTimer = setTimeout(async () => {
-    await endEvent(event);
-    await startNextEvent();
+    while (isTransitioning) {
+      console.log('⏱️ Timer waiting for ongoing transition to complete...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    isTransitioning = true;
+    try {
+      await endEvent(event);
+      await startNextEvent();
+      
+      const schedule = await mongoManager.getEventSchedule();
+      await mongoManager.upsertEventSchedule({ ...schedule, lastRun: new Date() });
+      console.log('⏰ Updated lastRun after timer-driven transition');
+    } finally {
+      isTransitioning = false;
+    }
   }, timeUntilEnd);
 }
 
@@ -602,6 +631,18 @@ async function stopEventManually() {
       success: false,
       message: '❌ No active event to stop.'
     };
+  }
+  
+  if (isTransitioning) {
+    return {
+      success: false,
+      message: '⚠️ Event transition already in progress. Please wait a moment and try again.'
+    };
+  }
+  
+  if (currentEventTimer) {
+    clearTimeout(currentEventTimer);
+    currentEventTimer = null;
   }
   
   await endEvent(activeEvent);
