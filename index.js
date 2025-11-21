@@ -142,8 +142,8 @@ const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handle
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const marketSystem = require('./marketSystem.js');
 const auctionSystem = require('./auctionSystem.js');
-const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket } = marketSystem;
-const { createAuction, placeBid, getActiveAuctions, forceEndAuction, clearAllAuctions } = auctionSystem;
+const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket, createMarketEmbed, createMarketButtons, createMarketFilterButtons } = marketSystem;
+const { createAuction, placeBid, getActiveAuctions, forceEndAuction, clearAllAuctions, createAuctionEmbed, createAuctionButtons } = auctionSystem;
 
 const PREFIX = '!';
 let data;
@@ -274,6 +274,86 @@ client.on('interactionCreate', async (interaction) => {
       await handleDiceClashButton(interaction, data);
     } else if (interaction.customId.startsWith('door_')) {
       await handleDoorButton(interaction, data);
+    } else if (interaction.customId.startsWith('auction_')) {
+      if (!interaction.guild.auctionMenus) {
+        interaction.guild.auctionMenus = new Map();
+      }
+      
+      const menuState = interaction.guild.auctionMenus.get(interaction.message.id);
+      if (!menuState || Date.now() > menuState.expiresAt) {
+        await interaction.reply({ content: '⏰ This menu has expired!', ephemeral: true });
+        if (menuState) interaction.guild.auctionMenus.delete(interaction.message.id);
+        return;
+      }
+      
+      const activeAuctions = await getActiveAuctions(data);
+      const totalPages = Math.ceil(activeAuctions.length / 5) || 1;
+      let newPage = menuState.page;
+      
+      if (interaction.customId === 'auction_first') newPage = 0;
+      else if (interaction.customId === 'auction_prev') newPage = Math.max(0, menuState.page - 1);
+      else if (interaction.customId === 'auction_next') newPage = Math.min(totalPages - 1, menuState.page + 1);
+      else if (interaction.customId === 'auction_last') newPage = totalPages - 1;
+      else if (interaction.customId === 'auction_refresh') newPage = Math.min(menuState.page, totalPages - 1);
+      
+      menuState.page = newPage;
+      const embed = createAuctionEmbed(activeAuctions, newPage, 5);
+      const buttons = createAuctionButtons(newPage, totalPages);
+      
+      await interaction.update({ embeds: [embed], components: [buttons] });
+    } else if (interaction.customId.startsWith('market_')) {
+      if (!interaction.guild.marketMenus) {
+        interaction.guild.marketMenus = new Map();
+      }
+      
+      const menuState = interaction.guild.marketMenus.get(interaction.message.id);
+      if (!menuState || Date.now() > menuState.expiresAt) {
+        await interaction.reply({ content: '⏰ This menu has expired!', ephemeral: true });
+        if (menuState) interaction.guild.marketMenus.delete(interaction.message.id);
+        return;
+      }
+      
+      let newPage = menuState.page;
+      let newFilter = menuState.filter;
+      
+      if (interaction.customId === 'market_filter_all') {
+        newFilter = null;
+        newPage = 0;
+      } else if (interaction.customId === 'market_filter_ore') {
+        newFilter = 'ore';
+        newPage = 0;
+      } else if (interaction.customId === 'market_filter_wood') {
+        newFilter = 'wood';
+        newPage = 0;
+      } else if (interaction.customId === 'market_filter_crate') {
+        newFilter = 'crate';
+        newPage = 0;
+      } else if (interaction.customId === 'market_filter_key') {
+        newFilter = 'key';
+        newPage = 0;
+      } else {
+        if (interaction.customId === 'market_first') newPage = 0;
+        else if (interaction.customId === 'market_prev') newPage = Math.max(0, menuState.page - 1);
+        else if (interaction.customId === 'market_next') newPage = menuState.page + 1;
+        else if (interaction.customId === 'market_last') newPage = 999999;
+        else if (interaction.customId === 'market_refresh') newPage = menuState.page;
+      }
+      
+      const allListings = await getMarketListings(data);
+      const filteredListings = newFilter ? allListings.filter(l => l.category === newFilter) : allListings;
+      const totalPages = Math.ceil(filteredListings.length / 5) || 1;
+      
+      newPage = Math.min(newPage, totalPages - 1);
+      newPage = Math.max(0, newPage);
+      
+      menuState.page = newPage;
+      menuState.filter = newFilter;
+      
+      const embed = createMarketEmbed(filteredListings, newPage, 5, newFilter);
+      const navButtons = createMarketButtons(newPage, totalPages);
+      const filterButtons = createMarketFilterButtons(newFilter);
+      
+      await interaction.update({ embeds: [embed], components: [navButtons, filterButtons] });
     }
   } catch (error) {
     console.error('Error handling button interaction:', error);
@@ -4360,25 +4440,28 @@ client.on('messageCreate', async (message) => {
           
           await message.reply('✅ Listing cancelled!');
         } else {
-          const listings = getMarketListings(data);
+          const listings = await getMarketListings(data);
+          const totalPages = Math.ceil(listings.length / 5);
           
-          if (listings.length === 0) {
-            await message.reply('📭 Market is empty! Use `!market list` to sell.');
-            return;
+          const embed = createMarketEmbed(listings, 0, 5);
+          const navButtons = createMarketButtons(0, totalPages);
+          const filterButtons = createMarketFilterButtons(null);
+          
+          const reply = await message.reply({ 
+            embeds: [embed], 
+            components: listings.length > 0 ? [navButtons, filterButtons] : []
+          });
+          
+          if (!message.guild.marketMenus) {
+            message.guild.marketMenus = new Map();
           }
+          message.guild.marketMenus.set(reply.id, { page: 0, filter: null, userId: message.author.id, expiresAt: Date.now() + 300000 });
           
-          const listingText = listings.slice(0, 10).map(listing => {
-            const itemInfo = getItemInfo(listing.category, listing.itemName);
-            return `\`${listing.id.slice(0, 8)}\` ${itemInfo.emoji} ${listing.quantity}x ${listing.itemName} - ${listing.price} coins (${listing.sellerName})`;
-          }).join('\n');
-          
-          const marketEmbed = new EmbedBuilder()
-            .setColor('#00D9FF')
-            .setTitle('🏪 Market Listings')
-            .setDescription(listingText + (listings.length > 10 ? '\n\n...more listings available' : ''))
-            .setFooter({ text: '!market buy <ID> to purchase' });
-          
-          await message.reply({ embeds: [marketEmbed] });
+          setTimeout(() => {
+            if (message.guild.marketMenus) {
+              message.guild.marketMenus.delete(reply.id);
+            }
+          }, 300000);
         }
         break;
         
@@ -4439,26 +4522,26 @@ client.on('messageCreate', async (message) => {
           await message.reply(`✅ Bid placed! Current: ${bidResult.newBid} coins`);
         } else {
           const activeAuctions = await getActiveAuctions(data);
+          const totalPages = Math.ceil(activeAuctions.length / 5);
           
-          if (activeAuctions.length === 0) {
-            await message.reply('📭 No active auctions!');
-            return;
+          const embed = createAuctionEmbed(activeAuctions, 0, 5);
+          const buttons = createAuctionButtons(0, totalPages);
+          
+          const reply = await message.reply({ 
+            embeds: [embed], 
+            components: totalPages > 1 || activeAuctions.length > 0 ? [buttons] : []
+          });
+          
+          if (!message.guild.auctionMenus) {
+            message.guild.auctionMenus = new Map();
           }
+          message.guild.auctionMenus.set(reply.id, { page: 0, userId: message.author.id, expiresAt: Date.now() + 300000 });
           
-          const auctionText = activeAuctions.slice(0, 5).map(auction => {
-            const itemInfo = getItemInfo(auction.category, auction.itemName);
-            const bidder = auction.currentBidderName || 'No bids';
-            return `\`${auction.id.slice(0, 8)}\` ${itemInfo.emoji} ${auction.quantity}x ${auction.itemName}\n` +
-                   `Bid: ${auction.currentBid} (${bidder}) | Ends: <t:${Math.floor(auction.endsAt / 1000)}:R>`;
-          }).join('\n\n');
-          
-          const auctionEmbed = new EmbedBuilder()
-            .setColor('#FFD700')
-            .setTitle('🎯 Active Auctions')
-            .setDescription(auctionText)
-            .setFooter({ text: '!auction bid <ID> <amount>' });
-          
-          await message.reply({ embeds: [auctionEmbed] });
+          setTimeout(() => {
+            if (message.guild.auctionMenus) {
+              message.guild.auctionMenus.delete(reply.id);
+            }
+          }, 300000);
         }
         break;
         

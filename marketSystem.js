@@ -1,6 +1,6 @@
 const { ORES, WOOD_TYPES } = require('./resourceSystem.js');
 const { saveDataImmediate } = require('./dataManager.js');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 let botClient = null;
 
@@ -367,6 +367,108 @@ async function clearMarket(data) {
   return { success: true, count };
 }
 
+function createMarketEmbed(listings, page = 0, itemsPerPage = 5, filterCategory = null) {
+  const start = page * itemsPerPage;
+  const end = start + itemsPerPage;
+  const displayListings = listings.slice(start, end);
+  const totalPages = Math.ceil(listings.length / itemsPerPage);
+  
+  const embed = new EmbedBuilder()
+    .setColor('#00CED1')
+    .setTitle('🏪 Global Market')
+    .setDescription(
+      listings.length === 0 
+        ? 'No listings available at the moment!' 
+        : `Browse through ${listings.length} listing${listings.length !== 1 ? 's' : ''}${filterCategory ? ` (${filterCategory})` : ''}`
+    )
+    .setFooter({ text: `Page ${page + 1} of ${totalPages || 1}` })
+    .setTimestamp();
+  
+  if (displayListings.length > 0) {
+    for (const listing of displayListings) {
+      const currency = listing.currency || 'coins';
+      const currencyEmoji = currency === 'gems' ? '💎' : '💰';
+      const categoryInfo = ITEM_CATEGORIES[listing.category];
+      const categoryDisplay = categoryInfo ? categoryInfo.display : listing.category;
+      
+      embed.addFields({
+        name: `${listing.id} - ${listing.quantity}x ${listing.itemName}`,
+        value: 
+          `**Price:** ${listing.price} ${currencyEmoji}\n` +
+          `**Seller:** ${listing.sellerName}\n` +
+          `**Category:** ${categoryDisplay}\n` +
+          `**Unit Price:** ${Math.round(listing.price / listing.quantity)} ${currencyEmoji}/each`,
+        inline: false
+      });
+    }
+  }
+  
+  return embed;
+}
+
+function createMarketButtons(currentPage, totalPages, disabled = false) {
+  const row = new ActionRowBuilder();
+  
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`market_first`)
+      .setLabel('⏮️ First')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled || currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`market_prev`)
+      .setLabel('◀️ Previous')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled || currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`market_next`)
+      .setLabel('Next ▶️')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled || currentPage >= totalPages - 1),
+    new ButtonBuilder()
+      .setCustomId(`market_last`)
+      .setLabel('Last ⏭️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled || currentPage >= totalPages - 1),
+    new ButtonBuilder()
+      .setCustomId(`market_refresh`)
+      .setLabel('🔄 Refresh')
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(disabled)
+  );
+  
+  return row;
+}
+
+function createMarketFilterButtons(currentFilter = null) {
+  const row = new ActionRowBuilder();
+  
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`market_filter_all`)
+      .setLabel('All')
+      .setStyle(currentFilter === null ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`market_filter_ore`)
+      .setLabel('Ore')
+      .setStyle(currentFilter === 'ore' ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`market_filter_wood`)
+      .setLabel('Wood')
+      .setStyle(currentFilter === 'wood' ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`market_filter_crate`)
+      .setLabel('Crate')
+      .setStyle(currentFilter === 'crate' ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`market_filter_key`)
+      .setLabel('Key')
+      .setStyle(currentFilter === 'key' ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+  
+  return row;
+}
+
 module.exports = {
   init,
   ITEM_CATEGORIES,
@@ -377,5 +479,8 @@ module.exports = {
   buyFromMarket,
   cancelListing,
   getMarketListings,
-  clearMarket
+  clearMarket,
+  createMarketEmbed,
+  createMarketButtons,
+  createMarketFilterButtons
 };

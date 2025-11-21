@@ -1,6 +1,6 @@
 const { ITEM_CATEGORIES, getItemInfo } = require('./marketSystem.js');
 const { saveDataImmediate } = require('./dataManager.js');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 let botClient = null;
 
@@ -23,7 +23,7 @@ function generateAuctionId(data) {
   return `A${String(data.auctionIdCounter).padStart(3, '0')}`;
 }
 
-async function createAuction(data, sellerId, category, itemName, quantity, startingBid, duration, currency = 'coins') {
+async function createAuction(data, sellerId, category, itemName, quantity, startingBid, duration, currency = 'coins', minBidIncrement = null) {
   const seller = data.users[sellerId];
   const categoryData = ITEM_CATEGORIES[category];
   
@@ -44,6 +44,8 @@ async function createAuction(data, sellerId, category, itemName, quantity, start
     return { success: false, message: 'Currency must be either "coins" or "gems"!' };
   }
   
+  const calculatedMinBidIncrement = minBidIncrement || Math.max(1, Math.floor(startingBid * 0.1));
+  
   categoryData.removeUserInventory(seller, itemName, quantity);
   
   initializeAuctionData(data);
@@ -60,6 +62,7 @@ async function createAuction(data, sellerId, category, itemName, quantity, start
     currentBidder: null,
     currentBidderName: null,
     currency,
+    minBidIncrement: calculatedMinBidIncrement,
     bids: [],
     createdAt: Date.now(),
     endsAt: Date.now() + duration
@@ -90,9 +93,11 @@ async function placeBid(data, userId, auctionId, bidAmount) {
   
   const currency = auction.currency || 'coins';
   const currencyEmoji = currency === 'gems' ? '💎' : '💰';
+  const minBidIncrement = auction.minBidIncrement || Math.max(1, Math.floor(auction.currentBid * 0.1));
+  const minimumBid = auction.currentBid + minBidIncrement;
   
-  if (bidAmount <= auction.currentBid) {
-    return { success: false, message: `Bid must be higher than ${auction.currentBid} ${currency}!` };
+  if (bidAmount < minimumBid) {
+    return { success: false, message: `Bid must be at least ${minimumBid} ${currency}! (Minimum increment: ${minBidIncrement} ${currency})` };
   }
   
   const userBalance = currency === 'gems' ? (user.gems || 0) : (user.coins || 0);
@@ -364,6 +369,80 @@ async function clearAllAuctions(data) {
   return { success: true, count };
 }
 
+function createAuctionEmbed(auctions, page = 0, itemsPerPage = 5) {
+  const start = page * itemsPerPage;
+  const end = start + itemsPerPage;
+  const displayAuctions = auctions.slice(start, end);
+  const totalPages = Math.ceil(auctions.length / itemsPerPage);
+  
+  const embed = new EmbedBuilder()
+    .setColor('#FFD700')
+    .setTitle('🏛️ Active Auctions')
+    .setDescription(auctions.length === 0 ? 'No active auctions at the moment!' : `Browse through ${auctions.length} active auction${auctions.length !== 1 ? 's' : ''}`)
+    .setFooter({ text: `Page ${page + 1} of ${totalPages || 1}` })
+    .setTimestamp();
+  
+  if (displayAuctions.length > 0) {
+    for (const auction of displayAuctions) {
+      const currency = auction.currency || 'coins';
+      const currencyEmoji = currency === 'gems' ? '💎' : '💰';
+      const timeLeft = auction.endsAt - Date.now();
+      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      const minBidIncrement = auction.minBidIncrement || Math.max(1, Math.floor(auction.currentBid * 0.1));
+      const nextMinBid = auction.currentBid + minBidIncrement;
+      
+      embed.addFields({
+        name: `${auction.id} - ${auction.quantity}x ${auction.itemName}`,
+        value: 
+          `**Current Bid:** ${auction.currentBid} ${currencyEmoji}\n` +
+          `**Min Next Bid:** ${nextMinBid} ${currencyEmoji} (+${minBidIncrement})\n` +
+          `**Bidder:** ${auction.currentBidderName || 'None'}\n` +
+          `**Seller:** ${auction.sellerName}\n` +
+          `**Time Left:** ${hours}h ${minutes}m\n` +
+          `**Category:** ${auction.category}`,
+        inline: false
+      });
+    }
+  }
+  
+  return embed;
+}
+
+function createAuctionButtons(currentPage, totalPages, disabled = false) {
+  const row = new ActionRowBuilder();
+  
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`auction_first`)
+      .setLabel('⏮️ First')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled || currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`auction_prev`)
+      .setLabel('◀️ Previous')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled || currentPage === 0),
+    new ButtonBuilder()
+      .setCustomId(`auction_next`)
+      .setLabel('Next ▶️')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(disabled || currentPage >= totalPages - 1),
+    new ButtonBuilder()
+      .setCustomId(`auction_last`)
+      .setLabel('Last ⏭️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled || currentPage >= totalPages - 1),
+    new ButtonBuilder()
+      .setCustomId(`auction_refresh`)
+      .setLabel('🔄 Refresh')
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(disabled)
+  );
+  
+  return row;
+}
+
 module.exports = {
   init,
   initializeAuctionData,
@@ -373,5 +452,7 @@ module.exports = {
   endAuction,
   getActiveAuctions,
   forceEndAuction,
-  clearAllAuctions
+  clearAllAuctions,
+  createAuctionEmbed,
+  createAuctionButtons
 };
