@@ -1,7 +1,9 @@
 const { EmbedBuilder } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
+const { distributeUSTRewards } = require('./ustSystem.js');
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+const MINIMUM_REWARD_POOL = 1000;
 
 function initializeClanData(data) {
   if (!data.clans) {
@@ -31,8 +33,13 @@ function getClan(data, serverId) {
         trophies: 0
       },
       weeklyRank: null,
-      lastWeekReward: 0
+      lastWeekReward: 0,
+      lastWeekUSTReward: 0
     };
+  }
+  
+  if (data.clans[serverId].lastWeekUSTReward === undefined) {
+    data.clans[serverId].lastWeekUSTReward = 0;
   }
   
   return data.clans[serverId];
@@ -284,6 +291,11 @@ async function performWeeklyReset(client, data) {
     clan.clanPoints -= pointsLost;
   }
   
+  if (totalPointsFromLosers < MINIMUM_REWARD_POOL && top3.length > 0) {
+    totalPointsFromLosers = MINIMUM_REWARD_POOL;
+    console.log(`⚠️ Reward pool too small (only ${top3.length} clans), using minimum pool: ${MINIMUM_REWARD_POOL} points`);
+  }
+  
   const rewardDistribution = [0.5, 0.3, 0.2];
   
   for (let i = 0; i < top3.length; i++) {
@@ -330,6 +342,9 @@ async function performWeeklyReset(client, data) {
       }
     }
   }
+  
+  await distributeUSTRewards(client, data, top3);
+  console.log('✅ Distributed UST rewards to top 3 clans');
   
   for (const serverId in data.clans) {
     const clan = data.clans[serverId];

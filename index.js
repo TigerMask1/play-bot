@@ -57,6 +57,14 @@ const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js'
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 const { openShop } = require('./shopSystem.js');
+const { 
+  loadCosmeticsCatalog,
+  formatShopCatalog, 
+  purchaseSkin, 
+  purchasePfp, 
+  addSkinToCatalog, 
+  addPfpToCatalog 
+} = require('./cosmeticsShopSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
@@ -95,6 +103,14 @@ const {
   formatClanLeaderboard,
   startWeeklyClanWars
 } = require('./clanSystem.js');
+const { 
+  grantUST,
+  removeUST,
+  getUSTBalance,
+  setUSTRate,
+  getUSTRates,
+  formatUSTBalance
+} = require('./ustSystem.js');
 const { initializeEmojiAssets, getEmojiForCharacter, setCharacterEmoji, refreshAllCharacterEmojis } = require('./emojiAssetManager.js');
 const { 
   initializeChestVisuals, 
@@ -151,6 +167,7 @@ let data;
 async function initializeBot() {
   await initializeEmojiAssets();
   await initializeChestVisuals();
+  loadCosmeticsCatalog();
   
   data = await loadData();
   console.log('✅ Data loaded successfully');
@@ -1806,6 +1823,89 @@ client.on('messageCreate', async (message) => {
           await message.reply('Invalid type! Use: coins, gems, or tokens');
         }
         break;
+      
+      case 'grantust':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const ustUser = message.mentions.users.first();
+        const ustAmount = parseInt(args[1]);
+        
+        if (!ustUser || isNaN(ustAmount)) {
+          await message.reply('Usage: `!grantust @user <amount>`\nExample: `!grantust @user 100`');
+          return;
+        }
+        
+        const ustGrantResult = await grantUST(data, ustUser.id, ustAmount, `Granted by ${message.author.username}`);
+        await message.reply(ustGrantResult.message);
+        break;
+      
+      case 'removeust':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const removeUstUser = message.mentions.users.first();
+        const removeUstAmount = parseInt(args[1]);
+        
+        if (!removeUstUser || isNaN(removeUstAmount)) {
+          await message.reply('Usage: `!removeust @user <amount>`\nExample: `!removeust @user 50`');
+          return;
+        }
+        
+        const ustRemoveResult = await removeUST(data, removeUstUser.id, removeUstAmount, `Removed by ${message.author.username}`);
+        await message.reply(ustRemoveResult.message);
+        break;
+      
+      case 'ust':
+      case 'ustbalance':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const ustEmbed = formatUSTBalance(data.users[userId], message.author.username);
+        await message.reply({ embeds: [ustEmbed] });
+        break;
+      
+      case 'setustrate':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const rateType = args[0]?.toLowerCase();
+        const rateAmount = parseInt(args[1]);
+        
+        if (!rateType || isNaN(rateAmount)) {
+          await message.reply('Usage: `!setustrate <firstPlace/secondPlace/thirdPlace/minimumPool> <amount>`\nExample: `!setustrate firstPlace 150`');
+          return;
+        }
+        
+        const rateResult = setUSTRate(rateType, rateAmount);
+        await message.reply(rateResult.message);
+        break;
+      
+      case 'ustrates':
+      case 'viewustrates':
+        const rates = getUSTRates();
+        const ratesEmbed = new EmbedBuilder()
+          .setColor('#9B59B6')
+          .setTitle('🌟 UST Clan Wars Reward Rates')
+          .setDescription('Current UST reward distribution for weekly clan wars')
+          .addFields(
+            { name: '🥇 First Place', value: `${rates.firstPlace} UST`, inline: true },
+            { name: '🥈 Second Place', value: `${rates.secondPlace} UST`, inline: true },
+            { name: '🥉 Third Place', value: `${rates.thirdPlace} UST`, inline: true },
+            { name: '💰 Minimum Pool', value: `${rates.minimumPool} points (for coins/gems)`, inline: false }
+          )
+          .setFooter({ text: 'UST is distributed based on your contribution to your clan' });
+        
+        await message.reply({ embeds: [ratesEmbed] });
+        break;
         
       case 'grantchar':
         if (!isSuperAdmin(userId)) {
@@ -2375,10 +2475,106 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'shop':
-        if (!data.users[userId].inventory) {
-          data.users[userId].inventory = {};
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
         }
-        await openShop(message, data);
+        
+        const shopType = args[0]?.toLowerCase();
+        
+        if (!shopType || !['skins', 'pfps'].includes(shopType)) {
+          const mainShopEmbed = new EmbedBuilder()
+            .setColor('#9B59B6')
+            .setTitle('🏪 Cosmetics Shop')
+            .setDescription('Welcome to the Cosmetics Shop! Purchase exclusive skins and profile pictures with UST!')
+            .addFields(
+              { name: '🎨 Skins Shop', value: 'Use `!shop skins` to browse character skins', inline: true },
+              { name: '🖼️ Profile Pictures', value: 'Use `!shop pfps` to browse profile pictures', inline: true }
+            )
+            .setFooter({ text: 'Earn UST by competing in Clan Wars!' });
+          
+          await message.reply({ embeds: [mainShopEmbed] });
+          return;
+        }
+        
+        const catalog = formatShopCatalog(data.users[userId], shopType);
+        await message.reply({ embeds: [catalog.embed] });
+        break;
+      
+      case 'buyskin':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const buySkinCharName = args.slice(0, -1).join(' ');
+        const buySkinName = args[args.length - 1];
+        
+        if (!buySkinCharName || !buySkinName) {
+          await message.reply('Usage: `!buyskin <character name> <skin name>`\nExample: `!buyskin Nix Galaxy`');
+          return;
+        }
+        
+        const skinId = `skin_${buySkinCharName.toLowerCase()}_${buySkinName.toLowerCase()}`;
+        const skinPurchaseResult = await purchaseSkin(data, userId, skinId);
+        await message.reply(skinPurchaseResult.message);
+        break;
+      
+      case 'buypfp':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        
+        const buyPfpName = args.join(' ');
+        
+        if (!buyPfpName) {
+          await message.reply('Usage: `!buypfp <profile picture name>`\nExample: `!buypfp Royal Crown`');
+          return;
+        }
+        
+        const pfpId = `pfp_${buyPfpName.toLowerCase()}`;
+        const pfpPurchaseResult = await purchasePfp(data, userId, pfpId);
+        await message.reply(pfpPurchaseResult.message);
+        break;
+      
+      case 'addskin':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const addSkinChar = args[0];
+        const addSkinRarity = args[1]?.toLowerCase();
+        const addSkinName = args[2];
+        const addSkinUrl = args[3];
+        
+        if (!addSkinChar || !addSkinRarity || !addSkinName || !addSkinUrl) {
+          await message.reply('Usage: `!addskin <character> <rarity> <skin name> <image URL>`\nRarities: common, rare, ultra rare, epic, legendary\nExample: `!addskin Nix legendary "Cosmic Nix" https://i.imgur.com/example.png`');
+          return;
+        }
+        
+        const addSkinResult = addSkinToCatalog(addSkinChar, addSkinName, addSkinRarity, addSkinUrl);
+        await message.reply(addSkinResult.message);
+        break;
+      
+      case 'addpfp':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const addPfpRarity = args[0]?.toLowerCase();
+        const addPfpName = args[1];
+        const addPfpUrl = args[2];
+        
+        if (!addPfpRarity || !addPfpName || !addPfpUrl) {
+          await message.reply('Usage: `!addpfp <rarity> <pfp name> <image URL>`\nRarities: common, rare, ultra rare, epic, legendary\nExample: `!addpfp epic "Diamond Elite" https://i.imgur.com/example.png`');
+          return;
+        }
+        
+        const addPfpResult = addPfpToCatalog(addPfpName, addPfpRarity, addPfpUrl);
+        await message.reply(addPfpResult.message);
         break;
         
       case 'i':

@@ -46,6 +46,11 @@ function backfillUserData(data) {
       needsSave = true;
     }
     
+    if (user.ust === undefined) {
+      user.ust = 0;
+      needsSave = true;
+    }
+    
     if (user.messageCount === undefined) {
       user.messageCount = 0;
       needsSave = true;
