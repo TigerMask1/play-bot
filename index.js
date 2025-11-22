@@ -4601,22 +4601,29 @@ client.on('messageCreate', async (message) => {
           const itemName = args[2]?.toLowerCase();
           const quantity = parseInt(args[3]);
           const price = parseInt(args[4]);
+          const currency = args[5]?.toLowerCase() || 'coins';
           
           if (!category || !itemName || !quantity || !price) {
             await message.reply(
               '**List Item on Market**\n\n' +
-              'Usage: `!market list <category> <name> <quantity> <price>`\n\n' +
-              '**Categories:** ore, wood, crate, key, resource\n\n' +
+              'Usage: `!market list <category> <name> <quantity> <price> [currency]`\n\n' +
+              '**Categories:** ore, wood, crate, key, resource\n' +
+              '**Currency:** coins (default) or gems\n\n' +
               '**Examples:**\n' +
               '`!market list ore aurelite 10 100`\n' +
-              '`!market list crate gold 2 500`\n' +
-              '`!market list resource shards 50 300`\n' +
-              '`!market list key key 1 1000`'
+              '`!market list crate gold 2 500 gems`\n' +
+              '`!market list resource shards 50 300 coins`\n' +
+              '`!market list key key 1 1000 gems`'
             );
             return;
           }
           
-          const listResult = await listItemOnMarket(data, userId, category, itemName, quantity, price);
+          if (currency !== 'coins' && currency !== 'gems') {
+            await message.reply('❌ Currency must be either "coins" or "gems"!');
+            return;
+          }
+          
+          const listResult = await listItemOnMarket(data, userId, category, itemName, quantity, price, currency);
           
           if (!listResult.success) {
             await message.reply(listResult.message);
@@ -4624,8 +4631,9 @@ client.on('messageCreate', async (message) => {
           }
           
           const itemInfo = getItemInfo(category, itemName);
+          const currencyEmoji = currency === 'gems' ? '💎' : '💰';
           await message.reply(
-            `✅ Listed ${itemInfo.emoji} ${quantity}x ${itemName} for ${price} coins!\n` +
+            `✅ Listed ${itemInfo.emoji} ${quantity}x ${itemName} for ${price} ${currency} ${currencyEmoji}!\n` +
             `ID: \`${listResult.listingId.slice(0, 8)}\``
           );
         } else if (marketAction === 'buy') {
@@ -4644,8 +4652,9 @@ client.on('messageCreate', async (message) => {
           }
           
           const itemInfo = getItemInfo(buyResult.category, buyResult.itemName);
+          const currencyEmoji = buyResult.currency === 'gems' ? '💎' : '💰';
           await message.reply(
-            `✅ Bought ${itemInfo.emoji} ${buyResult.quantity}x ${buyResult.itemName} for ${buyResult.price} coins!`
+            `✅ Bought ${itemInfo.emoji} ${buyResult.quantity}x ${buyResult.itemName} for ${buyResult.price} ${buyResult.currency} ${currencyEmoji}!`
           );
         } else if (marketAction === 'cancel') {
           const listingId = args[1];
@@ -4698,22 +4707,29 @@ client.on('messageCreate', async (message) => {
           const quantity = parseInt(args[3]);
           const startingBid = parseInt(args[4]);
           const durationHours = parseInt(args[5]) || 24;
+          const currency = args[6]?.toLowerCase() || 'coins';
           
           if (!category || !itemName || !quantity || !startingBid) {
             await message.reply(
               '**Create Auction**\n\n' +
-              'Usage: `!auction create <category> <name> <quantity> <bid> [hours]`\n\n' +
-              '**Categories:** ore, wood, crate, key, resource\n\n' +
+              'Usage: `!auction create <category> <name> <quantity> <bid> [hours] [currency]`\n\n' +
+              '**Categories:** ore, wood, crate, key, resource\n' +
+              '**Currency:** coins (default) or gems\n\n' +
               '**Examples:**\n' +
               '`!auction create ore voidinite 5 500`\n' +
-              '`!auction create crate legendary 1 1000 12`\n' +
-              '`!auction create resource shards 100 400`'
+              '`!auction create crate legendary 1 1000 12 gems`\n' +
+              '`!auction create resource shards 100 400 coins`'
             );
             return;
           }
           
+          if (currency !== 'coins' && currency !== 'gems') {
+            await message.reply('❌ Currency must be either "coins" or "gems"!');
+            return;
+          }
+          
           const duration = durationHours * 3600000;
-          const createResult = await createAuction(data, userId, category, itemName, quantity, startingBid, duration);
+          const createResult = await createAuction(data, userId, category, itemName, quantity, startingBid, duration, currency);
           
           if (!createResult.success) {
             await message.reply(createResult.message);
@@ -4721,9 +4737,11 @@ client.on('messageCreate', async (message) => {
           }
           
           const itemInfo = getItemInfo(category, itemName);
+          const currencyEmoji = currency === 'gems' ? '💎' : '💰';
           await message.reply(
             `✅ Auction created!\n` +
             `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
+            `Starting bid: ${startingBid} ${currency} ${currencyEmoji}\n` +
             `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
             `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`
           );
@@ -4743,7 +4761,8 @@ client.on('messageCreate', async (message) => {
             return;
           }
           
-          await message.reply(`✅ Bid placed! Current: ${bidResult.newBid} coins`);
+          const bidCurrencyEmoji = bidResult.currency === 'gems' ? '💎' : '💰';
+          await message.reply(`✅ Bid placed! Current: ${bidResult.newBid} ${bidResult.currency} ${bidCurrencyEmoji}`);
         } else {
           const activeAuctions = await getActiveAuctions(data);
           const totalPages = Math.ceil(activeAuctions.length / 5);
