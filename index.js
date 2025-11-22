@@ -472,6 +472,148 @@ client.on('messageCreate', async (message) => {
     }
   }
   
+  // ==================== MINIGAME RESPONSE HANDLER ====================
+  if (data.users[userId].activeMinigame) {
+    const activeMinigame = data.users[userId].activeMinigame;
+    const gameId = activeMinigame.gameId;
+    const userMessage = message.content.toLowerCase().trim();
+    const jobType = activeMinigame.jobType;
+    
+    let rewardResult = null;
+    
+    try {
+      // MINER GAMES
+      if (activeMinigame.gameType === 'miner_rock') {
+        if (userMessage === 'hit') {
+          rewardResult = await handleMinerRockHit(userId, gameId, data);
+          if (rewardResult?.success && rewardResult?.completed) {
+            data.users[userId].coins = (data.users[userId].coins || 0) + 150 + rewardResult.bonus;
+            if (rewardResult.rareReward) {
+              data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+            }
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            deleteGame(gameId);
+          } else if (rewardResult?.success) {
+            await message.reply(rewardResult.message);
+            return;
+          } else {
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+            return;
+          }
+        }
+      } 
+      else if (activeMinigame.gameType === 'miner_tnt') {
+        if (['a', 'b'].includes(userMessage)) {
+          rewardResult = await handleMinerTNT(userId, gameId, userMessage, data);
+          if (rewardResult.success) {
+            data.users[userId].coins = (data.users[userId].coins || 0) + (rewardResult.chaosBonus ? 75 : 150);
+            if (rewardResult.rareReward) {
+              data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+            }
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          }
+        }
+      }
+      
+      // FARMER GAMES
+      else if (activeMinigame.gameType === 'farmer_water') {
+        if (userMessage === 'water') {
+          rewardResult = await handleFarmerWater(userId, gameId, data);
+          if (rewardResult.success) {
+            data.users[userId].coins = (data.users[userId].coins || 0) + 120;
+            data.users[userId].gems = (data.users[userId].gems || 0) + 12;
+            if (rewardResult.rareReward) {
+              data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+            }
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          } else {
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          }
+        }
+      }
+      
+      // RANGER GAMES
+      else if (activeMinigame.gameType === 'ranger_shoot') {
+        if (userMessage === 'shoot') {
+          rewardResult = await handleRangerShoot(userId, gameId, data);
+          if (rewardResult.success) {
+            data.users[userId].coins = (data.users[userId].coins || 0) + 100 + rewardResult.bonus;
+            if (rewardResult.rareReward) {
+              data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+            }
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          } else {
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          }
+        }
+      }
+      
+      // ZOOKEEPER GAMES
+      else if (activeMinigame.gameType === 'zookeeper_clean') {
+        if (userMessage === 'clean') {
+          rewardResult = await handleZookeeperClean(userId, gameId, data);
+          if (rewardResult.success) {
+            data.users[userId].coins = (data.users[userId].coins || 0) + 130;
+            data.users[userId].gems = (data.users[userId].gems || 0) + 13;
+            if (rewardResult.rareReward) {
+              data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+            }
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          } else {
+            completeWork(data.users[userId]);
+            delete data.users[userId].activeMinigame;
+            await message.reply(rewardResult.message);
+          }
+        }
+      }
+      
+      // CARETAKER GAMES
+      else if (activeMinigame.gameType === 'caretaker_wash') {
+        if (userMessage === 'wash') {
+          rewardResult = await handleCaretakerWash(userId, gameId, data);
+          if (rewardResult.success) {
+            if (rewardResult.completed) {
+              data.users[userId].coins = (data.users[userId].coins || 0) + 110;
+              data.users[userId].gems = (data.users[userId].gems || 0) + 11;
+              if (rewardResult.rareReward) {
+                data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
+              }
+              completeWork(data.users[userId]);
+              delete data.users[userId].activeMinigame;
+              await message.reply(rewardResult.message);
+            } else {
+              await message.reply(rewardResult.message);
+            }
+          }
+        }
+      }
+      
+      if (rewardResult) {
+        await saveDataImmediate(data);
+      }
+    } catch (error) {
+      console.error('Minigame error:', error);
+      delete data.users[userId].activeMinigame;
+    }
+    
+    return;
+  }
+  
   let commandContent = message.content;
   let usedMention = false;
   
