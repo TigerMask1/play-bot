@@ -1083,31 +1083,62 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'uploadpfp':
-        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
-          await message.reply('❌ Only bot admins can upload PFPs to the registry!');
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const pfpNameArgs = args.slice(0, -1).join(' ');
+        const pfpRarity = args[args.length - 1]?.toLowerCase();
+        const pfpCustomCost = args[args.length - 2] && !isNaN(parseInt(args[args.length - 2])) ? parseInt(args[args.length - 2]) : null;
+        
+        const actualPfpName = pfpCustomCost !== null ? args.slice(0, -2).join(' ') : pfpNameArgs;
+        const actualRarity = pfpCustomCost !== null ? args[args.length - 2] : pfpRarity;
+        
+        if (!actualPfpName || !actualRarity) {
+          await message.reply('**Upload Profile Picture to UST Shop**\n\nUsage: `!uploadpfp <name> <rarity> [custom_cost]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n\n**Examples:**\n`!uploadpfp Cool Sunglasses rare` (uses default 25 UST)\n`!uploadpfp Cool Sunglasses rare 30` (custom 30 UST)\n`!uploadpfp Diamond Crown legendary 250` (custom 250 UST)\n\nAttach the profile picture image to your message!');
+          return;
+        }
+        
+        const validPfpRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
+        if (!validPfpRarities.includes(actualRarity.toLowerCase())) {
+          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, or legendary');
           return;
         }
         
         if (message.attachments.size === 0) {
-          await message.reply('❌ Please attach an image!\nUsage: `!uploadpfp <name>` (with image attached)');
+          await message.reply('❌ Please attach an image to your message!');
           return;
         }
         
-        const registryPfpName = args.join(' ');
-        if (!registryPfpName) {
-          await message.reply('❌ Please provide a name for the PFP!\nUsage: `!uploadpfp <name>` (with image attached)');
-          return;
-        }
+        const pfpAttachment = message.attachments.first();
         
-        const registryAttachment = message.attachments.first();
-        
-        if (!registryAttachment.contentType || !registryAttachment.contentType.startsWith('image/')) {
+        if (!pfpAttachment.contentType || !pfpAttachment.contentType.startsWith('image/')) {
           await message.reply('❌ Please attach a valid image file (PNG, JPG, GIF, etc.)!');
           return;
         }
         
-        const uploadRegistryResult = await uploadPfpToRegistry(registryAttachment.url, registryPfpName, data);
-        await message.reply(uploadRegistryResult.message);
+        const pfpImageUrl = pfpAttachment.url;
+        
+        const { addPfpToCatalog, RARITY_EMOJIS: PFP_RARITY_EMOJIS } = require('./cosmeticsShopSystem.js');
+        const addPfpResult = await addPfpToCatalog(actualPfpName, actualRarity, pfpImageUrl, pfpCustomCost);
+        
+        if (addPfpResult.success) {
+          const uploadPfpEmbed = new EmbedBuilder()
+            .setColor('#FF69B4')
+            .setTitle(`✅ Profile Picture Added to UST Shop!`)
+            .setDescription(`${addPfpResult.message}\n\nThis profile picture is now available in the UST shop for all players!`)
+            .addFields(
+              { name: 'PFP Name', value: actualPfpName, inline: true },
+              { name: 'Rarity', value: `${PFP_RARITY_EMOJIS[actualRarity.toLowerCase()]} ${actualRarity}`, inline: true }
+            )
+            .setThumbnail(pfpImageUrl)
+            .setFooter({ text: 'Players can purchase this in !ustshop' });
+          
+          await message.reply({ embeds: [uploadPfpEmbed] });
+        } else {
+          await message.reply(addPfpResult.message);
+        }
         break;
         
       case 'grantpfp':
@@ -2158,14 +2189,22 @@ client.on('messageCreate', async (message) => {
         
         const uploadCharName = args[0];
         const uploadSkinName = args[1];
+        const uploadRarity = args[2]?.toLowerCase();
+        const uploadCustomCost = args[3] ? parseInt(args[3]) : null;
         
-        if (!uploadCharName || !uploadSkinName) {
-          await message.reply('Usage: `!uploadskin <character> <skin_name>` with an attached image\nExample: `!uploadskin Nix galaxy` (attach image to message)');
+        if (!uploadCharName || !uploadSkinName || !uploadRarity) {
+          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (uses default 200 UST)\n`!uploadskin Nix Galaxy legendary 150` (custom 150 UST)\n\nAttach the skin image to your message!');
+          return;
+        }
+        
+        const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
+        if (!validRarities.includes(uploadRarity)) {
+          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, or legendary');
           return;
         }
         
         if (message.attachments.size === 0) {
-          await message.reply('❌ Please attach an image to your message!\n\nUsage: Upload an image, then type `!uploadskin <character> <skin_name>` in the message.');
+          await message.reply('❌ Please attach an image to your message!');
           return;
         }
         
@@ -2187,17 +2226,26 @@ client.on('messageCreate', async (message) => {
         
         const discordCdnUrl = attachment.url;
         
-        const skinSystem = require('./skinSystem.js');
-        await skinSystem.addSkinToCharacter(foundUploadChar.name, uploadSkinName, discordCdnUrl);
+        const { addSkinToCatalog, RARITY_EMOJIS } = require('./cosmeticsShopSystem.js');
+        const skinAddResult = await addSkinToCatalog(foundUploadChar.name, uploadSkinName, uploadRarity, discordCdnUrl, uploadCustomCost);
         
-        const uploadEmbed = new EmbedBuilder()
-          .setColor('#9C27B0')
-          .setTitle(`✅ Skin Uploaded!`)
-          .setDescription(`Added skin **${uploadSkinName}** to **${foundUploadChar.name} ${foundUploadChar.emoji}**!\n\nNow you can grant this skin to players using:\n\`!grantskin @user ${foundUploadChar.name} ${uploadSkinName}\``)
-          .setImage(discordCdnUrl)
-          .setFooter({ text: 'Image hosted on Discord CDN' });
-        
-        await message.reply({ embeds: [uploadEmbed] });
+        if (skinAddResult.success) {
+          const uploadEmbed = new EmbedBuilder()
+            .setColor('#9C27B0')
+            .setTitle(`✅ Skin Added to UST Shop!`)
+            .setDescription(`${skinAddResult.message}\n\nThis skin is now available in the UST shop for all players who own ${foundUploadChar.name}!`)
+            .addFields(
+              { name: 'Character', value: `${foundUploadChar.name} ${foundUploadChar.emoji}`, inline: true },
+              { name: 'Skin Name', value: uploadSkinName, inline: true },
+              { name: 'Rarity', value: `${RARITY_EMOJIS[uploadRarity]} ${uploadRarity}`, inline: true }
+            )
+            .setImage(discordCdnUrl)
+            .setFooter({ text: 'Players can purchase this in !ustshop' });
+          
+          await message.reply({ embeds: [uploadEmbed] });
+        } else {
+          await message.reply(skinAddResult.message);
+        }
         break;
         
       case 'setworkimage':
@@ -2479,6 +2527,16 @@ client.on('messageCreate', async (message) => {
           return;
         }
         await openCosmeticsShop(message, data);
+        break;
+      
+      case 'ustshop':
+      case 'skinshop':
+        if (!data.users[userId].started) {
+          await message.reply('❌ You must start first! Use `!start` to begin.');
+          return;
+        }
+        const { openUSTShop } = require('./cosmeticsShopSystem.js');
+        await openUSTShop(message, data);
         break;
       
       case 'addcosmetic':

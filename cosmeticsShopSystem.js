@@ -5,7 +5,13 @@ const { CHARACTERS } = require('./characters.js');
 const fs = require('fs');
 const path = require('path');
 
-const COSMETICS_FILE = path.join(__dirname, 'cosmetics_catalog.json');
+const USE_MONGODB = process.env.USE_MONGODB === 'true';
+const COSMETICS_FILE = path.join(__dirname, 'ust_cosmetics_catalog.json');
+let mongoManager = null;
+
+if (USE_MONGODB) {
+  mongoManager = require('./mongoManager.js');
+}
 
 const RARITY_COSTS = {
   common: 10,
@@ -33,71 +39,113 @@ const RARITY_EMOJIS = {
 
 let SKIN_CATALOG = {};
 let PFP_CATALOG = {};
+let catalogCache = null;
+let cacheTimestamp = null;
+const CACHE_TTL = 5 * 60 * 1000;
 
-function getDefaultCatalog() {
+function isCacheValid() {
+  return catalogCache !== null && cacheTimestamp !== null && (Date.now() - cacheTimestamp < CACHE_TTL);
+}
+
+function invalidateCache() {
+  catalogCache = null;
+  cacheTimestamp = null;
+}
+
+function getEmptyCatalog() {
   return {
     skins: {
-      common: [
-        { id: 'skin_nix_classic', name: 'Classic', character: 'Nix', url: 'https://i.imgur.com/nix_classic.png', cost: 10 }
-      ],
+      common: [],
       rare: [],
       'ultra rare': [],
       epic: [],
       legendary: []
     },
     pfps: {
-      common: [
-        { id: 'pfp_smile', name: 'Happy Smile', url: 'https://i.imgur.com/smile.png' },
-        { id: 'pfp_cool', name: 'Cool Shades', url: 'https://i.imgur.com/cool.png' }
-      ],
-      rare: [
-        { id: 'pfp_crown', name: 'Royal Crown', url: 'https://i.imgur.com/crown.png' }
-      ],
-      'ultra rare': [
-        { id: 'pfp_fire', name: 'Flame Aura', url: 'https://i.imgur.com/fire.png' }
-      ],
-      epic: [
-        { id: 'pfp_galaxy', name: 'Galaxy Vibes', url: 'https://i.imgur.com/galaxy.png' }
-      ],
-      legendary: [
-        { id: 'pfp_diamond', name: 'Diamond Elite', url: 'https://i.imgur.com/diamond.png' }
-      ]
+      common: [],
+      rare: [],
+      'ultra rare': [],
+      epic: [],
+      legendary: []
     }
   };
 }
 
-function loadCosmeticsCatalog() {
-  try {
-    if (fs.existsSync(COSMETICS_FILE)) {
-      const rawData = fs.readFileSync(COSMETICS_FILE, 'utf8');
-      const catalog = JSON.parse(rawData);
-      SKIN_CATALOG = catalog.skins || getDefaultCatalog().skins;
-      PFP_CATALOG = catalog.pfps || getDefaultCatalog().pfps;
-      console.log('✅ Loaded cosmetics catalog from file');
-    } else {
-      const defaultCatalog = getDefaultCatalog();
-      SKIN_CATALOG = defaultCatalog.skins;
-      PFP_CATALOG = defaultCatalog.pfps;
-      saveCosmeticsCatalog();
-      console.log('✅ Created default cosmetics catalog');
-    }
-  } catch (error) {
-    console.error('Error loading cosmetics catalog:', error);
-    const defaultCatalog = getDefaultCatalog();
-    SKIN_CATALOG = defaultCatalog.skins;
-    PFP_CATALOG = defaultCatalog.pfps;
+async function loadCosmeticsCatalog() {
+  if (isCacheValid()) {
+    SKIN_CATALOG = catalogCache.skins;
+    PFP_CATALOG = catalogCache.pfps;
+    return;
   }
+
+  let catalog = getEmptyCatalog();
+  
+  if (USE_MONGODB && mongoManager) {
+    try {
+      const collection = await mongoManager.getCollection('cosmetics');
+      const cosmeticsDoc = await collection.findOne({ _id: 'ust_catalog' });
+      if (cosmeticsDoc) {
+        catalog.skins = cosmeticsDoc.skins || getEmptyCatalog().skins;
+        catalog.pfps = cosmeticsDoc.pfps || getEmptyCatalog().pfps;
+      }
+      console.log('✅ Loaded UST cosmetics catalog from MongoDB');
+    } catch (error) {
+      console.error('Error loading cosmetics catalog from MongoDB:', error);
+    }
+  } else {
+    try {
+      if (fs.existsSync(COSMETICS_FILE)) {
+        const rawData = fs.readFileSync(COSMETICS_FILE, 'utf8');
+        const savedCatalog = JSON.parse(rawData);
+        catalog.skins = savedCatalog.skins || getEmptyCatalog().skins;
+        catalog.pfps = savedCatalog.pfps || getEmptyCatalog().pfps;
+        console.log('✅ Loaded UST cosmetics catalog from file');
+      } else {
+        console.log('✅ Created new empty UST cosmetics catalog');
+      }
+    } catch (error) {
+      console.error('Error loading cosmetics catalog from file:', error);
+    }
+  }
+
+  SKIN_CATALOG = catalog.skins;
+  PFP_CATALOG = catalog.pfps;
+  catalogCache = catalog;
+  cacheTimestamp = Date.now();
 }
 
-function saveCosmeticsCatalog() {
-  try {
-    const catalog = {
-      skins: SKIN_CATALOG,
-      pfps: PFP_CATALOG
-    };
-    fs.writeFileSync(COSMETICS_FILE, JSON.stringify(catalog, null, 2));
-  } catch (error) {
-    console.error('Error saving cosmetics catalog:', error);
+async function saveCosmeticsCatalog() {
+  invalidateCache();
+  
+  if (USE_MONGODB && mongoManager) {
+    try {
+      const collection = await mongoManager.getCollection('cosmetics');
+      await collection.updateOne(
+        { _id: 'ust_catalog' },
+        { 
+          $set: { 
+            skins: SKIN_CATALOG, 
+            pfps: PFP_CATALOG,
+            updatedAt: new Date() 
+          } 
+        },
+        { upsert: true }
+      );
+      console.log('✅ Saved UST cosmetics catalog to MongoDB');
+    } catch (error) {
+      console.error('Error saving cosmetics catalog to MongoDB:', error);
+    }
+  } else {
+    try {
+      const catalog = {
+        skins: SKIN_CATALOG,
+        pfps: PFP_CATALOG
+      };
+      fs.writeFileSync(COSMETICS_FILE, JSON.stringify(catalog, null, 2));
+      console.log('✅ Saved UST cosmetics catalog to file');
+    } catch (error) {
+      console.error('Error saving cosmetics catalog to file:', error);
+    }
   }
 }
 
@@ -113,7 +161,8 @@ function initializeSkinCatalog() {
   }
 }
 
-function addSkinToCatalog(characterName, skinName, rarity, url) {
+async function addSkinToCatalog(characterName, skinName, rarity, url, customCost = null) {
+  await loadCosmeticsCatalog();
   initializeSkinCatalog();
   
   const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
@@ -130,23 +179,28 @@ function addSkinToCatalog(characterName, skinName, rarity, url) {
     SKIN_CATALOG[rarityKey] = [];
   }
   
+  const cost = customCost !== null ? customCost : RARITY_COSTS[rarityKey];
+  
   SKIN_CATALOG[rarityKey].push({
-    id: `skin_${characterName.toLowerCase()}_${skinName.toLowerCase()}`,
+    id: `skin_${characterName.toLowerCase()}_${skinName.toLowerCase()}_${Date.now()}`,
     name: skinName,
     character: characterName,
     url: url,
-    cost: RARITY_COSTS[rarityKey]
+    cost: cost
   });
   
-  saveCosmeticsCatalog();
+  await saveCosmeticsCatalog();
   
   return {
     success: true,
-    message: `✅ Added **${skinName}** skin for ${characterName} to the shop!\nRarity: ${RARITY_EMOJIS[rarityKey]} ${rarity}\nCost: ${RARITY_COSTS[rarityKey]} UST`
+    message: `✅ Added **${skinName}** skin for ${characterName} to the UST shop!\n${RARITY_EMOJIS[rarityKey]} Rarity: ${rarity}\n💰 Cost: ${cost} UST`,
+    skinId: SKIN_CATALOG[rarityKey][SKIN_CATALOG[rarityKey].length - 1].id
   };
 }
 
-function addPfpToCatalog(pfpName, rarity, url) {
+async function addPfpToCatalog(pfpName, rarity, url, customCost = null) {
+  await loadCosmeticsCatalog();
+  
   const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
   if (!validRarities.includes(rarity.toLowerCase())) {
     return {
@@ -161,22 +215,26 @@ function addPfpToCatalog(pfpName, rarity, url) {
     PFP_CATALOG[rarityKey] = [];
   }
   
+  const cost = customCost !== null ? customCost : RARITY_COSTS[rarityKey];
+  
   PFP_CATALOG[rarityKey].push({
-    id: `pfp_${pfpName.toLowerCase()}`,
+    id: `pfp_${pfpName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
     name: pfpName,
     url: url,
-    cost: RARITY_COSTS[rarityKey]
+    cost: cost
   });
   
-  saveCosmeticsCatalog();
+  await saveCosmeticsCatalog();
   
   return {
     success: true,
-    message: `✅ Added **${pfpName}** profile picture to the shop!\nRarity: ${RARITY_EMOJIS[rarityKey]} ${rarity}\nCost: ${RARITY_COSTS[rarityKey]} UST`
+    message: `✅ Added **${pfpName}** profile picture to the UST shop!\n${RARITY_EMOJIS[rarityKey]} Rarity: ${rarity}\n💰 Cost: ${cost} UST`,
+    pfpId: PFP_CATALOG[rarityKey][PFP_CATALOG[rarityKey].length - 1].id
   };
 }
 
-function getAvailableSkinsForUser(userData) {
+async function getAvailableSkinsForUser(userData) {
+  await loadCosmeticsCatalog();
   initializeSkinCatalog();
   
   const ownedCharacterNames = userData.characters.map(c => c.name);
@@ -189,7 +247,7 @@ function getAvailableSkinsForUser(userData) {
     
     for (const skin of skinsInRarity) {
       const character = userData.characters.find(c => c.name === skin.character);
-      if (!character.ownedSkins.includes(skin.name)) {
+      if (!character.ownedSkins || !character.ownedSkins.includes(skin.name)) {
         allAvailableSkins.push({
           ...skin,
           rarity: rarity
@@ -201,7 +259,9 @@ function getAvailableSkinsForUser(userData) {
   return allAvailableSkins;
 }
 
-function getAvailablePfpsForUser(userData) {
+async function getAvailablePfpsForUser(userData) {
+  await loadCosmeticsCatalog();
+  
   const ownedPfps = userData.pfp?.ownedPfps || [];
   const allAvailablePfps = [];
   
@@ -222,6 +282,8 @@ function getAvailablePfpsForUser(userData) {
 }
 
 async function purchaseSkin(data, userId, skinId) {
+  await loadCosmeticsCatalog();
+  
   const userData = data.users[userId];
   if (!userData) {
     return {
@@ -293,6 +355,8 @@ async function purchaseSkin(data, userId, skinId) {
 }
 
 async function purchasePfp(data, userId, pfpId) {
+  await loadCosmeticsCatalog();
+  
   const userData = data.users[userId];
   if (!userData) {
     return {
@@ -359,11 +423,11 @@ async function purchasePfp(data, userId, pfpId) {
   };
 }
 
-function formatShopCatalog(userData, type = 'skins') {
-  const userUST = getUSTBalance({ users: { [userData.id]: userData } }, userData.id) || 0;
+async function formatShopCatalog(userData, userId, type = 'skins') {
+  const userUST = getUSTBalance({ users: { [userId]: userData } }, userId) || 0;
   
   if (type === 'skins') {
-    const availableSkins = getAvailableSkinsForUser(userData);
+    const availableSkins = await getAvailableSkinsForUser(userData);
     
     if (availableSkins.length === 0) {
       return {
@@ -406,7 +470,7 @@ function formatShopCatalog(userData, type = 'skins') {
     
     return { embed, items: availableSkins };
   } else {
-    const availablePfps = getAvailablePfpsForUser(userData);
+    const availablePfps = await getAvailablePfpsForUser(userData);
     
     if (availablePfps.length === 0) {
       return {
@@ -451,12 +515,154 @@ function formatShopCatalog(userData, type = 'skins') {
   }
 }
 
+async function openUSTShop(message, data) {
+  const userId = message.author.id;
+  const userData = data.users[userId];
+  
+  if (!userData) {
+    await message.reply('❌ You need to use `!start` first!');
+    return;
+  }
+  
+  await loadCosmeticsCatalog();
+  
+  const mainEmbed = new EmbedBuilder()
+    .setColor('#9B59B6')
+    .setTitle('🌟 Universal Skin Token (UST) Shop')
+    .setDescription(`Welcome to the UST Shop! Purchase exclusive skins and profile pictures.\n\n**Your UST Balance:** ${getUSTBalance(data, userId) || 0} UST\n\nSelect a category below to browse items!`)
+    .addFields(
+      { name: '🎨 Skins', value: 'Exclusive character skins for your collection', inline: true },
+      { name: '🖼️ Profile Pictures', value: 'Custom profile pictures', inline: true }
+    )
+    .setFooter({ text: 'Earn UST by placing top 3 in Clan Wars!' });
+  
+  const categorySelect = new StringSelectMenuBuilder()
+    .setCustomId(`ust_category_${userId}`)
+    .setPlaceholder('Select a category')
+    .addOptions([
+      {
+        label: '🎨 Skins Shop',
+        description: 'Browse character skins',
+        value: 'skins'
+      },
+      {
+        label: '🖼️ Profile Pictures Shop',
+        description: 'Browse profile pictures',
+        value: 'pfps'
+      }
+    ]);
+  
+  const closeButton = new ButtonBuilder()
+    .setCustomId(`ust_close_${userId}`)
+    .setLabel('Close')
+    .setStyle(ButtonStyle.Danger);
+  
+  const row1 = new ActionRowBuilder().addComponents(categorySelect);
+  const row2 = new ActionRowBuilder().addComponents(closeButton);
+  
+  const shopMsg = await message.reply({ 
+    embeds: [mainEmbed], 
+    components: [row1, row2] 
+  });
+  
+  const filter = (interaction) => interaction.user.id === userId;
+  const collector = shopMsg.createMessageComponentCollector({ filter, time: 300000 });
+  
+  collector.on('collect', async (interaction) => {
+    try {
+      if (interaction.customId === `ust_close_${userId}`) {
+        await interaction.update({ 
+          embeds: [new EmbedBuilder()
+            .setColor('#808080')
+            .setTitle('🌟 UST Shop Closed')
+            .setDescription('Thanks for visiting! Come back anytime!')],
+          components: []
+        });
+        collector.stop();
+        return;
+      }
+      
+      if (interaction.customId === `ust_category_${userId}`) {
+        const category = interaction.values[0];
+        const catalogData = await formatShopCatalog(userData, userId, category);
+        
+        if (catalogData.items.length === 0) {
+          await interaction.update({ embeds: [catalogData.embed], components: [row2] });
+          return;
+        }
+        
+        const itemSelect = new StringSelectMenuBuilder()
+          .setCustomId(`ust_buy_${category}_${userId}`)
+          .setPlaceholder(`Select ${category === 'skins' ? 'a skin' : 'a profile picture'} to purchase`)
+          .addOptions(catalogData.items.slice(0, 25).map(item => ({
+            label: category === 'skins' ? `${item.name} (${item.character})` : item.name,
+            description: `${RARITY_EMOJIS[item.rarity]} ${item.rarity} - ${item.cost} UST`,
+            value: item.id
+          })));
+        
+        const backButton = new ButtonBuilder()
+          .setCustomId(`ust_back_${userId}`)
+          .setLabel('Back')
+          .setStyle(ButtonStyle.Secondary);
+        
+        const newRow1 = new ActionRowBuilder().addComponents(itemSelect);
+        const newRow2 = new ActionRowBuilder().addComponents(backButton, closeButton);
+        
+        await interaction.update({ embeds: [catalogData.embed], components: [newRow1, newRow2] });
+        return;
+      }
+      
+      if (interaction.customId.startsWith(`ust_buy_`)) {
+        const itemId = interaction.values[0];
+        const category = interaction.customId.includes('skins') ? 'skins' : 'pfps';
+        
+        let purchaseResult;
+        if (category === 'skins') {
+          purchaseResult = await purchaseSkin(data, userId, itemId);
+        } else {
+          purchaseResult = await purchasePfp(data, userId, itemId);
+        }
+        
+        if (purchaseResult.success) {
+          const successEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle('✅ Purchase Successful!')
+            .setDescription(purchaseResult.message)
+            .setFooter({ text: 'Use !skins or !mypfps to see your new items!' });
+          
+          await interaction.update({ embeds: [successEmbed], components: [row2] });
+        } else {
+          const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('❌ Purchase Failed')
+            .setDescription(purchaseResult.message);
+          
+          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        }
+        return;
+      }
+      
+      if (interaction.customId === `ust_back_${userId}`) {
+        await interaction.update({ embeds: [mainEmbed], components: [row1, row2] });
+        return;
+      }
+    } catch (error) {
+      console.error('UST Shop interaction error:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ An error occurred. Please try again.', ephemeral: true }).catch(() => {});
+      }
+    }
+  });
+  
+  collector.on('end', () => {
+    shopMsg.edit({ components: [] }).catch(() => {});
+  });
+}
+
 module.exports = {
   RARITY_COSTS,
   RARITY_COLORS,
   RARITY_EMOJIS,
-  SKIN_CATALOG,
-  PFP_CATALOG,
   loadCosmeticsCatalog,
   saveCosmeticsCatalog,
   addSkinToCatalog,
@@ -465,5 +671,6 @@ module.exports = {
   getAvailablePfpsForUser,
   purchaseSkin,
   purchasePfp,
-  formatShopCatalog
+  formatShopCatalog,
+  openUSTShop
 };
