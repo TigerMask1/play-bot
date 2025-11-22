@@ -111,14 +111,6 @@ const {
   formatClanLeaderboard,
   startWeeklyClanWars
 } = require('./clanSystem.js');
-const { 
-  grantUST,
-  removeUST,
-  getUSTBalance,
-  setUSTRate,
-  getUSTRates,
-  formatUSTBalance
-} = require('./ustSystem.js');
 const { initializeEmojiAssets, getEmojiForCharacter, setCharacterEmoji, refreshAllCharacterEmojis } = require('./emojiAssetManager.js');
 const { 
   initializeChestVisuals, 
@@ -2488,52 +2480,6 @@ client.on('messageCreate', async (message) => {
           return;
         }
         await openCosmeticsShop(message, data);
-        break;
-      
-      case 'ust':
-      case 'ustbalance':
-        if (!data.users[userId].started) {
-          await message.reply('❌ You must start first! Use `!start` to begin.');
-          return;
-        }
-        const ustBalEmbed = formatUSTBalance(data.users[userId], message.author.username);
-        await message.reply({ embeds: [ustBalEmbed] });
-        break;
-      
-      case 'grantust':
-        if (!isSuperAdmin(userId)) {
-          await message.reply('❌ This command is restricted to Super Admins only!');
-          return;
-        }
-        
-        const ustGrantUser = message.mentions.users.first();
-        const ustGrantAmount = parseInt(args[1]);
-        
-        if (!ustGrantUser || !ustGrantAmount || ustGrantAmount <= 0) {
-          await message.reply('Usage: `!grantust @user <amount>`\nExample: `!grantust @user 100`');
-          return;
-        }
-        
-        const ustGrantResult = await grantUST(data, ustGrantUser.id, ustGrantAmount, `Granted by admin ${message.author.username}`);
-        await message.reply(ustGrantResult.message);
-        break;
-      
-      case 'removeust':
-        if (!isSuperAdmin(userId)) {
-          await message.reply('❌ This command is restricted to Super Admins only!');
-          return;
-        }
-        
-        const ustRemoveUser = message.mentions.users.first();
-        const ustRemoveAmount = parseInt(args[1]);
-        
-        if (!ustRemoveUser || !ustRemoveAmount || ustRemoveAmount <= 0) {
-          await message.reply('Usage: `!removeust @user <amount>`\nExample: `!removeust @user 50`');
-          return;
-        }
-        
-        const ustRemoveResult = await removeUST(data, ustRemoveUser.id, ustRemoveAmount, `Removed by admin ${message.author.username}`);
-        await message.reply(ustRemoveResult.message);
         break;
       
       case 'addcosmetic':
