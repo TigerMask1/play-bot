@@ -18,7 +18,8 @@ const RARITY_COSTS = {
   rare: 25,
   'ultra rare': 50,
   epic: 100,
-  legendary: 200
+  legendary: 200,
+  exclusive: 500
 };
 
 const RARITY_COLORS = {
@@ -26,7 +27,8 @@ const RARITY_COLORS = {
   rare: '#3498DB',
   'ultra rare': '#9B59B6',
   epic: '#E74C3C',
-  legendary: '#F39C12'
+  legendary: '#F39C12',
+  exclusive: '#FFD700'
 };
 
 const RARITY_EMOJIS = {
@@ -34,7 +36,8 @@ const RARITY_EMOJIS = {
   rare: '🔵',
   'ultra rare': '🟣',
   epic: '🔴',
-  legendary: '🟡'
+  legendary: '🟡',
+  exclusive: '👑'
 };
 
 let SKIN_CATALOG = {};
@@ -59,14 +62,16 @@ function getEmptyCatalog() {
       rare: [],
       'ultra rare': [],
       epic: [],
-      legendary: []
+      legendary: [],
+      exclusive: []
     },
     pfps: {
       common: [],
       rare: [],
       'ultra rare': [],
       epic: [],
-      legendary: []
+      legendary: [],
+      exclusive: []
     }
   };
 }

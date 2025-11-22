@@ -2233,13 +2233,13 @@ client.on('messageCreate', async (message) => {
         const uploadCustomCost = args[3] ? parseInt(args[3]) : null;
         
         if (!uploadCharName || !uploadSkinName || !uploadRarity) {
-          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (uses default 200 UST)\n`!uploadskin Nix Galaxy legendary 150` (custom 150 UST)\n\nAttach the skin image to your message!');
+          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary, exclusive\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200), exclusive (500)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (uses default 200 UST)\n`!uploadskin Nix Galaxy exclusive` (uses default 500 UST for exclusive items)\n`!uploadskin Nix Galaxy legendary 150` (custom 150 UST)\n\nAttach the skin image to your message!');
           return;
         }
         
-        const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
+        const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary', 'exclusive'];
         if (!validRarities.includes(uploadRarity)) {
-          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, or legendary');
+          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, legendary, or exclusive');
           return;
         }
         
