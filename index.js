@@ -2080,8 +2080,8 @@ client.on('messageCreate', async (message) => {
         break;
         
       case 'updateskin':
-        if (!isSuperAdmin(userId)) {
-          await message.reply('❌ This command is restricted to Super Admins only!');
+        if (!isSuperAdmin(userId) && !isBotAdmin(userId, serverId)) {
+          await message.reply('❌ This command is restricted to Super Admins and Bot Admins only!');
           return;
         }
         
