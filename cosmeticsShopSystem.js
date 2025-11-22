@@ -391,7 +391,7 @@ async function purchasePfp(data, userId, pfpId) {
     };
   }
   
-  if (userData.pfp.ownedPfps.includes(foundPfp.id)) {
+  if (userData.pfp.ownedPfps.some(p => p.id === foundPfp.id)) {
     return {
       success: false,
       message: '❌ You already own this profile picture!'
@@ -413,7 +413,15 @@ async function purchasePfp(data, userId, pfpId) {
     return removeResult;
   }
   
-  userData.pfp.ownedPfps.push(foundPfp.id);
+  const newPfp = {
+    id: foundPfp.id,
+    name: foundPfp.name,
+    url: foundPfp.url,
+    cost: foundPfp.cost,
+    rarity: pfpRarity,
+    addedAt: Date.now()
+  };
+  userData.pfp.ownedPfps.push(newPfp);
   await saveDataImmediate(data);
   
   return {
