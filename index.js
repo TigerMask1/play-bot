@@ -2079,6 +2079,41 @@ client.on('messageCreate', async (message) => {
         await message.reply(`✅ Added skin **${skinName}** to **${foundSkinChar.name} ${foundSkinChar.emoji}**!\nImage: ${skinUrl}\n\nNow you can grant this skin to players using: \`!grantskin @user ${foundSkinChar.name} ${skinName}\``);
         break;
         
+      case 'updateskin':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const updateCharName = args[0];
+        const updateSkinName = args[1];
+        const updateSkinUrl = args[2];
+        
+        if (!updateCharName || !updateSkinName || !updateSkinUrl) {
+          await message.reply('Usage: `!updateskin <character> <skin_name> <new_image_url>`\nExample: `!updateskin Nix default https://example.com/new-image.png`');
+          return;
+        }
+        
+        const foundUpdateChar = CHARACTERS.find(c => c.name.toLowerCase() === updateCharName.toLowerCase());
+        if (!foundUpdateChar) {
+          await message.reply('❌ Character not found!');
+          return;
+        }
+        
+        const { updateSkinUrl: updateSkinFunction } = require('./skinSystem.js');
+        const updateResult = updateSkinFunction(foundUpdateChar.name, updateSkinName, updateSkinUrl);
+        
+        if (updateResult) {
+          // Also try to update in UST shop
+          const { updateUSTSkinUrl } = require('./cosmeticsShopSystem.js');
+          await updateUSTSkinUrl(foundUpdateChar.name, updateSkinName, updateSkinUrl);
+          
+          await message.reply(`✅ Updated **${updateSkinName}** skin for **${foundUpdateChar.name} ${foundUpdateChar.emoji}**!\nNew Image: ${updateSkinUrl}`);
+        } else {
+          await message.reply(`❌ Skin **${updateSkinName}** not found for **${foundUpdateChar.name}**!`);
+        }
+        break;
+        
       case 'grantskin':
         if (!isSuperAdmin(userId)) {
           await message.reply('❌ This command is restricted to Super Admins only!');
