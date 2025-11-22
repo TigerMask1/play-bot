@@ -2076,8 +2076,13 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        if (!(await skinExists(targetUserChar.name, grantSkinName))) {
-          await message.reply(`❌ Skin **${grantSkinName}** doesn't exist for **${targetUserChar.name}**!\nUse \`!addskin ${targetUserChar.name} ${grantSkinName} <image_url>\` to create it first.`);
+        // Check both old skins system and cosmetics catalog
+        const oldSkinExists = await skinExists(targetUserChar.name, grantSkinName);
+        const { getUSTSkinUrl } = require('./cosmeticsShopSystem.js');
+        const ustSkinExists = await getUSTSkinUrl(targetUserChar.name, grantSkinName) !== null;
+        
+        if (!oldSkinExists && !ustSkinExists) {
+          await message.reply(`❌ Skin **${grantSkinName}** doesn't exist for **${targetUserChar.name}**!\nUse \`!addskin ${targetUserChar.name} ${grantSkinName} <image_url>\` or \`!uploadskin ${targetUserChar.name} ${grantSkinName} <rarity>\` to create it first.`);
           return;
         }
         
