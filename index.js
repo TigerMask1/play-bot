@@ -2529,14 +2529,6 @@ client.on('messageCreate', async (message) => {
         await initiateBattle(message, data, userId, battleOpponent.id);
         break;
         
-      case 'shop':
-        if (!data.users[userId].started) {
-          await message.reply('❌ You must start first! Use `!start` to begin.');
-          return;
-        }
-        await openCosmeticsShop(message, data);
-        break;
-      
       case 'ustshop':
       case 'skinshop':
         if (!data.users[userId].started) {
