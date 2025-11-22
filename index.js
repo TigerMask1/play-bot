@@ -2233,15 +2233,17 @@ client.on('messageCreate', async (message) => {
         const uploadCustomCost = args[3] ? parseInt(args[3]) : null;
         
         if (!uploadCharName || !uploadSkinName || !uploadRarity) {
-          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary, exclusive\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200), exclusive (500)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (uses default 200 UST)\n`!uploadskin Nix Galaxy exclusive` (uses default 500 UST for exclusive items)\n`!uploadskin Nix Galaxy legendary 150` (custom 150 UST)\n\nAttach the skin image to your message!');
+          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost] [exclusive]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n**Exclusive:** Add "exclusive" at the end to make it non-purchasable (admin-only)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (purchasable legendary)\n`!uploadskin Nix Galaxy legendary exclusive` (non-purchasable legendary)\n`!uploadskin Nix Galaxy legendary 150` (custom cost)\n\nAttach the skin image to your message!');
           return;
         }
         
-        const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary', 'exclusive'];
+        const validRarities = ['common', 'rare', 'ultra rare', 'epic', 'legendary'];
         if (!validRarities.includes(uploadRarity)) {
-          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, legendary, or exclusive');
+          await message.reply('❌ Invalid rarity! Use: common, rare, ultra rare, epic, or legendary');
           return;
         }
+        
+        const isExclusive = args[4]?.toLowerCase() === 'exclusive';
         
         if (message.attachments.size === 0) {
           await message.reply('❌ Please attach an image to your message!');
@@ -2267,7 +2269,7 @@ client.on('messageCreate', async (message) => {
         const discordCdnUrl = attachment.url;
         
         const { addSkinToCatalog, RARITY_EMOJIS } = require('./cosmeticsShopSystem.js');
-        const skinAddResult = await addSkinToCatalog(foundUploadChar.name, uploadSkinName, uploadRarity, discordCdnUrl, uploadCustomCost);
+        const skinAddResult = await addSkinToCatalog(foundUploadChar.name, uploadSkinName, uploadRarity, discordCdnUrl, uploadCustomCost, isExclusive);
         
         if (skinAddResult.success) {
           const uploadEmbed = new EmbedBuilder()

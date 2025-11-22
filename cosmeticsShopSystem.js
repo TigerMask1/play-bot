@@ -18,8 +18,7 @@ const RARITY_COSTS = {
   rare: 25,
   'ultra rare': 50,
   epic: 100,
-  legendary: 200,
-  exclusive: 500
+  legendary: 200
 };
 
 const RARITY_COLORS = {
@@ -27,8 +26,7 @@ const RARITY_COLORS = {
   rare: '#3498DB',
   'ultra rare': '#9B59B6',
   epic: '#E74C3C',
-  legendary: '#F39C12',
-  exclusive: '#FFD700'
+  legendary: '#F39C12'
 };
 
 const RARITY_EMOJIS = {
@@ -36,8 +34,7 @@ const RARITY_EMOJIS = {
   rare: '🔵',
   'ultra rare': '🟣',
   epic: '🔴',
-  legendary: '🟡',
-  exclusive: '👑'
+  legendary: '🟡'
 };
 
 let SKIN_CATALOG = {};
@@ -62,16 +59,14 @@ function getEmptyCatalog() {
       rare: [],
       'ultra rare': [],
       epic: [],
-      legendary: [],
-      exclusive: []
+      legendary: []
     },
     pfps: {
       common: [],
       rare: [],
       'ultra rare': [],
       epic: [],
-      legendary: [],
-      exclusive: []
+      legendary: []
     }
   };
 }
@@ -191,7 +186,8 @@ async function addSkinToCatalog(characterName, skinName, rarity, url, customCost
     name: skinName,
     character: characterName,
     url: url,
-    cost: cost
+    cost: cost,
+    exclusive: false
   });
   
   await saveCosmeticsCatalog();
@@ -226,7 +222,8 @@ async function addPfpToCatalog(pfpName, rarity, url, customCost = null) {
     id: `pfp_${pfpName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
     name: pfpName,
     url: url,
-    cost: cost
+    cost: cost,
+    exclusive: false
   });
   
   await saveCosmeticsCatalog();
@@ -247,7 +244,7 @@ async function getAvailableSkinsForUser(userData) {
   
   for (const rarity in SKIN_CATALOG) {
     const skinsInRarity = SKIN_CATALOG[rarity].filter(skin => 
-      ownedCharacterNames.includes(skin.character)
+      ownedCharacterNames.includes(skin.character) && !skin.exclusive
     );
     
     for (const skin of skinsInRarity) {
@@ -272,7 +269,7 @@ async function getAvailablePfpsForUser(userData) {
   
   for (const rarity in PFP_CATALOG) {
     const pfpsInRarity = PFP_CATALOG[rarity].filter(pfp => 
-      !ownedPfps.includes(pfp.id)
+      !ownedPfps.includes(pfp.id) && !pfp.exclusive
     );
     
     for (const pfp of pfpsInRarity) {
@@ -315,6 +312,13 @@ async function purchaseSkin(data, userId, skinId) {
     return {
       success: false,
       message: '❌ Skin not found in catalog!'
+    };
+  }
+  
+  if (foundSkin.exclusive) {
+    return {
+      success: false,
+      message: '❌ This skin is exclusive and cannot be purchased!'
     };
   }
   
