@@ -476,10 +476,23 @@ client.on('messageCreate', async (message) => {
   if (data.users[userId].activeMinigame) {
     const activeMinigame = data.users[userId].activeMinigame;
     const gameId = activeMinigame.gameId;
+    const now = Date.now();
+    const elapsedTime = now - activeMinigame.startTime;
+    
+    // Only listen for responses within 12 seconds (allows for all game timers: 4-10 sec)
+    // After timeout, auto-complete and move on
+    const LISTEN_TIMEOUT = 12000;
+    
+    if (elapsedTime > LISTEN_TIMEOUT) {
+      delete data.users[userId].activeMinigame;
+      return;
+    }
+    
     const userMessage = message.content.toLowerCase().trim();
     const jobType = activeMinigame.jobType;
     
     let rewardResult = null;
+    let shouldRespond = false;
     
     try {
       // MINER GAMES
@@ -494,14 +507,13 @@ client.on('messageCreate', async (message) => {
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             deleteGame(gameId);
+            shouldRespond = true;
           } else if (rewardResult?.success) {
-            await message.reply(rewardResult.message);
-            return;
+            shouldRespond = true;
           } else {
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
-            return;
+            shouldRespond = true;
           }
         }
       } 
@@ -515,7 +527,7 @@ client.on('messageCreate', async (message) => {
             }
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           }
         }
       }
@@ -532,11 +544,11 @@ client.on('messageCreate', async (message) => {
             }
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           } else {
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           }
         }
       }
@@ -552,11 +564,11 @@ client.on('messageCreate', async (message) => {
             }
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           } else {
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           }
         }
       }
@@ -573,11 +585,11 @@ client.on('messageCreate', async (message) => {
             }
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           } else {
             completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            await message.reply(rewardResult.message);
+            shouldRespond = true;
           }
         }
       }
@@ -595,15 +607,16 @@ client.on('messageCreate', async (message) => {
               }
               completeWork(data.users[userId]);
               delete data.users[userId].activeMinigame;
-              await message.reply(rewardResult.message);
+              shouldRespond = true;
             } else {
-              await message.reply(rewardResult.message);
+              shouldRespond = true;
             }
           }
         }
       }
       
-      if (rewardResult) {
+      if (shouldRespond && rewardResult) {
+        await message.reply(rewardResult.message);
         await saveDataImmediate(data);
       }
     } catch (error) {
