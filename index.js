@@ -879,6 +879,38 @@ client.on('messageCreate', async (message) => {
           .setTitle('🎉 Character Selected!')
           .setDescription(embedDesc);
         await message.reply({ embeds: [embed] });
+        
+        // Send welcome guide DM to new player
+        try {
+          const dmChannel = await message.author.createDM();
+          const welcomeGuide = new EmbedBuilder()
+            .setColor('#00BFFF')
+            .setTitle('📖 Welcome to the Zoo!')
+            .setDescription('**Your adventure starts now! Here\'s what to do:**\n\n' +
+              '**💰 Earn Money:**\n' +
+              '`!work` - Work every 15 min for coins, gems, and resources. Start with caretaker!\n' +
+              '`!drop` - Hunt for random drops in chat (tokens, coins, gems every 20 sec)\n' +
+              '`!msg` - Earn coins by chatting with friends\n\n' +
+              '**🎫 Collect Characters:**\n' +
+              '`!c <name>` - See any character\'s stats & moves\n' +
+              '`!crate` - Open crates to unlock new characters (use coins or gems)\n' +
+              '`!inventory` - Check what you own\n\n' +
+              '**⚔️ Battle & Compete:**\n' +
+              '`!b @user` - Challenge someone to turn-based combat\n' +
+              '`!b ai` - Fight the AI (try easy/normal/hard mode)\n' +
+              '`!event` - Join daily events for extra rewards\n\n' +
+              '**💳 Trade & Shop:**\n' +
+              '`!market` - Buy/sell items from other players\n' +
+              '`!ustshop` - Spend UST earned from clan wars on skins\n' +
+              '`!setskin <char> <name>` - Customize your character\n\n' +
+              '**Pro Tips:** Grind work → collect strong characters → dominate battles → flex cosmetics! 🔥\n\n' +
+              'Questions? Use `!help` for full command list!')
+            .setFooter({ text: 'Check your DMs anytime for this guide!' });
+          
+          await dmChannel.send({ embeds: [welcomeGuide] });
+        } catch (err) {
+          console.log('Could not send DM to new player:', err.message);
+        }
         break;
         
       case 'profile':
