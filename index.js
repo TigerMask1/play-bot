@@ -57,14 +57,22 @@ const { postNews, getLatestNews, formatNewsDisplay } = require('./newsSystem.js'
 const { getTopCoins, getTopGems, getTopBattles, getTopCollectors, getTopTrophies, formatLeaderboard } = require('./leaderboardSystem.js');
 const { getSkinUrl, getAvailableSkins, skinExists } = require('./skinSystem.js');
 const { openShop } = require('./shopSystem.js');
+const { openCosmeticsShop } = require('./cosmeticsShop.js');
 const { 
-  loadCosmeticsCatalog,
-  formatShopCatalog, 
-  purchaseSkin, 
-  purchasePfp, 
-  addSkinToCatalog, 
-  addPfpToCatalog 
-} = require('./cosmeticsShopSystem.js');
+  TIER_INFO,
+  addCosmeticItem,
+  removeCosmeticItem,
+  updateCosmeticPrice,
+  toggleCosmeticAvailability
+} = require('./cosmeticsSystem.js');
+const { 
+  grantUST, 
+  removeUST, 
+  getUSTBalance, 
+  setUSTRate, 
+  getUSTRates, 
+  formatUSTBalance 
+} = require('./ustSystem.js');
 const { getCharacterAbility, getAbilityDescription } = require('./characterAbilities.js');
 const eventSystem = require('./eventSystem.js');
 const { viewKeys, unlockCharacter, openRandomCage } = require('./keySystem.js');
@@ -2479,102 +2487,119 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ You must start first! Use `!start` to begin.');
           return;
         }
-        
-        const shopType = args[0]?.toLowerCase();
-        
-        if (!shopType || !['skins', 'pfps'].includes(shopType)) {
-          const mainShopEmbed = new EmbedBuilder()
-            .setColor('#9B59B6')
-            .setTitle('🏪 Cosmetics Shop')
-            .setDescription('Welcome to the Cosmetics Shop! Purchase exclusive skins and profile pictures with UST!')
-            .addFields(
-              { name: '🎨 Skins Shop', value: 'Use `!shop skins` to browse character skins', inline: true },
-              { name: '🖼️ Profile Pictures', value: 'Use `!shop pfps` to browse profile pictures', inline: true }
-            )
-            .setFooter({ text: 'Earn UST by competing in Clan Wars!' });
-          
-          await message.reply({ embeds: [mainShopEmbed] });
-          return;
-        }
-        
-        const catalog = formatShopCatalog(data.users[userId], shopType);
-        await message.reply({ embeds: [catalog.embed] });
+        await openCosmeticsShop(message, data);
         break;
       
-      case 'buyskin':
+      case 'ust':
+      case 'ustbalance':
         if (!data.users[userId].started) {
           await message.reply('❌ You must start first! Use `!start` to begin.');
           return;
         }
-        
-        const buySkinCharName = args.slice(0, -1).join(' ');
-        const buySkinName = args[args.length - 1];
-        
-        if (!buySkinCharName || !buySkinName) {
-          await message.reply('Usage: `!buyskin <character name> <skin name>`\nExample: `!buyskin Nix Galaxy`');
-          return;
-        }
-        
-        const skinId = `skin_${buySkinCharName.toLowerCase()}_${buySkinName.toLowerCase()}`;
-        const skinPurchaseResult = await purchaseSkin(data, userId, skinId);
-        await message.reply(skinPurchaseResult.message);
+        const ustEmbed = formatUSTBalance(data.users[userId], message.author.username);
+        await message.reply({ embeds: [ustEmbed] });
         break;
       
-      case 'buypfp':
-        if (!data.users[userId].started) {
-          await message.reply('❌ You must start first! Use `!start` to begin.');
-          return;
-        }
-        
-        const buyPfpName = args.join(' ');
-        
-        if (!buyPfpName) {
-          await message.reply('Usage: `!buypfp <profile picture name>`\nExample: `!buypfp Royal Crown`');
-          return;
-        }
-        
-        const pfpId = `pfp_${buyPfpName.toLowerCase()}`;
-        const pfpPurchaseResult = await purchasePfp(data, userId, pfpId);
-        await message.reply(pfpPurchaseResult.message);
-        break;
-      
-      case 'addskin':
+      case 'grantust':
         if (!isSuperAdmin(userId)) {
           await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
-        const addSkinChar = args[0];
-        const addSkinRarity = args[1]?.toLowerCase();
-        const addSkinName = args[2];
-        const addSkinUrl = args[3];
+        const grantUser = message.mentions.users.first();
+        const grantAmount = parseInt(args[1]);
         
-        if (!addSkinChar || !addSkinRarity || !addSkinName || !addSkinUrl) {
-          await message.reply('Usage: `!addskin <character> <rarity> <skin name> <image URL>`\nRarities: common, rare, ultra rare, epic, legendary\nExample: `!addskin Nix legendary "Cosmic Nix" https://i.imgur.com/example.png`');
+        if (!grantUser || !grantAmount || grantAmount <= 0) {
+          await message.reply('Usage: `!grantust @user <amount>`\nExample: `!grantust @user 100`');
           return;
         }
         
-        const addSkinResult = addSkinToCatalog(addSkinChar, addSkinName, addSkinRarity, addSkinUrl);
-        await message.reply(addSkinResult.message);
+        const grantResult = await grantUST(data, grantUser.id, grantAmount, `Granted by admin ${message.author.username}`);
+        await message.reply(grantResult.message);
         break;
       
-      case 'addpfp':
+      case 'removeust':
         if (!isSuperAdmin(userId)) {
           await message.reply('❌ This command is restricted to Super Admins only!');
           return;
         }
         
-        const addPfpRarity = args[0]?.toLowerCase();
-        const addPfpName = args[1];
-        const addPfpUrl = args[2];
+        const removeUser = message.mentions.users.first();
+        const removeAmount = parseInt(args[1]);
         
-        if (!addPfpRarity || !addPfpName || !addPfpUrl) {
-          await message.reply('Usage: `!addpfp <rarity> <pfp name> <image URL>`\nRarities: common, rare, ultra rare, epic, legendary\nExample: `!addpfp epic "Diamond Elite" https://i.imgur.com/example.png`');
+        if (!removeUser || !removeAmount || removeAmount <= 0) {
+          await message.reply('Usage: `!removeust @user <amount>`\nExample: `!removeust @user 50`');
           return;
         }
         
-        const addPfpResult = addPfpToCatalog(addPfpName, addPfpRarity, addPfpUrl);
-        await message.reply(addPfpResult.message);
+        const removeResult = await removeUST(data, removeUser.id, removeAmount, `Removed by admin ${message.author.username}`);
+        await message.reply(removeResult.message);
+        break;
+      
+      case 'addcosmetic':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const cosmType = args[0]?.toLowerCase();
+        const cosmChar = args[1];
+        const cosmName = args[2];
+        const cosmTier = args[3]?.toLowerCase();
+        const cosmPrice = parseInt(args[4]);
+        const cosmUrl = args[5];
+        
+        if (!cosmType || !['skin', 'pfp'].includes(cosmType)) {
+          await message.reply('Usage: `!addcosmetic <type> <character> <name> <tier> <price> <imageURL>`\nType: skin or pfp\nTiers: common, rare, ultra_rare, epic, legendary, exclusive\nExample: `!addcosmetic skin Nix "Cosmic" legendary 200 https://i.imgur.com/example.png`');
+          return;
+        }
+        
+        if (!cosmChar || !cosmName || !cosmTier || !cosmPrice || !cosmUrl) {
+          await message.reply('Usage: `!addcosmetic <type> <character> <name> <tier> <price> <imageURL>`\nTiers: common, rare, ultra_rare, epic, legendary, exclusive\nExample: `!addcosmetic skin Nix "Cosmic" legendary 200 https://i.imgur.com/example.png`');
+          return;
+        }
+        
+        const addResult = await addCosmeticItem(cosmType, cosmChar, cosmName, cosmUrl, cosmTier, cosmPrice, data);
+        await message.reply(addResult.message);
+        break;
+      
+      case 'removecosmetic':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const remType = args[0]?.toLowerCase();
+        const remChar = args[1];
+        const remName = args[2];
+        
+        if (!remType || !['skin', 'pfp'].includes(remType) || !remChar || !remName) {
+          await message.reply('Usage: `!removecosmetic <type> <character> <name>`\nExample: `!removecosmetic skin Nix "Cosmic"`');
+          return;
+        }
+        
+        const remResult = await removeCosmeticItem(remType, remChar, remName);
+        await message.reply(remResult.message);
+        break;
+      
+      case 'updatecosmeticprice':
+        if (!isSuperAdmin(userId)) {
+          await message.reply('❌ This command is restricted to Super Admins only!');
+          return;
+        }
+        
+        const upType = args[0]?.toLowerCase();
+        const upChar = args[1];
+        const upName = args[2];
+        const upPrice = parseInt(args[3]);
+        
+        if (!upType || !['skin', 'pfp'].includes(upType) || !upChar || !upName || !upPrice) {
+          await message.reply('Usage: `!updatecosmeticprice <type> <character> <name> <newPrice>`\nExample: `!updatecosmeticprice skin Nix "Cosmic" 250`');
+          return;
+        }
+        
+        const upResult = await updateCosmeticPrice(upType, upChar, upName, upPrice);
+        await message.reply(upResult.message);
         break;
         
       case 'i':
