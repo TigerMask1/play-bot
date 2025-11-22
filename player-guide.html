@@ -299,49 +299,57 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎮 ZooBot Player Guide</h1>
-            <p class="subtitle">Master the ultimate Discord character collection game!</p>
+            <h1>🎮 ZooBot</h1>
+            <p class="subtitle">The Ultimate Discord Character Collection & Battle Game!</p>
+            <div style="margin-top: 30px;">
+                <a href="https://discord.com/api/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=8&scope=bot" 
+                   target="_blank" 
+                   style="display: inline-block; background: linear-gradient(135deg, #7289DA, #5865F2); color: white; padding: 15px 40px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 1.2em; box-shadow: 0 5px 20px rgba(0,0,0,0.3); transition: all 0.3s ease;"
+                   onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.4)'"
+                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 5px 20px rgba(0,0,0,0.3)'">
+                    🤖 Add ZooBot to Your Server
+                </a>
+            </div>
         </header>
 
         <nav class="nav">
-            <a href="#getting-started" class="nav-button">🎯 Getting Started</a>
-            <a href="#characters" class="nav-button">🦁 Characters</a>
-            <a href="#economy" class="nav-button">💰 Economy</a>
-            <a href="#battles" class="nav-button">⚔️ Battles</a>
-            <a href="#quests" class="nav-button">🎯 Quests</a>
-            <a href="#commands" class="nav-button">📖 Commands</a>
+            <a href="#learn" class="nav-button">📚 Learn ZooBot</a>
+            <a href="#commands" class="nav-button">⌨️ Commands</a>
+            <a href="#updates" class="nav-button">🔔 Updates</a>
+            <a href="#cosmetics" class="nav-button">🎨 Cosmetics Shop</a>
         </nav>
 
-        <section id="getting-started" class="section">
-            <h2>🎯 Getting Started</h2>
+        <section id="learn" class="section">
+            <h2>📚 Learn ZooBot</h2>
             
+            <h3>🎯 Getting Started</h3>
             <div class="command-box">!start</div>
-            <p>Begin your journey and receive your first character!</p>
+            <p>Begin your journey and receive your first character, 200 coins, 5 gems, and 200 trophies!</p>
             
             <div class="feature-grid">
                 <div class="feature-card">
-                    <span class="emoji">🦍</span>
-                    <h3>Bruce</h3>
-                    <p>Powerful gorilla with strong attacks</p>
+                    <span class="emoji">🦁</span>
+                    <h3>Collect Characters</h3>
+                    <p>Catch unique animals using <code>!catch</code> and build your collection. Each character has unique abilities and stats!</p>
                 </div>
                 <div class="feature-card">
-                    <span class="emoji">🐂</span>
-                    <h3>Buck</h3>
-                    <p>Tough bull with high defense</p>
+                    <span class="emoji">⚔️</span>
+                    <h3>Battle System</h3>
+                    <p>Challenge other players with <code>!b @user</code> or fight AI opponents to earn rewards and climb the leaderboards!</p>
                 </div>
                 <div class="feature-card">
-                    <span class="emoji">🦊</span>
-                    <h3>Nix</h3>
-                    <p>Agile fox with quick moves</p>
+                    <span class="emoji">🎨</span>
+                    <h3>Customize</h3>
+                    <p>Unlock skins and profile pictures using UST (Universal Skin Tokens) earned from Clan Wars!</p>
                 </div>
             </div>
 
-            <h3>Starting Rewards</h3>
+            <h3>💰 Economy System</h3>
             <ul>
-                <li>💰 200 Coins</li>
-                <li>💎 5 Gems</li>
-                <li>🏆 200 Trophies</li>
-                <li>One random starter character</li>
+                <li><strong>💰 Coins:</strong> Earned through catches, battles, and daily rewards</li>
+                <li><strong>💎 Gems:</strong> Premium currency for special purchases</li>
+                <li><strong>🌟 UST:</strong> Universal Skin Tokens for cosmetics (earned from Clan Wars)</li>
+                <li><strong>🏆 Trophies:</strong> Competitive ranking system</li>
             </ul>
         </section>
 
@@ -526,6 +534,88 @@
             <div class="command-box">
                 !skins &lt;char&gt; - View skins<br>
                 !equipskin &lt;char&gt; &lt;skin&gt; - Equip skin
+            </div>
+        </section>
+
+        <section id="updates" class="section">
+            <h2>🔔 Latest Updates</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="emoji">🛍️</span>
+                    <h3>New Cosmetics Shop!</h3>
+                    <p>Browse and purchase exclusive skins and profile pictures using UST. Shop features real-time inventory with beautiful previews!</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🌟</span>
+                    <h3>UST System</h3>
+                    <p>Universal Skin Tokens are now earned from Clan Wars! Top 3 clans share UST rewards based on contributions.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🎨</span>
+                    <h3>Tiered Cosmetics</h3>
+                    <p>6 rarity tiers: Common, Rare, Ultra Rare, Epic, Legendary, and Exclusive! Each tier has unique pricing and styling.</p>
+                </div>
+            </div>
+
+            <h3>📝 Recent Changes</h3>
+            <ul>
+                <li>✨ Complete cosmetics shop overhaul with interactive Discord UI</li>
+                <li>🎯 Real-time MongoDB integration for shop inventory</li>
+                <li>💎 Skins and PFPs now show tier badges and previews</li>
+                <li>👑 Super admin commands for managing UST and cosmetics</li>
+                <li>🏪 Shop dynamically shows only skins for characters you own</li>
+            </ul>
+        </section>
+
+        <section id="cosmetics" class="section">
+            <h2>🎨 Cosmetics Shop</h2>
+            
+            <h3>💫 How It Works</h3>
+            <p>Visit the new cosmetics shop with <code>!shop</code> to browse and purchase exclusive skins and profile pictures!</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="emoji">⚪</span>
+                    <h3>Common</h3>
+                    <p>Base price: 10 UST<br>Entry-level cosmetics</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🔵</span>
+                    <h3>Rare</h3>
+                    <p>Base price: 25 UST<br>Uncommon items</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🟣</span>
+                    <h3>Ultra Rare</h3>
+                    <p>Base price: 50 UST<br>Rare collectibles</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🔴</span>
+                    <h3>Epic</h3>
+                    <p>Base price: 100 UST<br>Premium cosmetics</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">🟡</span>
+                    <h3>Legendary</h3>
+                    <p>Base price: 200 UST<br>Elite items</p>
+                </div>
+                <div class="feature-card">
+                    <span class="emoji">💚</span>
+                    <h3>Exclusive</h3>
+                    <p>Base price: 500 UST<br>Ultra-exclusive</p>
+                </div>
+            </div>
+
+            <h3>🌟 UST Commands</h3>
+            <div class="command-box">
+                !shop - Open cosmetics shop<br>
+                !ust - Check your UST balance<br>
+                !equipskin &lt;character&gt; &lt;skin&gt; - Equip purchased skin
+            </div>
+
+            <div class="tip-box">
+                Earn UST by participating in Clan Wars! The top 3 clans each week earn UST rewards distributed based on member contributions.
             </div>
         </section>
 

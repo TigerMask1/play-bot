@@ -2496,8 +2496,8 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ You must start first! Use `!start` to begin.');
           return;
         }
-        const ustEmbed = formatUSTBalance(data.users[userId], message.author.username);
-        await message.reply({ embeds: [ustEmbed] });
+        const ustBalEmbed = formatUSTBalance(data.users[userId], message.author.username);
+        await message.reply({ embeds: [ustBalEmbed] });
         break;
       
       case 'grantust':
@@ -2506,16 +2506,16 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const grantUser = message.mentions.users.first();
-        const grantAmount = parseInt(args[1]);
+        const ustGrantUser = message.mentions.users.first();
+        const ustGrantAmount = parseInt(args[1]);
         
-        if (!grantUser || !grantAmount || grantAmount <= 0) {
+        if (!ustGrantUser || !ustGrantAmount || ustGrantAmount <= 0) {
           await message.reply('Usage: `!grantust @user <amount>`\nExample: `!grantust @user 100`');
           return;
         }
         
-        const grantResult = await grantUST(data, grantUser.id, grantAmount, `Granted by admin ${message.author.username}`);
-        await message.reply(grantResult.message);
+        const ustGrantResult = await grantUST(data, ustGrantUser.id, ustGrantAmount, `Granted by admin ${message.author.username}`);
+        await message.reply(ustGrantResult.message);
         break;
       
       case 'removeust':
@@ -2524,16 +2524,16 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const removeUser = message.mentions.users.first();
-        const removeAmount = parseInt(args[1]);
+        const ustRemoveUser = message.mentions.users.first();
+        const ustRemoveAmount = parseInt(args[1]);
         
-        if (!removeUser || !removeAmount || removeAmount <= 0) {
+        if (!ustRemoveUser || !ustRemoveAmount || ustRemoveAmount <= 0) {
           await message.reply('Usage: `!removeust @user <amount>`\nExample: `!removeust @user 50`');
           return;
         }
         
-        const removeResult = await removeUST(data, removeUser.id, removeAmount, `Removed by admin ${message.author.username}`);
-        await message.reply(removeResult.message);
+        const ustRemoveResult = await removeUST(data, ustRemoveUser.id, ustRemoveAmount, `Removed by admin ${message.author.username}`);
+        await message.reply(ustRemoveResult.message);
         break;
       
       case 'addcosmetic':
@@ -2559,8 +2559,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const addResult = await addCosmeticItem(cosmType, cosmChar, cosmName, cosmUrl, cosmTier, cosmPrice, data);
-        await message.reply(addResult.message);
+        const cosmAddResult = await addCosmeticItem(cosmType, cosmChar, cosmName, cosmUrl, cosmTier, cosmPrice, data);
+        await message.reply(cosmAddResult.message);
         break;
       
       case 'removecosmetic':
@@ -2578,8 +2578,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const remResult = await removeCosmeticItem(remType, remChar, remName);
-        await message.reply(remResult.message);
+        const cosmRemResult = await removeCosmeticItem(remType, remChar, remName);
+        await message.reply(cosmRemResult.message);
         break;
       
       case 'updatecosmeticprice':
@@ -2598,8 +2598,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const upResult = await updateCosmeticPrice(upType, upChar, upName, upPrice);
-        await message.reply(upResult.message);
+        const cosmUpResult = await updateCosmeticPrice(upType, upChar, upName, upPrice);
+        await message.reply(cosmUpResult.message);
         break;
         
       case 'i':

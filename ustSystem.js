@@ -140,7 +140,7 @@ async function distributeUSTRewards(client, data, clanRankings) {
           const ustEmbed = new EmbedBuilder()
             .setColor('#9B59B6')
             .setTitle('🌟 Clan Wars UST Reward!')
-            .setDescription(`Your clan ranked **#${i + 1}** this week and earned **Universal Skill Tokens**!`)
+            .setDescription(`Your clan ranked **#${i + 1}** this week and earned **Universal Skin Tokens**!`)
             .addFields(
               { name: '🌟 UST Earned', value: `${ustAmount} UST`, inline: true },
               { name: '📊 Your Contribution', value: `${member.weeklyContribution.toLocaleString()} points`, inline: true },
@@ -168,7 +168,7 @@ function formatUSTBalance(userData, username) {
   const embed = new EmbedBuilder()
     .setColor('#9B59B6')
     .setTitle(`🌟 ${username}'s UST Balance`)
-    .setDescription(`**Universal Skill Tokens (UST)** are premium currency earned from Clan Wars!`)
+    .setDescription(`**Universal Skin Tokens (UST)** are premium currency earned from Clan Wars!`)
     .addFields(
       { name: '💼 Your Balance', value: `**${userData.ust} UST**`, inline: false },
       { name: '🛍️ How to Use', value: 'Purchase exclusive skins and profile pictures in the shop with `!shop`', inline: false },
