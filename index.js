@@ -156,6 +156,17 @@ const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('.
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
+const { 
+  minerHitTheRock, handleMinerRockHit,
+  minerAvoidTheTNT, handleMinerTNT,
+  minerPickOrder,
+  farmerWaterCrops, handleFarmerWater,
+  farmerHarvestMini,
+  rangerShootTarget, handleRangerShoot,
+  zookeeperFeedAnimals, zookeeperCleanEnclosure, handleZookeeperClean,
+  caretakerWashAnimals, handleCaretakerWash,
+  getRareReward, REWARDS, getActiveGame, deleteGame
+} = require('./workMinigamesSystem.js');
 const marketSystem = require('./marketSystem.js');
 const auctionSystem = require('./auctionSystem.js');
 const { ITEM_CATEGORIES, getItemInfo, listItemOnMarket, buyFromMarket, cancelListing, getMarketListings, clearMarket, createMarketEmbed, createMarketButtons, createMarketFilterButtons } = marketSystem;
@@ -4447,6 +4458,39 @@ client.on('messageCreate', async (message) => {
         const jobAssignment = assignRandomJob(data.users[userId]);
         const job = JOBS[jobAssignment.job];
         
+        // 80% chance to trigger minigame sub-work
+        const useMinigame = Math.random() < 0.8;
+        
+        if (useMinigame) {
+          // Trigger minigame instead of regular work
+          let minigameResult;
+          const minigamesForJob = {
+            miner: [minerHitTheRock, minerAvoidTheTNT, minerPickOrder],
+            farmer: [farmerWaterCrops, farmerHarvestMini],
+            ranger: [rangerShootTarget],
+            zookeeper: [zookeeperFeedAnimals, zookeeperCleanEnclosure],
+            caretaker: [caretakerWashAnimals]
+          };
+          
+          const jobMinigames = minigamesForJob[jobAssignment.job] || [];
+          if (jobMinigames.length > 0) {
+            const selectedMinigame = jobMinigames[Math.floor(Math.random() * jobMinigames.length)];
+            minigameResult = await selectedMinigame(userId, message);
+            
+            // Store in user data that a minigame is active
+            data.users[userId].activeMinigame = {
+              gameId: minigameResult.gameId,
+              jobType: jobAssignment.job,
+              gameType: minigameResult.game.type,
+              startTime: Date.now()
+            };
+            
+            await saveDataImmediate(data);
+            return;
+          }
+        }
+        
+        // Regular work (20% chance)
         let jobResult;
         switch (jobAssignment.job) {
           case 'miner':
