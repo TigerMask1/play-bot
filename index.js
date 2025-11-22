@@ -167,7 +167,6 @@ let data;
 async function initializeBot() {
   await initializeEmojiAssets();
   await initializeChestVisuals();
-  loadCosmeticsCatalog();
   
   data = await loadData();
   console.log('✅ Data loaded successfully');
