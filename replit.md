@@ -48,6 +48,13 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Work Guide System (NEW):** Comprehensive in-bot documentation via !workguide command explaining all jobs, tools, rewards, crafting, market, and strategy tips. Makes the work system accessible to all players.
 - **Work Image System (NEW):** CDN-hosted custom images for each work type (drill, room, axe, whistle, binoculars). Admins can customize with !setworkimage, users can view with !showwork.
 - **Admin Economy Tools (UPDATED):** Super admin commands for resource management (!giveores, !givewood, !givetool), market control (!clearmarket, !viewmarket), auction management (!clearauctions, !viewauctions, !endauction), work assignment (!assignwork), and work image customization (!setworkimage).
+- **UST (Universal Skin Token) System (NEW):** Complete cosmetics economy system where players earn UST through clan wars and spend it on character skins and profile pictures. Features:
+  - **UST Currency:** Earned by top 3 clans in weekly clan wars, distributed proportionally based on contribution
+  - **UST Shop (!ustshop):** Interactive shop with category selection (skins/pfps), shows only skins for characters the user owns, displays rarity and cost
+  - **Cosmetics Catalog:** Dual-persistence system (MongoDB for production, JSON file for development) with 5-minute cache TTL for performance
+  - **Rarity System:** 5 rarity tiers (Common: 10 UST, Rare: 25 UST, Ultra Rare: 50 UST, Epic: 100 UST, Legendary: 200 UST) with custom cost override
+  - **Upload Commands:** !uploadskin and !uploadpfp for super admins to add new cosmetics with Discord CDN image URLs
+  - **Purchase System:** Integrated with existing cosmetics system, purchased items immediately available in !setpfp and !setskin
 
 **System Design Choices:**
 - **Modularity & Scalability:** Core functionalities are separated into dedicated files, designed with MongoDB integration for production.
