@@ -2177,9 +2177,12 @@ client.on('messageCreate', async (message) => {
         }
         
         const { removeSkinFromCharacter } = require('./skinSystem.js');
-        const deleted = await removeSkinFromCharacter(foundDeleteChar.name, deleteSkinName);
+        const { deleteUSTSkin } = require('./cosmeticsShopSystem.js');
         
-        if (deleted) {
+        const deletedOld = await removeSkinFromCharacter(foundDeleteChar.name, deleteSkinName);
+        const deletedUST = await deleteUSTSkin(foundDeleteChar.name, deleteSkinName);
+        
+        if (deletedOld || deletedUST) {
           await message.reply(`✅ Deleted skin **${deleteSkinName}** from **${foundDeleteChar.name} ${foundDeleteChar.emoji}**!\n\n⚠️ Note: Users who own this skin will still have it in their inventory until manually revoked.`);
         } else {
           await message.reply(`❌ Skin **${deleteSkinName}** not found for **${foundDeleteChar.name}**!`);
