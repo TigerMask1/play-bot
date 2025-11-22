@@ -82,6 +82,27 @@ async function getSkinUrl(characterName, skinName = 'default') {
   if (skins[characterName] && skins[characterName][skinName]) {
     return skins[characterName][skinName];
   }
+  
+  // Check cosmetics catalog for UST shop skins
+  if (skinName !== 'default') {
+    try {
+      const { loadCosmeticsCatalog, SKIN_CATALOG } = require('./cosmeticsShopSystem.js');
+      await loadCosmeticsCatalog();
+      
+      for (const rarity in SKIN_CATALOG) {
+        const foundSkin = SKIN_CATALOG[rarity].find(s => 
+          s.character.toLowerCase() === characterName.toLowerCase() && 
+          s.name.toLowerCase() === skinName.toLowerCase()
+        );
+        if (foundSkin && foundSkin.url) {
+          return foundSkin.url;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking cosmetics catalog for skin:', error);
+    }
+  }
+  
   return skins[characterName]?.default || null;
 }
 
