@@ -293,7 +293,7 @@ async function equipPfpByName(userId, pfpName, data) {
     };
   }
   
-  const pfp = pfpData.ownedPfps.find(p => p.name.toLowerCase() === pfpName.toLowerCase());
+  const pfp = pfpData.ownedPfps.find(p => p && p.name && p.name.toLowerCase() === pfpName.toLowerCase());
   
   if (!pfp) {
     return { success: false, message: `❌ You don't own a PFP called "${pfpName}"!\nUse \`!myprofile\` to see your collection.` };

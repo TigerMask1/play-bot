@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { saveDataImmediate } = require('./dataManager.js');
 const { getUSTBalance, removeUST } = require('./ustSystem.js');
 const { CHARACTERS } = require('./characters.js');
@@ -592,8 +592,8 @@ async function openUSTShop(message, data) {
         }
         
         const itemSelect = new StringSelectMenuBuilder()
-          .setCustomId(`ust_buy_${category}_${userId}`)
-          .setPlaceholder(`Select ${category === 'skins' ? 'a skin' : 'a profile picture'} to purchase`)
+          .setCustomId(`ust_select_${category}_${userId}`)
+          .setPlaceholder(`Select ${category === 'skins' ? 'a skin' : 'a profile picture'} to preview`)
           .addOptions(catalogData.items.slice(0, 25).map(item => ({
             label: category === 'skins' ? `${item.name} (${item.character})` : item.name,
             description: `${RARITY_EMOJIS[item.rarity]} ${item.rarity} - ${item.cost} UST`,
@@ -612,9 +612,79 @@ async function openUSTShop(message, data) {
         return;
       }
       
-      if (interaction.customId.startsWith(`ust_buy_`)) {
+      if (interaction.customId.startsWith(`ust_select_`)) {
+        await loadCosmeticsCatalog();
+        
         const itemId = interaction.values[0];
         const category = interaction.customId.includes('skins') ? 'skins' : 'pfps';
+        
+        let foundItem = null;
+        let itemRarity = null;
+        
+        if (category === 'skins') {
+          for (const rarity in SKIN_CATALOG) {
+            const item = SKIN_CATALOG[rarity].find(s => s.id === itemId);
+            if (item) {
+              foundItem = item;
+              itemRarity = rarity;
+              break;
+            }
+          }
+        } else {
+          for (const rarity in PFP_CATALOG) {
+            const item = PFP_CATALOG[rarity].find(p => p.id === itemId);
+            if (item) {
+              foundItem = item;
+              itemRarity = rarity;
+              break;
+            }
+          }
+        }
+        
+        if (!foundItem) {
+          await interaction.reply({ content: '❌ Item not found!', flags: [MessageFlags.Ephemeral] });
+          return;
+        }
+        
+        const userUST = getUSTBalance(data, userId);
+        const canAfford = userUST >= foundItem.cost;
+        
+        const previewEmbed = new EmbedBuilder()
+          .setColor(RARITY_COLORS[itemRarity] || '#9B59B6')
+          .setTitle(`${category === 'skins' ? '🎨' : '🖼️'} ${foundItem.name}`)
+          .setDescription(
+            `${category === 'skins' ? `**Character:** ${foundItem.character}\n` : ''}` +
+            `**Rarity:** ${RARITY_EMOJIS[itemRarity]} ${itemRarity}\n` +
+            `**Cost:** ${foundItem.cost} UST\n` +
+            `**Your UST:** ${userUST} UST\n\n` +
+            `${canAfford ? '✅ You can afford this!' : '❌ Not enough UST!'}`
+          )
+          .setImage(foundItem.url)
+          .setFooter({ text: category === 'skins' ? 'Click "Purchase" to buy this skin' : 'Click "Purchase" to buy this profile picture' });
+        
+        const purchaseButton = new ButtonBuilder()
+          .setCustomId(`ust_confirm::${category}::${itemId}::${userId}`)
+          .setLabel(`Purchase for ${foundItem.cost} UST`)
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(!canAfford);
+        
+        const backButton = new ButtonBuilder()
+          .setCustomId(`ust_backto::${category}::${userId}`)
+          .setLabel('Back to Shop')
+          .setStyle(ButtonStyle.Secondary);
+        
+        const previewRow = new ActionRowBuilder().addComponents(purchaseButton, backButton, closeButton);
+        
+        await interaction.update({ embeds: [previewEmbed], components: [previewRow] });
+        return;
+      }
+      
+      if (interaction.customId.startsWith(`ust_confirm::`)) {
+        await interaction.deferUpdate();
+        
+        const parts = interaction.customId.split('::');
+        const category = parts[1];
+        const itemId = parts[2];
         
         let purchaseResult;
         if (category === 'skins') {
@@ -630,15 +700,40 @@ async function openUSTShop(message, data) {
             .setDescription(purchaseResult.message)
             .setFooter({ text: 'Use !skins or !mypfps to see your new items!' });
           
-          await interaction.update({ embeds: [successEmbed], components: [row2] });
+          await interaction.editReply({ embeds: [successEmbed], components: [row2] });
         } else {
           const errorEmbed = new EmbedBuilder()
             .setColor('#FF0000')
             .setTitle('❌ Purchase Failed')
             .setDescription(purchaseResult.message);
           
-          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+          await interaction.followUp({ embeds: [errorEmbed], flags: [MessageFlags.Ephemeral] });
         }
+        return;
+      }
+      
+      if (interaction.customId.startsWith(`ust_backto::`)) {
+        const category = interaction.customId.split('::')[1];
+        const catalogData = await formatShopCatalog(userData, userId, category);
+        
+        const itemSelect = new StringSelectMenuBuilder()
+          .setCustomId(`ust_select_${category}_${userId}`)
+          .setPlaceholder(`Select ${category === 'skins' ? 'a skin' : 'a profile picture'} to preview`)
+          .addOptions(catalogData.items.slice(0, 25).map(item => ({
+            label: category === 'skins' ? `${item.name} (${item.character})` : item.name,
+            description: `${RARITY_EMOJIS[item.rarity]} ${item.rarity} - ${item.cost} UST`,
+            value: item.id
+          })));
+        
+        const backButton = new ButtonBuilder()
+          .setCustomId(`ust_back_${userId}`)
+          .setLabel('Back')
+          .setStyle(ButtonStyle.Secondary);
+        
+        const newRow1 = new ActionRowBuilder().addComponents(itemSelect);
+        const newRow2 = new ActionRowBuilder().addComponents(backButton, closeButton);
+        
+        await interaction.update({ embeds: [catalogData.embed], components: [newRow1, newRow2] });
         return;
       }
       
@@ -649,7 +744,7 @@ async function openUSTShop(message, data) {
     } catch (error) {
       console.error('UST Shop interaction error:', error);
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: '❌ An error occurred. Please try again.', ephemeral: true }).catch(() => {});
+        await interaction.reply({ content: '❌ An error occurred. Please try again.', flags: [MessageFlags.Ephemeral] }).catch(() => {});
       }
     }
   });
