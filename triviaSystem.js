@@ -19,7 +19,9 @@ function addTriviaQuestion(imageUrl, answer, data) {
     id: triviaId,
     imageUrl: imageUrl,
     answer: answer.toLowerCase().trim(),
-    addedAt: Date.now()
+    addedAt: Date.now(),
+    answeredCount: 0,
+    answeredBy: []
   };
   
   triviaData.questions.push(newQuestion);
@@ -31,7 +33,7 @@ function addTriviaQuestion(imageUrl, answer, data) {
   };
 }
 
-function removeTriviaQuestion(questionId, data) {
+function removeTriviaQuestion(questionId, data, forceDelete = false) {
   const triviaData = initializeTriviaData(data);
   
   const questionIndex = triviaData.questions.findIndex(q => q.id === questionId);
@@ -44,11 +46,20 @@ function removeTriviaQuestion(questionId, data) {
   }
   
   const removedQuestion = triviaData.questions[questionIndex];
+  
+  // Check if question has been answered
+  if (removedQuestion.answeredCount > 0 && !forceDelete) {
+    return {
+      success: false,
+      message: `❌ Cannot delete this question!\n\n**${removedQuestion.answeredCount}** player(s) have already answered it.\n\nOnly bot admins can force delete questions that have been answered.\nUse: \`!forcedeletetrivia <question_id>\``
+    };
+  }
+  
   triviaData.questions.splice(questionIndex, 1);
   
   return {
     success: true,
-    message: `✅ Removed trivia question:\n"${removedQuestion.question}"`
+    message: `✅ Removed trivia question with ID: \`${questionId}\`${removedQuestion.answeredCount > 0 ? `\n⚠️ Force deleted (${removedQuestion.answeredCount} players had answered)` : ''}`
   };
 }
 
@@ -153,6 +164,16 @@ function answerTrivia(userId, answer, data) {
     }
     
     data.users[userId].coins = (data.users[userId].coins || 0) + 100;
+    
+    // Track that this question was answered
+    const questionIndex = triviaData.questions.findIndex(q => q.id === session.question.id);
+    if (questionIndex !== -1) {
+      if (!triviaData.questions[questionIndex].answeredBy) {
+        triviaData.questions[questionIndex].answeredBy = [];
+      }
+      triviaData.questions[questionIndex].answeredCount = (triviaData.questions[questionIndex].answeredCount || 0) + 1;
+      triviaData.questions[questionIndex].answeredBy.push(userId);
+    }
     
     return {
       success: true,
