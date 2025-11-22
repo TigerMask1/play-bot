@@ -803,6 +803,23 @@ async function deleteUSTSkin(characterName, skinName) {
   return false;
 }
 
+async function updateUSTSkinUrl(characterName, skinName, newUrl) {
+  await loadCosmeticsCatalog();
+  
+  for (const rarity in SKIN_CATALOG) {
+    const skin = SKIN_CATALOG[rarity].find(s => 
+      s.character.toLowerCase() === characterName.toLowerCase() && 
+      s.name.toLowerCase() === skinName.toLowerCase()
+    );
+    if (skin) {
+      skin.url = newUrl;
+      await saveCosmeticsCatalog();
+      return true;
+    }
+  }
+  return false;
+}
+
 module.exports = {
   RARITY_COSTS,
   RARITY_COLORS,
@@ -818,5 +835,6 @@ module.exports = {
   formatShopCatalog,
   openUSTShop,
   getUSTSkinUrl,
-  deleteUSTSkin
+  deleteUSTSkin,
+  updateUSTSkinUrl
 };

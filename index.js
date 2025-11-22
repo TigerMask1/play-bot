@@ -2087,10 +2087,24 @@ client.on('messageCreate', async (message) => {
         
         const updateCharName = args[0];
         const updateSkinName = args[1];
-        const updateSkinUrl = args[2];
+        let updateSkinUrl = args[2];
         
-        if (!updateCharName || !updateSkinName || !updateSkinUrl) {
-          await message.reply('Usage: `!updateskin <character> <skin_name> <new_image_url>`\nExample: `!updateskin Nix default https://example.com/new-image.png`');
+        if (!updateCharName || !updateSkinName) {
+          await message.reply('**Update Existing Skin**\n\nUsage: `!updateskin <character> <skin_name> [new_url]` or attach an image\n\n**Examples:**\n`!updateskin Nix default https://example.com/image.png` (with URL)\n`!updateskin Nix default` (then attach an image)\n\nIf using image attachment, don\'t include a URL!');
+          return;
+        }
+        
+        // Check for image attachment
+        if (message.attachments.size > 0) {
+          const attachment = message.attachments.first();
+          const isImage = attachment.contentType?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(attachment.name);
+          if (!isImage) {
+            await message.reply('❌ The attachment must be an image file (PNG, JPG, GIF, or WEBP)!');
+            return;
+          }
+          updateSkinUrl = attachment.url;
+        } else if (!updateSkinUrl) {
+          await message.reply('❌ Please provide either an image URL or attach an image file!');
           return;
         }
         
@@ -2100,8 +2114,8 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const { updateSkinUrl: updateSkinFunction } = require('./skinSystem.js');
-        const updateResult = updateSkinFunction(foundUpdateChar.name, updateSkinName, updateSkinUrl);
+        const { updateSkinImageUrl } = require('./skinSystem.js');
+        const updateResult = await updateSkinImageUrl(foundUpdateChar.name, updateSkinName, updateSkinUrl);
         
         if (updateResult) {
           // Also try to update in UST shop

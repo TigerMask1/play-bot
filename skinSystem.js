@@ -135,6 +135,16 @@ async function skinExists(characterName, skinName) {
   return skins[characterName] && skins[characterName][skinName] !== undefined;
 }
 
+async function updateSkinImageUrl(characterName, skinName, newImageUrl) {
+  const skins = await loadSkins();
+  if (skins[characterName] && skins[characterName][skinName]) {
+    skins[characterName][skinName] = newImageUrl;
+    await saveSkins(skins);
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   loadSkins,
   saveSkins,
@@ -142,5 +152,6 @@ module.exports = {
   getAvailableSkins,
   addSkinToCharacter,
   removeSkinFromCharacter,
-  skinExists
+  skinExists,
+  updateSkinImageUrl
 };
