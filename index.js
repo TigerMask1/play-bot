@@ -480,10 +480,15 @@ client.on('messageCreate', async (message) => {
     const elapsedTime = now - activeMinigame.startTime;
     
     // Only listen for responses within 12 seconds (allows for all game timers: 4-10 sec)
-    // After timeout, auto-complete and move on
     const LISTEN_TIMEOUT = 12000;
     
     if (elapsedTime > LISTEN_TIMEOUT) {
+      // Timeout - send message and clear minigame
+      try {
+        await message.reply('⏰ **Minigame Timed Out!** Main work rewards were already earned. Try again next time!');
+      } catch (error) {
+        console.error('Error sending timeout message:', error);
+      }
       delete data.users[userId].activeMinigame;
       return;
     }
@@ -504,14 +509,11 @@ client.on('messageCreate', async (message) => {
             if (rewardResult.rareReward) {
               data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
             }
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
-            deleteGame(gameId);
             shouldRespond = true;
           } else if (rewardResult?.success) {
             shouldRespond = true;
           } else {
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           }
@@ -525,7 +527,6 @@ client.on('messageCreate', async (message) => {
             if (rewardResult.rareReward) {
               data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
             }
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           }
@@ -542,11 +543,9 @@ client.on('messageCreate', async (message) => {
             if (rewardResult.rareReward) {
               data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
             }
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           } else {
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           }
@@ -562,11 +561,9 @@ client.on('messageCreate', async (message) => {
             if (rewardResult.rareReward) {
               data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
             }
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           } else {
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           }
@@ -583,11 +580,9 @@ client.on('messageCreate', async (message) => {
             if (rewardResult.rareReward) {
               data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
             }
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           } else {
-            completeWork(data.users[userId]);
             delete data.users[userId].activeMinigame;
             shouldRespond = true;
           }
@@ -605,7 +600,6 @@ client.on('messageCreate', async (message) => {
               if (rewardResult.rareReward) {
                 data.users[userId].legendaryCrates = (data.users[userId].legendaryCrates || 0) + 1;
               }
-              completeWork(data.users[userId]);
               delete data.users[userId].activeMinigame;
               shouldRespond = true;
             } else {
@@ -616,7 +610,10 @@ client.on('messageCreate', async (message) => {
       }
       
       if (shouldRespond && rewardResult) {
-        await message.reply(rewardResult.message);
+        // Send completion/failure message
+        const statusEmoji = rewardResult.success ? '✅' : '❌';
+        const message1 = rewardResult.message;
+        await message.reply(`${statusEmoji} ${message1}`);
         await saveDataImmediate(data);
       }
     } catch (error) {
@@ -4613,39 +4610,7 @@ client.on('messageCreate', async (message) => {
         const jobAssignment = assignRandomJob(data.users[userId]);
         const job = JOBS[jobAssignment.job];
         
-        // 80% chance to trigger minigame sub-work
-        const useMinigame = Math.random() < 0.8;
-        
-        if (useMinigame) {
-          // Trigger minigame instead of regular work
-          let minigameResult;
-          const minigamesForJob = {
-            miner: [minerHitTheRock, minerAvoidTheTNT, minerPickOrder],
-            farmer: [farmerWaterCrops, farmerHarvestMini],
-            ranger: [rangerShootTarget],
-            zookeeper: [zookeeperFeedAnimals, zookeeperCleanEnclosure],
-            caretaker: [caretakerWashAnimals]
-          };
-          
-          const jobMinigames = minigamesForJob[jobAssignment.job] || [];
-          if (jobMinigames.length > 0) {
-            const selectedMinigame = jobMinigames[Math.floor(Math.random() * jobMinigames.length)];
-            minigameResult = await selectedMinigame(userId, message);
-            
-            // Store in user data that a minigame is active
-            data.users[userId].activeMinigame = {
-              gameId: minigameResult.gameId,
-              jobType: jobAssignment.job,
-              gameType: minigameResult.game.type,
-              startTime: Date.now()
-            };
-            
-            await saveDataImmediate(data);
-            return;
-          }
-        }
-        
-        // Regular work (20% chance)
+        // Do regular work first
         let jobResult;
         switch (jobAssignment.job) {
           case 'miner':
@@ -4722,6 +4687,35 @@ client.on('messageCreate', async (message) => {
           .setFooter({ text: 'Next work in 15 minutes' });
         
         await message.reply({ embeds: [workEmbed] });
+        
+        // 80% chance for bonus minigame after work completes
+        const useMinigame = Math.random() < 0.8;
+        if (useMinigame) {
+          const minigamesForJob = {
+            miner: [minerHitTheRock, minerAvoidTheTNT, minerPickOrder],
+            farmer: [farmerWaterCrops, farmerHarvestMini],
+            ranger: [rangerShootTarget],
+            zookeeper: [zookeeperFeedAnimals, zookeeperCleanEnclosure],
+            caretaker: [caretakerWashAnimals]
+          };
+          
+          const jobMinigames = minigamesForJob[jobAssignment.job] || [];
+          if (jobMinigames.length > 0) {
+            const selectedMinigame = jobMinigames[Math.floor(Math.random() * jobMinigames.length)];
+            const minigameResult = await selectedMinigame(userId, message);
+            
+            // Store in user data that a minigame is active (as bonus after work)
+            data.users[userId].activeMinigame = {
+              gameId: minigameResult.gameId,
+              jobType: jobAssignment.job,
+              gameType: minigameResult.game.type,
+              startTime: Date.now()
+            };
+            
+            await message.reply('🎮 **Bonus Minigame Available!** Complete it for extra rewards!');
+          }
+        }
+        
         await saveDataImmediate(data);
         break;
         
