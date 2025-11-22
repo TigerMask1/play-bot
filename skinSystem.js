@@ -86,17 +86,10 @@ async function getSkinUrl(characterName, skinName = 'default') {
   // Check cosmetics catalog for UST shop skins
   if (skinName !== 'default') {
     try {
-      const { loadCosmeticsCatalog, SKIN_CATALOG } = require('./cosmeticsShopSystem.js');
-      await loadCosmeticsCatalog();
-      
-      for (const rarity in SKIN_CATALOG) {
-        const foundSkin = SKIN_CATALOG[rarity].find(s => 
-          s.character.toLowerCase() === characterName.toLowerCase() && 
-          s.name.toLowerCase() === skinName.toLowerCase()
-        );
-        if (foundSkin && foundSkin.url) {
-          return foundSkin.url;
-        }
+      const { getUSTSkinUrl } = require('./cosmeticsShopSystem.js');
+      const ustSkinUrl = await getUSTSkinUrl(characterName, skinName);
+      if (ustSkinUrl) {
+        return ustSkinUrl;
       }
     } catch (error) {
       console.error('Error checking cosmetics catalog for skin:', error);

@@ -762,6 +762,21 @@ async function openUSTShop(message, data) {
   });
 }
 
+async function getUSTSkinUrl(characterName, skinName) {
+  await loadCosmeticsCatalog();
+  
+  for (const rarity in SKIN_CATALOG) {
+    const foundSkin = SKIN_CATALOG[rarity].find(s => 
+      s.character.toLowerCase() === characterName.toLowerCase() && 
+      s.name.toLowerCase() === skinName.toLowerCase()
+    );
+    if (foundSkin && foundSkin.url) {
+      return foundSkin.url;
+    }
+  }
+  return null;
+}
+
 module.exports = {
   RARITY_COSTS,
   RARITY_COLORS,
@@ -775,5 +790,6 @@ module.exports = {
   purchaseSkin,
   purchasePfp,
   formatShopCatalog,
-  openUSTShop
+  openUSTShop,
+  getUSTSkinUrl
 };
