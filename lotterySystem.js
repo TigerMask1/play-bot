@@ -424,8 +424,7 @@ async function performLotteryDraw(serverId) {
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
-      const { loadData } = require('./dataManager.js');
-      const data = await loadData();
+      // Don't reload data - use the same data object with rewards already applied
       data.lotteryData = activeLotteries;
       await saveDataImmediate(data);
     }
