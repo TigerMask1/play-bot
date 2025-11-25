@@ -64,9 +64,9 @@ async function coinDuel(message, args, data) {
   
   const roll = Math.random() * 100;
   const isGoldenFlip = roll < 2; // 2% chance
-  const winRoll = roll < 49; // 47% regular + 2% golden = 49% total
-  const correctGuess = Math.random() < 0.5 ? 'heads' : 'tails';
-  const won = (correctGuess === choice) && winRoll;
+  const won = roll < 49; // 47% regular + 2% golden = 49% total win chance
+  // Generate coin result: if they won, it matches their choice; if lost, it's opposite
+  const correctGuess = won ? choice : (choice === 'heads' ? 'tails' : 'heads');
   
   let winAmount = 0;
   let profit = 0;
