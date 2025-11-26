@@ -356,25 +356,24 @@ async function performLotteryDraw(serverId) {
       prizeShares = [0.50, 0.30, 0.20]; // 50%, 30%, 20% split
     }
     
-    const { loadData } = require('./dataManager.js');
-    const data = await loadData();
-    
     let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     const placeLabels = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     
-    // Distribute rewards using the same pattern as daily rewards (userData.coins += amount)
+    // REWRITTEN: Save rewards directly to MongoDB or JSON for each winner
     for (let i = 0; i < winners.length; i++) {
       const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
       if (!winner) continue;
       
-      // Calculate exact prize amount
       const prize = Math.floor(lottery.prizePool * prizeShares[i]);
       const place = placeLabels[i];
       const sharePercent = Math.floor(prizeShares[i] * 100);
       
-      // Initialize user if doesn't exist (with proper structure)
-      if (!data.users[winners[i].userId]) {
-        data.users[winners[i].userId] = {
+      // SAVE DIRECTLY: Load fresh data for EACH winner, add reward, save immediately
+      const { loadData } = require('./dataManager.js');
+      const userData = await loadData();
+      
+      if (!userData.users[winners[i].userId]) {
+        userData.users[winners[i].userId] = {
           coins: 0,
           gems: 0,
           characters: [],
@@ -388,24 +387,25 @@ async function performLotteryDraw(serverId) {
         };
       }
       
-      // Get reference to user data
-      const userData = data.users[winners[i].userId];
-      
-      // Grant rewards using += pattern (exactly like daily rewards do)
+      // Grant reward directly
       if (lottery.currency === 'gems') {
-        userData.gems = (userData.gems || 0) + prize;
+        userData.users[winners[i].userId].gems = (userData.users[winners[i].userId].gems || 0) + prize;
       } else {
-        userData.coins = (userData.coins || 0) + prize;
+        userData.users[winners[i].userId].coins = (userData.users[winners[i].userId].coins || 0) + prize;
       }
       
-      console.log(`✅ LOTTERY REWARD: ${winner.tag} (${winners[i].userId}) → ${prize} ${lottery.currency === 'gems' ? 'gems' : 'coins'} (${sharePercent}%)`);
+      // Save IMMEDIATELY to database
+      if (USE_MONGODB && mongoManager) {
+        await mongoManager.saveData(userData);
+        console.log(`✅ LOTTERY REWARD SAVED (MongoDB): ${winner.tag} → ${prize} ${lottery.currency === 'gems' ? '💎' : '💰'}`);
+      } else {
+        await saveDataImmediate(userData);
+        console.log(`✅ LOTTERY REWARD SAVED (JSON): ${winner.tag} → ${prize} ${lottery.currency === 'gems' ? '💎' : '💰'}`);
+      }
       
       // Add to result description
       resultDescription += `${place} Place (${sharePercent}%): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
     }
-    
-    // Save user rewards to database (ONCE - works with both MongoDB and JSON)
-    await saveDataImmediate(data);
     
     resultDescription += `**Statistics:**\n` +
       `👥 Total Participants: ${uniqueParticipants.length}\n` +
@@ -440,16 +440,17 @@ async function performLotteryDraw(serverId) {
     
     lottery.active = false;
     
-    // Save lottery data only (user data already saved above)
+    // Save lottery data
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
+      const { loadData } = require('./dataManager.js');
       const finalData = await loadData();
       finalData.lotteryData = activeLotteries;
       await saveDataImmediate(finalData);
     }
     
-    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners with ${numWinners} prize(s) distributed`);
+    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners - all rewards permanently saved`);
     
   } catch (error) {
     console.error(`❌ Error performing lottery draw for server ${serverId}:`, error);
