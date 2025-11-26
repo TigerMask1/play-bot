@@ -362,7 +362,7 @@ async function performLotteryDraw(serverId) {
     let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     const placeLabels = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
     
-    // Distribute rewards explicitly and immediately
+    // Distribute rewards using the same pattern as daily rewards (userData.coins += amount)
     for (let i = 0; i < winners.length; i++) {
       const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
       if (!winner) continue;
@@ -372,7 +372,7 @@ async function performLotteryDraw(serverId) {
       const place = placeLabels[i];
       const sharePercent = Math.floor(prizeShares[i] * 100);
       
-      // Initialize user if doesn't exist
+      // Initialize user if doesn't exist (with proper structure)
       if (!data.users[winners[i].userId]) {
         data.users[winners[i].userId] = {
           coins: 0,
@@ -388,22 +388,23 @@ async function performLotteryDraw(serverId) {
         };
       }
       
+      // Get reference to user data
       const userData = data.users[winners[i].userId];
       
-      // Explicitly grant rewards like daily rewards do
+      // Grant rewards using += pattern (exactly like daily rewards do)
       if (lottery.currency === 'gems') {
         userData.gems = (userData.gems || 0) + prize;
-        console.log(`✅ LOTTERY: ${winner.tag} (${winners[i].userId}) awarded ${prize} gems (${sharePercent}%)`);
       } else {
         userData.coins = (userData.coins || 0) + prize;
-        console.log(`✅ LOTTERY: ${winner.tag} (${winners[i].userId}) awarded ${prize} coins (${sharePercent}%)`);
       }
+      
+      console.log(`✅ LOTTERY REWARD: ${winner.tag} (${winners[i].userId}) → ${prize} ${lottery.currency === 'gems' ? 'gems' : 'coins'} (${sharePercent}%)`);
       
       // Add to result description
       resultDescription += `${place} Place (${sharePercent}%): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
     }
     
-    // Save data IMMEDIATELY after distributing all rewards
+    // Save user rewards to database (ONCE - works with both MongoDB and JSON)
     await saveDataImmediate(data);
     
     resultDescription += `**Statistics:**\n` +
@@ -425,6 +426,7 @@ async function performLotteryDraw(serverId) {
     
     await broadcastToAllServers(winnerEmbed);
     
+    // Update lottery history and status
     if (!lottery.winnersHistory) {
       lottery.winnersHistory = [];
     }
@@ -438,18 +440,16 @@ async function performLotteryDraw(serverId) {
     
     lottery.active = false;
     
-    // Save user rewards to database (ALWAYS - works with both MongoDB and JSON)
-    await saveDataImmediate(data);
-    
-    // Save lottery data
+    // Save lottery data only (user data already saved above)
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
-      data.lotteryData = activeLotteries;
-      await saveDataImmediate(data);
+      const finalData = await loadData();
+      finalData.lotteryData = activeLotteries;
+      await saveDataImmediate(finalData);
     }
     
-    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners`);
+    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners with ${numWinners} prize(s) distributed`);
     
   } catch (error) {
     console.error(`❌ Error performing lottery draw for server ${serverId}:`, error);
