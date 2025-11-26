@@ -346,21 +346,33 @@ async function performLotteryDraw(serverId) {
       }
     }
     
-    const prizeShares = [0.50, 0.30, 0.20];
-    
-    let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
+    // Calculate dynamic prize shares based on number of winners
+    let prizeShares = [];
+    if (numWinners === 1) {
+      prizeShares = [1.0]; // 100% to sole winner
+    } else if (numWinners === 2) {
+      prizeShares = [0.60, 0.40]; // 60% and 40% split
+    } else {
+      prizeShares = [0.50, 0.30, 0.20]; // 50%, 30%, 20% split
+    }
     
     const { loadData } = require('./dataManager.js');
     const data = await loadData();
     
+    let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
+    const placeLabels = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
+    
+    // Distribute rewards explicitly and immediately
     for (let i = 0; i < winners.length; i++) {
       const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
       if (!winner) continue;
       
+      // Calculate exact prize amount
       const prize = Math.floor(lottery.prizePool * prizeShares[i]);
-      const place = ['🥇 1st', '🥈 2nd', '🥉 3rd'][i];
-      const share = ['50%', '30%', '20%'][i];
+      const place = placeLabels[i];
+      const sharePercent = Math.floor(prizeShares[i] * 100);
       
+      // Initialize user if doesn't exist
       if (!data.users[winners[i].userId]) {
         data.users[winners[i].userId] = {
           coins: 0,
@@ -378,15 +390,20 @@ async function performLotteryDraw(serverId) {
       
       const userData = data.users[winners[i].userId];
       
+      // Explicitly grant rewards like daily rewards do
       if (lottery.currency === 'gems') {
         userData.gems = (userData.gems || 0) + prize;
+        console.log(`✅ LOTTERY: ${winner.tag} (${winners[i].userId}) awarded ${prize} gems (${sharePercent}%)`);
       } else {
         userData.coins = (userData.coins || 0) + prize;
+        console.log(`✅ LOTTERY: ${winner.tag} (${winners[i].userId}) awarded ${prize} coins (${sharePercent}%)`);
       }
       
-      resultDescription += `${place} Place (${share}): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
+      // Add to result description
+      resultDescription += `${place} Place (${sharePercent}%): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
     }
     
+    // Save data IMMEDIATELY after distributing all rewards
     await saveDataImmediate(data);
     
     resultDescription += `**Statistics:**\n` +
