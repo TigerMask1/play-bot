@@ -457,6 +457,222 @@
                 </div>
             </div>
 
+            <h3>🎰 Minigames & Gambling</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!coinduel &lt;heads/tails&gt; &lt;amount&gt;</h4>
+                    <p>Flip a coin and bet coins! Win 1.9× your bet or lose. 2% chance for Golden Flip (3.5×)!</p>
+                </div>
+                <div class="command-box">
+                    <h4>!diceclash &lt;amount&gt;</h4>
+                    <p>Roll dice up to 5 times! Roll 4-6 to continue and multiply winnings. Roll 1-3 to lose!</p>
+                </div>
+                <div class="command-box">
+                    <h4>!dooroffate &lt;amount&gt;</h4>
+                    <p>Open mysterious doors for random rewards. High risk, high reward!</p>
+                </div>
+                <div class="command-box">
+                    <h4>!almostwin &lt;amount&gt;</h4>
+                    <p>Slot machine game with almost-winning mechanics. Play for big payouts!</p>
+                </div>
+            </div>
+
+            <h3>🧠 Trivia System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!trivia</h4>
+                    <p>Play trivia! You have 3 guesses and 60 seconds to answer. Win 100 coins per correct answer!</p>
+                </div>
+                <div class="command-box">
+                    <h4>!addtrivia &lt;question&gt; | &lt;answer1&gt; | &lt;answer2&gt; | &lt;answer3&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Add new trivia questions to the database</p>
+                </div>
+                <div class="command-box">
+                    <h4>!removetrivia &lt;question_id&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Remove trivia questions</p>
+                </div>
+                <div class="command-box">
+                    <h4>!listtrivia</h4>
+                    <p><strong>Super Admin Only:</strong> View all trivia questions</p>
+                </div>
+            </div>
+
+            <h3>🎰 Lottery System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!lottery join &lt;tickets&gt;</h4>
+                    <p>Buy lottery tickets with gems! Each ticket is an entry chance.</p>
+                </div>
+                <div class="command-box">
+                    <h4>!lottery info</h4>
+                    <p>View current lottery status, prize pool, and participants</p>
+                </div>
+                <div class="command-box">
+                    <h4>!lottery activate &lt;fee&gt; &lt;currency&gt; &lt;hours&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Start a new lottery (gem or coin entry)</p>
+                </div>
+                <div class="command-box">
+                    <h4>!lottery stop</h4>
+                    <p><strong>Super Admin Only:</strong> End lottery early and announce winners</p>
+                </div>
+            </div>
+
+            <h3>🎁 Giveaway System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!giveaway info</h4>
+                    <p>View current active giveaway details and how to enter</p>
+                </div>
+                <div class="command-box">
+                    <h4>!startgiveaway &lt;prize_description&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Start a new giveaway</p>
+                </div>
+                <div class="command-box">
+                    <h4>!endgiveaway</h4>
+                    <p><strong>Super Admin Only:</strong> End giveaway and pick random winner</p>
+                </div>
+                <div class="command-box">
+                    <h4>!autogiveaway &lt;on/off&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Enable daily automatic giveaways</p>
+                </div>
+            </div>
+
+            <h3>🎪 Events System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!event &lt;type&gt;</h4>
+                    <p>View active event details and real-time leaderboards (Trophy Hunt, Crate Master, Drop Catcher)</p>
+                </div>
+                <div class="command-box">
+                    <h4>!setevent &lt;type&gt; &lt;on/off&gt;</h4>
+                    <p><strong>ZooAdmin Only:</strong> Enable/disable specific events</p>
+                </div>
+                <div class="command-box">
+                    <h4>!startevent &lt;type&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Manually start an event immediately</p>
+                </div>
+                <div class="command-box">
+                    <h4>!stopevent &lt;type&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> End event and distribute rewards</p>
+                </div>
+                <div class="command-box">
+                    <h4>!eventschedule</h4>
+                    <p>View when events run throughout the day</p>
+                </div>
+            </div>
+
+            <h3>💼 Work & Jobs System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!work</h4>
+                    <p>Complete a random job (Miner, Caretaker, Farmer, Zookeeper, Ranger). Get coins, gems, resources, and optional bonus minigames!</p>
+                </div>
+                <div class="command-box">
+                    <h4>!workguide</h4>
+                    <p>Full guide explaining all jobs, tools, resources, crafting, market system, and strategy tips</p>
+                </div>
+                <div class="command-box">
+                    <h4>!showwork</h4>
+                    <p>View work job images and details</p>
+                </div>
+                <div class="command-box">
+                    <h4>!assignwork &lt;@user&gt; &lt;job&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Force assign a specific job to a user</p>
+                </div>
+                <div class="command-box">
+                    <h4>!setworkimage &lt;job_type&gt; &lt;image_url&gt;</h4>
+                    <p><strong>Super Admin Only:</strong> Set custom images for work jobs</p>
+                </div>
+            </div>
+
+            <h3>🏪 Market & Auction System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!market list &lt;item_type&gt;</h4>
+                    <p>Browse market listings (ores, wood, crates, keys, resources)</p>
+                </div>
+                <div class="command-box">
+                    <h4>!market buy &lt;listing_id&gt;</h4>
+                    <p>Purchase an item from the marketplace with coins</p>
+                </div>
+                <div class="command-box">
+                    <h4>!market sell &lt;item_type&gt; &lt;amount&gt; &lt;price_per_unit&gt;</h4>
+                    <p>List your items on the marketplace for other players to buy</p>
+                </div>
+                <div class="command-box">
+                    <h4>!auction list</h4>
+                    <p>View all active auctions with current bids</p>
+                </div>
+                <div class="command-box">
+                    <h4>!auction bid &lt;auction_id&gt; &lt;amount&gt;</h4>
+                    <p>Place a bid on an auction item</p>
+                </div>
+                <div class="command-box">
+                    <h4>!auction create &lt;item&gt; &lt;duration_hours&gt; &lt;starting_bid&gt;</h4>
+                    <p>Create a new auction for your items</p>
+                </div>
+            </div>
+
+            <h3>📦 Cosmetics & Profile</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!setskin &lt;character&gt; &lt;skin_name&gt;</h4>
+                    <p>Equip a character skin you own</p>
+                </div>
+                <div class="command-box">
+                    <h4>!setpfp &lt;character&gt; OR !setpfp pfp &lt;number&gt;</h4>
+                    <p>Set your profile picture (character image or custom PFP)</p>
+                </div>
+                <div class="command-box">
+                    <h4>!ustshop</h4>
+                    <p>Browse cosmetics shop and purchase skins/PFPs with UST currency</p>
+                </div>
+                <div class="command-box">
+                    <h4>!buyskin &lt;character&gt; &lt;skin_name&gt;</h4>
+                    <p>Purchase a character skin with UST from the cosmetics shop</p>
+                </div>
+                <div class="command-box">
+                    <h4>!buypfp &lt;pfp_name&gt;</h4>
+                    <p>Purchase a profile picture with UST</p>
+                </div>
+            </div>
+
+            <h3>📬 Mailbox & Social Features</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>!mailbox</h4>
+                    <p>View messages in your mailbox</p>
+                </div>
+                <div class="command-box">
+                    <h4>!clearmailbox</h4>
+                    <p>Clear all messages from your mailbox</p>
+                </div>
+                <div class="command-box">
+                    <h4>!stats [@user]</h4>
+                    <p>View detailed statistics about a player</p>
+                </div>
+            </div>
+
+            <h3>💎 Resource Economy System</h3>
+            <div class="commands-grid">
+                <div class="command-box">
+                    <h4>⛏️ Ores (5 types):</h4>
+                    <p>🟡 Aurelite • 🔵 Kryonite • 🟣 Zyronite • 🔴 Rubinite • ⚫ Voidinite - Used for tool crafting</p>
+                </div>
+                <div class="command-box">
+                    <h4>🪓 Wood (4 types):</h4>
+                    <p>🟤 Oak • 🟠 Maple • ⚫ Ebony • ✨ Celestial - Used for tool crafting and trading</p>
+                </div>
+                <div class="command-box">
+                    <h4>🛠️ Tools (4 types):</h4>
+                    <p>⛏️ Drill • 🪓 Axe • 📢 Whistle • 🔭 Binoculars - Each has 5 levels and durability system</p>
+                </div>
+                <div class="command-box">
+                    <h4>!craft &lt;tool_type&gt;</h4>
+                    <p>Craft tools using ores and wood for better job rewards</p>
+                </div>
+            </div>
+
             <h3 style="color: #E74C3C;">🔧 Super Admin Commands (UST System)</h3>
             <div class="commands-grid">
                 <div class="command-box admin-commands">
@@ -482,6 +698,38 @@
                 <div class="command-box admin-commands">
                     <h4>!grant @user &lt;type&gt; &lt;amount&gt;</h4>
                     <p>Grant coins, gems, or tokens to a user</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!giveores @user &lt;ore_type&gt; &lt;amount&gt;</h4>
+                    <p>Give ores to a user</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!givewood @user &lt;wood_type&gt; &lt;amount&gt;</h4>
+                    <p>Give wood to a user</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!givetool @user &lt;tool_type&gt; &lt;level&gt;</h4>
+                    <p>Give tools to a user</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!clearmarket</h4>
+                    <p>Clear all market listings</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!viewmarket</h4>
+                    <p>View all current market listings</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!clearauctions</h4>
+                    <p>Clear all active auctions</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!viewauctions</h4>
+                    <p>View all active auctions</p>
+                </div>
+                <div class="command-box admin-commands">
+                    <h4>!endauction &lt;auction_id&gt;</h4>
+                    <p>Forcefully end an auction</p>
                 </div>
             </div>
         </section>
