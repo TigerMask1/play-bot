@@ -438,10 +438,13 @@ async function performLotteryDraw(serverId) {
     
     lottery.active = false;
     
+    // Save user rewards to database (ALWAYS - works with both MongoDB and JSON)
+    await saveDataImmediate(data);
+    
+    // Save lottery data
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
-      // Don't reload data - use the same data object with rewards already applied
       data.lotteryData = activeLotteries;
       await saveDataImmediate(data);
     }
