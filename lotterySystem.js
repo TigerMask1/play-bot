@@ -300,13 +300,13 @@ async function performLotteryDraw(serverId) {
   }
   
   try {
+    // Handle no participants case
     if (lottery.participants.length === 0) {
       const noParticipantsEmbed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('🎰 LOTTERY ENDED')
         .setDescription(
-          `No one participated in the ${lottery.duration}-hour lottery!\n\n` +
-          `Better luck next time!`
+          `No one participated in the ${lottery.duration}-hour lottery!\n\nBetter luck next time!`
         )
         .setTimestamp();
       
@@ -316,7 +316,6 @@ async function performLotteryDraw(serverId) {
       }
       
       lottery.active = false;
-      
       if (USE_MONGODB) {
         await saveLotteryToMongo();
       } else {
@@ -325,55 +324,55 @@ async function performLotteryDraw(serverId) {
         data.lotteryData = activeLotteries;
         await saveDataImmediate(data);
       }
-      
       return;
     }
     
+    // RULE 1: Load data ONLY once
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    
+    // Get unique participants and select winners
     const uniqueParticipants = [...new Set(lottery.participants.map(p => p.userId))];
     const totalEntries = lottery.participants.length;
-    
     const numWinners = Math.min(3, uniqueParticipants.length);
+    
     const winners = [];
     const selectedUsers = new Set();
     
     while (winners.length < numWinners) {
       const randomIndex = Math.floor(Math.random() * lottery.participants.length);
       const participant = lottery.participants[randomIndex];
-      
       if (!selectedUsers.has(participant.userId)) {
         selectedUsers.add(participant.userId);
         winners.push(participant);
       }
     }
     
-    // Calculate dynamic prize shares based on number of winners
+    // Calculate prize shares
     let prizeShares = [];
     if (numWinners === 1) {
-      prizeShares = [1.0]; // 100% to sole winner
+      prizeShares = [1.0];
     } else if (numWinners === 2) {
-      prizeShares = [0.60, 0.40]; // 60% and 40% split
+      prizeShares = [0.60, 0.40];
     } else {
-      prizeShares = [0.50, 0.30, 0.20]; // 50%, 30%, 20% split
+      prizeShares = [0.50, 0.30, 0.20];
     }
     
-    let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     const placeLabels = ['🥇 1st', '🥈 2nd', '🥉 3rd'];
+    let resultDescription = `**Prize Pool:** ${lottery.prizePool.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n**Winners:**\n\n`;
     
-    // REWRITTEN: Save rewards directly to MongoDB or JSON for each winner
+    // RULE 2 & 3: Update all winners in memory (NEVER save inside loop)
     for (let i = 0; i < winners.length; i++) {
-      const winner = await activeClient.users.fetch(winners[i].userId).catch(() => null);
-      if (!winner) continue;
+      const winnerId = winners[i].userId;
+      const shareRatio = prizeShares[i];
       
-      const prize = Math.floor(lottery.prizePool * prizeShares[i]);
-      const place = placeLabels[i];
-      const sharePercent = Math.floor(prizeShares[i] * 100);
+      // RULE 6: Calculate prize using formula
+      const prize = Math.floor(lottery.prizePool * shareRatio);
+      const sharePercent = Math.floor(shareRatio * 100);
       
-      // SAVE DIRECTLY: Load fresh data for EACH winner, add reward, save immediately
-      const { loadData } = require('./dataManager.js');
-      const userData = await loadData();
-      
-      if (!userData.users[winners[i].userId]) {
-        userData.users[winners[i].userId] = {
+      // RULE 5: Ensure user record exists
+      if (!data.users[winnerId]) {
+        data.users[winnerId] = {
           coins: 0,
           gems: 0,
           characters: [],
@@ -387,30 +386,33 @@ async function performLotteryDraw(serverId) {
         };
       }
       
-      // Grant reward directly
+      // Award reward using += pattern
       if (lottery.currency === 'gems') {
-        userData.users[winners[i].userId].gems = (userData.users[winners[i].userId].gems || 0) + prize;
+        data.users[winnerId].gems += prize;
       } else {
-        userData.users[winners[i].userId].coins = (userData.users[winners[i].userId].coins || 0) + prize;
+        data.users[winnerId].coins += prize;
       }
       
-      // Save IMMEDIATELY to database
-      if (USE_MONGODB && mongoManager) {
-        await mongoManager.saveData(userData);
-        console.log(`✅ LOTTERY REWARD SAVED (MongoDB): ${winner.tag} → ${prize} ${lottery.currency === 'gems' ? '💎' : '💰'}`);
-      } else {
-        await saveDataImmediate(userData);
-        console.log(`✅ LOTTERY REWARD SAVED (JSON): ${winner.tag} → ${prize} ${lottery.currency === 'gems' ? '💎' : '💰'}`);
-      }
+      // Get winner tag for display
+      const winner = await activeClient.users.fetch(winnerId).catch(() => null);
+      const winnerTag = winner?.tag || `User ${winnerId}`;
       
-      // Add to result description
-      resultDescription += `${place} Place (${sharePercent}%): **${winner.tag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
+      resultDescription += `${placeLabels[i]} Place (${sharePercent}%): **${winnerTag}**\n💰 Prize: ${prize.toLocaleString()} ${lottery.currency === 'gems' ? '💎 Gems' : '💰 Coins'}\n\n`;
+      
+      console.log(`✅ LOTTERY REWARD IN MEMORY: ${winnerTag} → ${prize} ${lottery.currency === 'gems' ? 'gems' : 'coins'} (${sharePercent}%)`);
     }
     
-    resultDescription += `**Statistics:**\n` +
-      `👥 Total Participants: ${uniqueParticipants.length}\n` +
-      `🎟️ Total Entries: ${totalEntries}\n\n` +
-      `Congratulations to all winners! 🎊`;
+    // RULE 4: Save data ONCE after loop completes
+    if (USE_MONGODB && mongoManager) {
+      await mongoManager.saveData(data);
+      console.log(`✅ LOTTERY REWARDS SAVED (MongoDB): All ${numWinners} winners processed`);
+    } else {
+      await saveDataImmediate(data);
+      console.log(`✅ LOTTERY REWARDS SAVED (JSON): All ${numWinners} winners processed`);
+    }
+    
+    // Build result message
+    resultDescription += `**Statistics:**\n👥 Total Participants: ${uniqueParticipants.length}\n🎟️ Total Entries: ${totalEntries}\n\nCongratulations to all winners! 🎊`;
     
     const winnerEmbed = new EmbedBuilder()
       .setColor('#9B59B6')
@@ -419,6 +421,7 @@ async function performLotteryDraw(serverId) {
       .setFooter({ text: 'Thanks for participating!' })
       .setTimestamp();
     
+    // Announce winners
     const channel = await activeClient.channels.fetch(lottery.channelId).catch(() => null);
     if (channel) {
       await channel.send({ embeds: [winnerEmbed] });
@@ -426,7 +429,7 @@ async function performLotteryDraw(serverId) {
     
     await broadcastToAllServers(winnerEmbed);
     
-    // Update lottery history and status
+    // Update lottery history
     if (!lottery.winnersHistory) {
       lottery.winnersHistory = [];
     }
@@ -440,17 +443,15 @@ async function performLotteryDraw(serverId) {
     
     lottery.active = false;
     
-    // Save lottery data
+    // Save lottery state
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
-      const { loadData } = require('./dataManager.js');
-      const finalData = await loadData();
-      finalData.lotteryData = activeLotteries;
-      await saveDataImmediate(finalData);
+      data.lotteryData = activeLotteries;
+      await saveDataImmediate(data);
     }
     
-    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners - all rewards permanently saved`);
+    console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners with ${numWinners} prizes distributed`);
     
   } catch (error) {
     console.error(`❌ Error performing lottery draw for server ${serverId}:`, error);
