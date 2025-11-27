@@ -279,6 +279,61 @@ client.on('guildCreate', async (guild) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  if (interaction.isModalSubmit() && interaction.customId === 'auction_create_form') {
+    if (!data) return;
+    
+    try {
+      const category = interaction.fields.getTextInputValue('auction_category').toLowerCase();
+      const itemName = interaction.fields.getTextInputValue('auction_itemname').toLowerCase();
+      const quantity = parseInt(interaction.fields.getTextInputValue('auction_quantity'));
+      const startingBid = parseInt(interaction.fields.getTextInputValue('auction_bid'));
+      const durationInput = interaction.fields.getTextInputValue('auction_duration');
+      const durationHours = parseInt(durationInput) || 24;
+      const currency = 'coins';
+      
+      const validCategories = ['ore', 'wood', 'crate', 'key', 'resource'];
+      
+      if (!validCategories.includes(category)) {
+        await interaction.reply({ content: `❌ Invalid category! Use: ${validCategories.join(', ')}`, ephemeral: true });
+        return;
+      }
+      
+      if (!quantity || quantity <= 0) {
+        await interaction.reply({ content: '❌ Quantity must be a positive number!', ephemeral: true });
+        return;
+      }
+      
+      if (!startingBid || startingBid <= 0) {
+        await interaction.reply({ content: '❌ Starting bid must be a positive number!', ephemeral: true });
+        return;
+      }
+      
+      const duration = durationHours * 3600000;
+      const createResult = await createAuction(data, interaction.user.id, category, itemName, quantity, startingBid, duration, currency);
+      
+      if (!createResult.success) {
+        await interaction.reply({ content: createResult.message, ephemeral: true });
+        return;
+      }
+      
+      const itemInfo = getItemInfo(category, itemName);
+      const currencyEmoji = '💰';
+      await interaction.reply({
+        content: 
+          `✅ Auction created!\n` +
+          `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
+          `Starting bid: ${startingBid} coins ${currencyEmoji}\n` +
+          `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
+          `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Error submitting auction form:', error);
+      await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+  
   if (!interaction.isButton()) return;
   if (!data) return;
   
@@ -4804,49 +4859,56 @@ client.on('messageCreate', async (message) => {
         const auctionAction = args[0]?.toLowerCase();
         
         if (auctionAction === 'create' || auctionAction === 'start') {
-          const category = args[1]?.toLowerCase();
-          const itemName = args[2]?.toLowerCase();
-          const quantity = parseInt(args[3]);
-          const startingBid = parseInt(args[4]);
-          const durationHours = parseInt(args[5]) || 24;
-          const currency = args[6]?.toLowerCase() || 'coins';
+          const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
           
-          if (!category || !itemName || !quantity || !startingBid) {
-            await message.reply(
-              '**Create Auction**\n\n' +
-              'Usage: `!auction create <category> <name> <quantity> <bid> [hours] [currency]`\n\n' +
-              '**Categories:** ore, wood, crate, key, resource\n' +
-              '**Currency:** coins (default) or gems\n\n' +
-              '**Examples:**\n' +
-              '`!auction create ore voidinite 5 500`\n' +
-              '`!auction create crate legendary 1 1000 12 gems`\n' +
-              '`!auction create resource shards 100 400 coins`'
-            );
-            return;
-          }
+          const modal = new ModalBuilder()
+            .setCustomId('auction_create_form')
+            .setTitle('🎯 Create Auction');
           
-          if (currency !== 'coins' && currency !== 'gems') {
-            await message.reply('❌ Currency must be either "coins" or "gems"!');
-            return;
-          }
+          const categoryInput = new TextInputBuilder()
+            .setCustomId('auction_category')
+            .setLabel('Category')
+            .setPlaceholder('ore, wood, crate, key, resource')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
           
-          const duration = durationHours * 3600000;
-          const createResult = await createAuction(data, userId, category, itemName, quantity, startingBid, duration, currency);
+          const itemNameInput = new TextInputBuilder()
+            .setCustomId('auction_itemname')
+            .setLabel('Item Name')
+            .setPlaceholder('e.g., voidinite, legendary, shards')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
           
-          if (!createResult.success) {
-            await message.reply(createResult.message);
-            return;
-          }
+          const quantityInput = new TextInputBuilder()
+            .setCustomId('auction_quantity')
+            .setLabel('Quantity')
+            .setPlaceholder('Number of items')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
           
-          const itemInfo = getItemInfo(category, itemName);
-          const currencyEmoji = currency === 'gems' ? '💎' : '💰';
-          await message.reply(
-            `✅ Auction created!\n` +
-            `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
-            `Starting bid: ${startingBid} ${currency} ${currencyEmoji}\n` +
-            `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
-            `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`
+          const bidInput = new TextInputBuilder()
+            .setCustomId('auction_bid')
+            .setLabel('Starting Bid Amount')
+            .setPlaceholder('e.g., 500')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+          
+          const durationInput = new TextInputBuilder()
+            .setCustomId('auction_duration')
+            .setLabel('Duration (hours)')
+            .setPlaceholder('Default: 24')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+          
+          modal.addComponents(
+            new ActionRowBuilder().addComponents(categoryInput),
+            new ActionRowBuilder().addComponents(itemNameInput),
+            new ActionRowBuilder().addComponents(quantityInput),
+            new ActionRowBuilder().addComponents(bidInput),
+            new ActionRowBuilder().addComponents(durationInput)
           );
+          
+          await message.showModal(modal);
         } else if (auctionAction === 'bid') {
           const auctionId = args[1];
           const bidAmount = parseInt(args[2]);
