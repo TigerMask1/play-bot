@@ -346,6 +346,80 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
   
+  if (interaction.isButton() && interaction.customId === 'auction_create_button') {
+    if (!data) return;
+    
+    try {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      
+      const modal = new ModalBuilder()
+        .setCustomId('auction_create_form')
+        .setTitle('🎯 Create Auction');
+      
+      const categoryInput = new TextInputBuilder()
+        .setCustomId('auction_category')
+        .setLabel('📂 Category')
+        .setPlaceholder('ore, wood, crate, key, resource')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(20);
+      
+      const itemNameInput = new TextInputBuilder()
+        .setCustomId('auction_itemname')
+        .setLabel('📦 Item Name')
+        .setPlaceholder('e.g., voidinite, legendary, shards')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(50);
+      
+      const quantityInput = new TextInputBuilder()
+        .setCustomId('auction_quantity')
+        .setLabel('📊 Quantity')
+        .setPlaceholder('Number of items (e.g., 5, 100)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(10);
+      
+      const bidInput = new TextInputBuilder()
+        .setCustomId('auction_bid')
+        .setLabel('💰 Starting Bid Amount')
+        .setPlaceholder('e.g., 500, 1000')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(10);
+      
+      const currencyInput = new TextInputBuilder()
+        .setCustomId('auction_currency')
+        .setLabel('💎 Currency')
+        .setPlaceholder('coins or gems (default: coins)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(10);
+      
+      const durationInput = new TextInputBuilder()
+        .setCustomId('auction_duration')
+        .setLabel('⏰ Duration (hours)')
+        .setPlaceholder('Leave empty for 24 hours')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(3);
+      
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(categoryInput),
+        new ActionRowBuilder().addComponents(itemNameInput),
+        new ActionRowBuilder().addComponents(quantityInput),
+        new ActionRowBuilder().addComponents(bidInput),
+        new ActionRowBuilder().addComponents(currencyInput)
+      );
+      
+      await interaction.showModal(modal);
+    } catch (error) {
+      console.error('Error showing auction modal:', error);
+      await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+  
   if (!interaction.isButton()) return;
   if (!data) return;
   
@@ -4871,82 +4945,19 @@ client.on('messageCreate', async (message) => {
         const auctionAction = args[0]?.toLowerCase();
         
         if (auctionAction === 'create' || auctionAction === 'start') {
-          const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+          const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
           
-          const modal = new ModalBuilder()
-            .setCustomId('auction_create_form')
-            .setTitle('🎯 Create Auction');
+          const createButton = new ButtonBuilder()
+            .setCustomId('auction_create_button')
+            .setLabel('📋 Open Auction Form')
+            .setStyle(ButtonStyle.Primary);
           
-          const categoryInput = new TextInputBuilder()
-            .setCustomId('auction_category')
-            .setLabel('📂 Category')
-            .setPlaceholder('ore, wood, crate, key, resource')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setMaxLength(20);
+          const row = new ActionRowBuilder().addComponents(createButton);
           
-          const itemNameInput = new TextInputBuilder()
-            .setCustomId('auction_itemname')
-            .setLabel('📦 Item Name')
-            .setPlaceholder('e.g., voidinite, legendary, shards')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setMaxLength(50);
-          
-          const quantityInput = new TextInputBuilder()
-            .setCustomId('auction_quantity')
-            .setLabel('📊 Quantity')
-            .setPlaceholder('Number of items (e.g., 5, 100)')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setMaxLength(10);
-          
-          const bidInput = new TextInputBuilder()
-            .setCustomId('auction_bid')
-            .setLabel('💰 Starting Bid Amount')
-            .setPlaceholder('e.g., 500, 1000')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true)
-            .setMaxLength(10);
-          
-          const durationInput = new TextInputBuilder()
-            .setCustomId('auction_duration')
-            .setLabel('⏰ Duration (hours)')
-            .setPlaceholder('Leave empty for 24 hours')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setMaxLength(3);
-          
-          const currencyInput = new TextInputBuilder()
-            .setCustomId('auction_currency')
-            .setLabel('💎 Currency')
-            .setPlaceholder('coins or gems (default: coins)')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false)
-            .setMaxLength(10);
-          
-          modal.addComponents(
-            new ActionRowBuilder().addComponents(categoryInput),
-            new ActionRowBuilder().addComponents(itemNameInput),
-            new ActionRowBuilder().addComponents(quantityInput),
-            new ActionRowBuilder().addComponents(bidInput),
-            new ActionRowBuilder().addComponents(durationInput)
-          );
-          
-          // Modal only supports 5 components, so we need to add currency in a second approach
-          // Actually, modals support up to 5 ActionRows, and we have exactly 5 already
-          // We need to handle this differently - let's replace one or extend the modal
-          const auctionRows = [
-            new ActionRowBuilder().addComponents(categoryInput),
-            new ActionRowBuilder().addComponents(itemNameInput),
-            new ActionRowBuilder().addComponents(quantityInput),
-            new ActionRowBuilder().addComponents(bidInput),
-            new ActionRowBuilder().addComponents(currencyInput)
-          ];
-          
-          modal.setComponents(...auctionRows);
-          
-          await message.showModal(modal);
+          await message.reply({ 
+            content: '🎯 **Create a new auction!**\n\nClick the button below to open the form and list your items.',
+            components: [row]
+          });
         } else if (auctionAction === 'bid') {
           const auctionId = args[1];
           const bidAmount = parseInt(args[2]);
