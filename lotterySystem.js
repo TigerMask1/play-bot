@@ -403,13 +403,8 @@ async function performLotteryDraw(serverId) {
     }
     
     // RULE 4: Save data ONCE after loop completes
-    if (USE_MONGODB && mongoManager) {
-      await mongoManager.saveData(data);
-      console.log(`✅ LOTTERY REWARDS SAVED (MongoDB): All ${numWinners} winners processed`);
-    } else {
-      await saveDataImmediate(data);
-      console.log(`✅ LOTTERY REWARDS SAVED (JSON): All ${numWinners} winners processed`);
-    }
+    await saveDataImmediate(data);
+    console.log(`✅ LOTTERY REWARDS SAVED: All ${numWinners} winners - coins/gems added to profiles`);
     
     // Build result message
     resultDescription += `**Statistics:**\n👥 Total Participants: ${uniqueParticipants.length}\n🎟️ Total Entries: ${totalEntries}\n\nCongratulations to all winners! 🎊`;
@@ -443,12 +438,14 @@ async function performLotteryDraw(serverId) {
     
     lottery.active = false;
     
-    // Save lottery state
+    // Save lottery state ONLY (user data already saved above)
     if (USE_MONGODB) {
       await saveLotteryToMongo();
     } else {
-      data.lotteryData = activeLotteries;
-      await saveDataImmediate(data);
+      // Reload fresh data to get latest state
+      const lotteryData = await loadData();
+      lotteryData.lotteryData = activeLotteries;
+      await saveDataImmediate(lotteryData);
     }
     
     console.log(`✅ Lottery completed for server ${serverId} - ${numWinners} winners with ${numWinners} prizes distributed`);
