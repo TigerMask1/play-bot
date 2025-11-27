@@ -292,7 +292,9 @@ client.on('interactionCreate', async (interaction) => {
       const durationField = interaction.fields.getField('auction_duration');
       const durationHours = durationField ? (parseInt(durationField.value) || 24) : 24;
       
-      const currency = 'coins';
+      const currencyField = interaction.fields.getField('auction_currency');
+      const currencyInput = currencyField ? currencyField.value.toLowerCase() : 'coins';
+      const currency = (currencyInput === 'gems' || currencyInput === 'gem') ? 'gems' : 'coins';
       
       if (!quantity || quantity <= 0 || isNaN(quantity)) {
         await interaction.reply({ content: '❌ Quantity must be a positive number!', ephemeral: true });
@@ -401,10 +403,19 @@ client.on('interactionCreate', async (interaction) => {
         .setRequired(false)
         .setMaxLength(3);
       
+      const currencyInput = new TextInputBuilder()
+        .setCustomId('auction_currency')
+        .setLabel('💎 Currency')
+        .setPlaceholder('coins or gems (default: coins)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(10);
+      
       modal.addComponents(
         new ActionRowBuilder().addComponents(quantityInput),
         new ActionRowBuilder().addComponents(bidInput),
-        new ActionRowBuilder().addComponents(durationInput)
+        new ActionRowBuilder().addComponents(durationInput),
+        new ActionRowBuilder().addComponents(currencyInput)
       );
       
       await interaction.showModal(modal);
