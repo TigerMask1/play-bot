@@ -4472,13 +4472,13 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ Only Super Admins can send clan loot!');
           return;
         }
-        const targetServerId = args[0];
-        if (!targetServerId) {
+        const clanServerId = args[0];
+        if (!clanServerId) {
           await message.reply('Usage: `!sendclanloot <server_id>`');
           return;
         }
-        const sendResult = await sendLootToClan(targetServerId);
-        await message.reply(sendResult.message);
+        const lootSendResult = await sendLootToClan(clanServerId);
+        await message.reply(lootSendResult.message);
         break;
         
       case 'work':
