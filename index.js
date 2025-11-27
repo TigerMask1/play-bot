@@ -29,7 +29,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Server running on port ${PORT}`);
 });
 
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const fs = require('fs');
 
 const client = new Client({
@@ -279,12 +279,13 @@ client.on('guildCreate', async (guild) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isModalSubmit() && interaction.customId === 'auction_create_form') {
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('auction_create_form_')) {
     if (!data) return;
     
     try {
-      const category = interaction.fields.getTextInputValue('auction_category').toLowerCase();
-      const itemName = interaction.fields.getTextInputValue('auction_itemname').toLowerCase();
+      const formParts = interaction.customId.split('_');
+      const category = formParts[3];
+      const itemName = formParts[4];
       const quantity = parseInt(interaction.fields.getTextInputValue('auction_quantity'));
       const startingBid = parseInt(interaction.fields.getTextInputValue('auction_bid'));
       
@@ -292,18 +293,6 @@ client.on('interactionCreate', async (interaction) => {
       const durationHours = durationField ? (parseInt(durationField.value) || 24) : 24;
       
       const currency = 'coins';
-      
-      const validCategories = ['ore', 'wood', 'crate', 'key', 'resource'];
-      
-      if (!validCategories.includes(category)) {
-        await interaction.reply({ content: `❌ Invalid category! Use: ${validCategories.join(', ')}`, ephemeral: true });
-        return;
-      }
-      
-      if (!itemName) {
-        await interaction.reply({ content: '❌ Item name is required!', ephemeral: true });
-        return;
-      }
       
       if (!quantity || quantity <= 0 || isNaN(quantity)) {
         await interaction.reply({ content: '❌ Quantity must be a positive number!', ephemeral: true });
@@ -347,31 +336,46 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
   
-  if (interaction.isButton() && interaction.customId === 'auction_create_button') {
+  if (interaction.isStringSelectMenu() && interaction.customId === 'auction_category_select') {
     if (!data) return;
+    const selectedCategory = interaction.values[0];
+    const { ITEM_CATEGORIES } = require('./marketSystem.js');
+    const categoryData = ITEM_CATEGORIES[selectedCategory];
+    
+    if (!categoryData) {
+      await interaction.reply({ content: '❌ Invalid category!', ephemeral: true });
+      return;
+    }
+    
+    const itemOptions = Object.entries(categoryData.items).map(([key, item]) => ({
+      label: item.name,
+      value: key,
+      emoji: item.emoji
+    })).slice(0, 25);
+    
+    const itemSelect = new StringSelectMenuBuilder()
+      .setCustomId(`auction_item_select_${selectedCategory}`)
+      .setPlaceholder('📦 Select Item')
+      .addOptions(itemOptions);
+    
+    await interaction.reply({
+      content: `✅ **Category:** ${categoryData.display}\n**Step 2:** Select an item:`,
+      components: [new ActionRowBuilder().addComponents(itemSelect)],
+      ephemeral: true
+    });
+  }
+  
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith('auction_item_select_')) {
+    if (!data) return;
+    const selectedCategory = interaction.customId.split('_')[3];
+    const selectedItem = interaction.values[0];
     
     try {
       const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
       
       const modal = new ModalBuilder()
-        .setCustomId('auction_create_form')
+        .setCustomId(`auction_create_form_${selectedCategory}_${selectedItem}`)
         .setTitle('🎯 Create Auction');
-      
-      const categoryInput = new TextInputBuilder()
-        .setCustomId('auction_category')
-        .setLabel('📂 Category')
-        .setPlaceholder('ore, wood, crate, key, resource')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(20);
-      
-      const itemNameInput = new TextInputBuilder()
-        .setCustomId('auction_itemname')
-        .setLabel('📦 Item Name')
-        .setPlaceholder('e.g., voidinite, legendary, shards')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(50);
       
       const quantityInput = new TextInputBuilder()
         .setCustomId('auction_quantity')
@@ -398,8 +402,6 @@ client.on('interactionCreate', async (interaction) => {
         .setMaxLength(3);
       
       modal.addComponents(
-        new ActionRowBuilder().addComponents(categoryInput),
-        new ActionRowBuilder().addComponents(itemNameInput),
         new ActionRowBuilder().addComponents(quantityInput),
         new ActionRowBuilder().addComponents(bidInput),
         new ActionRowBuilder().addComponents(durationInput)
@@ -408,6 +410,33 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.showModal(modal);
     } catch (error) {
       console.error('Error showing auction modal:', error);
+      await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
+    }
+  }
+  
+  if (interaction.isButton() && interaction.customId === 'auction_create_button') {
+    if (!data) return;
+    
+    try {
+      const { ITEM_CATEGORIES } = require('./marketSystem.js');
+      
+      const categoryOptions = Object.entries(ITEM_CATEGORIES).map(([key, data]) => ({
+        label: data.display,
+        value: key
+      }));
+      
+      const categorySelect = new StringSelectMenuBuilder()
+        .setCustomId('auction_category_select')
+        .setPlaceholder('📂 Select Category')
+        .addOptions(categoryOptions);
+      
+      await interaction.reply({
+        content: '🎯 **Auction Creation**\n**Step 1:** Select a category:',
+        components: [new ActionRowBuilder().addComponents(categorySelect)],
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Error showing auction category select:', error);
       await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
     }
     return;
