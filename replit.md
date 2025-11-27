@@ -53,7 +53,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
   - **UST Shop (!ustshop):** Interactive shop with category selection (skins/pfps), shows only skins for characters the user owns, displays rarity and cost
   - **Cosmetics Catalog:** Dual-persistence system (MongoDB for production, JSON file for development) with 5-minute cache TTL for performance
   - **Rarity System:** 5 rarity tiers (Common: 10 UST, Rare: 25 UST, Ultra Rare: 50 UST, Epic: 100 UST, Legendary: 200 UST) with custom cost override
-  - **Upload Commands:** !uploadskin and !uploadpfp for super admins to add new cosmetics with Discord CDN image URLs
+  - **Upload Commands:** !uploadskin and !uploadpfp for super admins to add new cosmetics - supports both image attachments AND direct image links for flexibility
   - **Purchase System:** Integrated with existing cosmetics system, purchased items immediately available in !setpfp and !setskin
 
 **System Design Choices:**

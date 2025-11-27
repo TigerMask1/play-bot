@@ -2282,7 +2282,7 @@ client.on('messageCreate', async (message) => {
         const uploadCustomCost = args[3] ? parseInt(args[3]) : null;
         
         if (!uploadCharName || !uploadSkinName || !uploadRarity) {
-          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost] [exclusive]` with an attached image\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n**Exclusive:** Add "exclusive" at the end to make it non-purchasable (admin-only)\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (purchasable legendary)\n`!uploadskin Nix Galaxy legendary exclusive` (non-purchasable legendary)\n`!uploadskin Nix Galaxy legendary 150` (custom cost)\n\nAttach the skin image to your message!');
+          await message.reply('**Upload Skin to UST Shop**\n\nUsage: `!uploadskin <character> <skin_name> <rarity> [custom_cost] [link/exclusive]`\n\nYou can either **attach an image** OR provide an **image link**\n\n**Rarities:** common, rare, ultra rare, epic, legendary\n**Default Costs:** common (10), rare (25), ultra rare (50), epic (100), legendary (200)\n**Exclusive:** Add "exclusive" at the end to make it non-purchasable\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (with attachment)\n`!uploadskin Nix Galaxy legendary https://example.com/image.png` (with link)\n`!uploadskin Nix Galaxy legendary exclusive` (with attachment, exclusive)\n`!uploadskin Nix Galaxy legendary 150 https://example.com/image.png` (link + custom cost)');
           return;
         }
         
@@ -2292,20 +2292,41 @@ client.on('messageCreate', async (message) => {
           return;
         }
         
-        const isExclusive = args[4]?.toLowerCase() === 'exclusive';
+        // Find exclusive flag and link in remaining args
+        let isExclusive = false;
+        let imageLink = null;
         
-        if (message.attachments.size === 0) {
-          await message.reply('❌ Please attach an image to your message!');
-          return;
+        for (let i = 3; i < args.length; i++) {
+          if (args[i]?.toLowerCase() === 'exclusive') {
+            isExclusive = true;
+          } else if (args[i]?.startsWith('http://') || args[i]?.startsWith('https://')) {
+            imageLink = args[i];
+          }
         }
         
-        const attachment = message.attachments.first();
+        // Get image URL - either from attachment or link
+        let discordCdnUrl;
         
-        const isImage = attachment.contentType?.startsWith('image/') || 
-                       /\.(png|jpe?g|gif|webp)$/i.test(attachment.name);
-        
-        if (!isImage) {
-          await message.reply('❌ The attachment must be an image file (PNG, JPG, GIF, or WEBP)!');
+        if (message.attachments.size > 0) {
+          const attachment = message.attachments.first();
+          const isImage = attachment.contentType?.startsWith('image/') || 
+                         /\.(png|jpe?g|gif|webp)$/i.test(attachment.name);
+          
+          if (!isImage) {
+            await message.reply('❌ The attachment must be an image file (PNG, JPG, GIF, or WEBP)!');
+            return;
+          }
+          
+          discordCdnUrl = attachment.url;
+        } else if (imageLink) {
+          // Validate link is an image
+          if (!/(png|jpe?g|gif|webp)$/i.test(imageLink)) {
+            await message.reply('❌ The link must point to an image file (PNG, JPG, GIF, or WEBP)!');
+            return;
+          }
+          discordCdnUrl = imageLink;
+        } else {
+          await message.reply('❌ Please either **attach an image** or provide an **image link**!\n\n**Examples:**\n`!uploadskin Nix Galaxy legendary` (with attachment)\n`!uploadskin Nix Galaxy legendary https://example.com/image.png` (with link)');
           return;
         }
         
@@ -2314,8 +2335,6 @@ client.on('messageCreate', async (message) => {
           await message.reply('❌ Character not found!');
           return;
         }
-        
-        const discordCdnUrl = attachment.url;
         
         const { addSkinToCatalog, RARITY_EMOJIS } = require('./cosmeticsShopSystem.js');
         const skinAddResult = await addSkinToCatalog(foundUploadChar.name, uploadSkinName, uploadRarity, discordCdnUrl, uploadCustomCost, isExclusive);
