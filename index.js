@@ -289,7 +289,8 @@ client.on('interactionCreate', async (interaction) => {
       const startingBid = parseInt(interaction.fields.getTextInputValue('auction_bid'));
       const durationInput = interaction.fields.getTextInputValue('auction_duration');
       const durationHours = parseInt(durationInput) || 24;
-      const currency = 'coins';
+      const currencyInput = interaction.fields.getTextInputValue('auction_currency').toLowerCase() || 'coins';
+      const currency = (currencyInput === 'gems' || currencyInput === 'gem') ? 'gems' : 'coins';
       
       const validCategories = ['ore', 'wood', 'crate', 'key', 'resource'];
       
@@ -298,13 +299,23 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
       
-      if (!quantity || quantity <= 0) {
+      if (!itemName) {
+        await interaction.reply({ content: '❌ Item name is required!', ephemeral: true });
+        return;
+      }
+      
+      if (!quantity || quantity <= 0 || isNaN(quantity)) {
         await interaction.reply({ content: '❌ Quantity must be a positive number!', ephemeral: true });
         return;
       }
       
-      if (!startingBid || startingBid <= 0) {
+      if (!startingBid || startingBid <= 0 || isNaN(startingBid)) {
         await interaction.reply({ content: '❌ Starting bid must be a positive number!', ephemeral: true });
+        return;
+      }
+      
+      if (durationHours <= 0 || isNaN(durationHours)) {
+        await interaction.reply({ content: '❌ Duration must be a positive number of hours!', ephemeral: true });
         return;
       }
       
@@ -317,19 +328,20 @@ client.on('interactionCreate', async (interaction) => {
       }
       
       const itemInfo = getItemInfo(category, itemName);
-      const currencyEmoji = '💰';
+      const currencyEmoji = currency === 'gems' ? '💎' : '💰';
       await interaction.reply({
         content: 
           `✅ Auction created!\n` +
           `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
-          `Starting bid: ${startingBid} coins ${currencyEmoji}\n` +
+          `Starting bid: ${startingBid} ${currency} ${currencyEmoji}\n` +
+          `Duration: ${durationHours} hour(s)\n` +
           `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
           `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`,
         ephemeral: true
       });
     } catch (error) {
       console.error('Error submitting auction form:', error);
-      await interaction.reply({ content: '❌ An error occurred!', ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: '❌ An error occurred while creating the auction!', ephemeral: true }).catch(() => {});
     }
     return;
   }
@@ -4867,38 +4879,51 @@ client.on('messageCreate', async (message) => {
           
           const categoryInput = new TextInputBuilder()
             .setCustomId('auction_category')
-            .setLabel('Category')
+            .setLabel('📂 Category')
             .setPlaceholder('ore, wood, crate, key, resource')
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setRequired(true)
+            .setMaxLength(20);
           
           const itemNameInput = new TextInputBuilder()
             .setCustomId('auction_itemname')
-            .setLabel('Item Name')
+            .setLabel('📦 Item Name')
             .setPlaceholder('e.g., voidinite, legendary, shards')
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setRequired(true)
+            .setMaxLength(50);
           
           const quantityInput = new TextInputBuilder()
             .setCustomId('auction_quantity')
-            .setLabel('Quantity')
-            .setPlaceholder('Number of items')
+            .setLabel('📊 Quantity')
+            .setPlaceholder('Number of items (e.g., 5, 100)')
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setRequired(true)
+            .setMaxLength(10);
           
           const bidInput = new TextInputBuilder()
             .setCustomId('auction_bid')
-            .setLabel('Starting Bid Amount')
-            .setPlaceholder('e.g., 500')
+            .setLabel('💰 Starting Bid Amount')
+            .setPlaceholder('e.g., 500, 1000')
             .setStyle(TextInputStyle.Short)
-            .setRequired(true);
+            .setRequired(true)
+            .setMaxLength(10);
           
           const durationInput = new TextInputBuilder()
             .setCustomId('auction_duration')
-            .setLabel('Duration (hours)')
-            .setPlaceholder('Default: 24')
+            .setLabel('⏰ Duration (hours)')
+            .setPlaceholder('Leave empty for 24 hours')
             .setStyle(TextInputStyle.Short)
-            .setRequired(false);
+            .setRequired(false)
+            .setMaxLength(3);
+          
+          const currencyInput = new TextInputBuilder()
+            .setCustomId('auction_currency')
+            .setLabel('💎 Currency')
+            .setPlaceholder('coins or gems (default: coins)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setMaxLength(10);
           
           modal.addComponents(
             new ActionRowBuilder().addComponents(categoryInput),
@@ -4907,6 +4932,19 @@ client.on('messageCreate', async (message) => {
             new ActionRowBuilder().addComponents(bidInput),
             new ActionRowBuilder().addComponents(durationInput)
           );
+          
+          // Modal only supports 5 components, so we need to add currency in a second approach
+          // Actually, modals support up to 5 ActionRows, and we have exactly 5 already
+          // We need to handle this differently - let's replace one or extend the modal
+          const auctionRows = [
+            new ActionRowBuilder().addComponents(categoryInput),
+            new ActionRowBuilder().addComponents(itemNameInput),
+            new ActionRowBuilder().addComponents(quantityInput),
+            new ActionRowBuilder().addComponents(bidInput),
+            new ActionRowBuilder().addComponents(currencyInput)
+          ];
+          
+          modal.setComponents(...auctionRows);
           
           await message.showModal(modal);
         } else if (auctionAction === 'bid') {
