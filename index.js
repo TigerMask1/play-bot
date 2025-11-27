@@ -287,9 +287,12 @@ client.on('interactionCreate', async (interaction) => {
       const itemName = interaction.fields.getTextInputValue('auction_itemname').toLowerCase();
       const quantity = parseInt(interaction.fields.getTextInputValue('auction_quantity'));
       const startingBid = parseInt(interaction.fields.getTextInputValue('auction_bid'));
-      const durationInput = interaction.fields.getTextInputValue('auction_duration');
-      const durationHours = parseInt(durationInput) || 24;
-      const currencyInput = interaction.fields.getTextInputValue('auction_currency').toLowerCase() || 'coins';
+      
+      const durationField = interaction.fields.getField('auction_duration');
+      const durationHours = durationField ? (parseInt(durationField.value) || 24) : 24;
+      
+      const currencyField = interaction.fields.getField('auction_currency');
+      const currencyInput = currencyField ? currencyField.value.toLowerCase() : 'coins';
       const currency = (currencyInput === 'gems' || currencyInput === 'gem') ? 'gems' : 'coins';
       
       const validCategories = ['ore', 'wood', 'crate', 'key', 'resource'];
@@ -4945,6 +4948,55 @@ client.on('messageCreate', async (message) => {
         const auctionAction = args[0]?.toLowerCase();
         
         if (auctionAction === 'create' || auctionAction === 'start') {
+          // Check if old text command style
+          if (args.length >= 4 && !isNaN(parseInt(args[3]))) {
+            const category = args[1]?.toLowerCase();
+            const itemName = args[2]?.toLowerCase();
+            const quantity = parseInt(args[3]);
+            const startingBid = parseInt(args[4]);
+            const durationHours = parseInt(args[5]) || 24;
+            const currency = args[6]?.toLowerCase() || 'coins';
+            
+            if (!category || !itemName || !quantity || !startingBid) {
+              await message.reply(
+                '**Create Auction (Text Command)**\n\n' +
+                'Usage: `!auction create <category> <name> <quantity> <bid> [hours] [currency]`\n\n' +
+                '**Categories:** ore, wood, crate, key, resource\n' +
+                '**Currency:** coins (default) or gems\n\n' +
+                '**Examples:**\n' +
+                '`!auction create ore voidinite 5 500`\n' +
+                '`!auction create crate legendary 1 1000 12 gems`'
+              );
+              return;
+            }
+            
+            if (currency !== 'coins' && currency !== 'gems') {
+              await message.reply('❌ Currency must be either "coins" or "gems"!');
+              return;
+            }
+            
+            const duration = durationHours * 3600000;
+            const createResult = await createAuction(data, userId, category, itemName, quantity, startingBid, duration, currency);
+            
+            if (!createResult.success) {
+              await message.reply(createResult.message);
+              return;
+            }
+            
+            const itemInfo = getItemInfo(category, itemName);
+            const currencyEmoji = currency === 'gems' ? '💎' : '💰';
+            await message.reply(
+              `✅ Auction created!\n` +
+              `${itemInfo.emoji} ${quantity}x ${itemName}\n` +
+              `Starting bid: ${startingBid} ${currency} ${currencyEmoji}\n` +
+              `Duration: ${durationHours} hour(s)\n` +
+              `ID: \`${createResult.auctionId.slice(0, 8)}\`\n` +
+              `Ends: <t:${Math.floor(createResult.endsAt / 1000)}:R>`
+            );
+            return;
+          }
+          
+          // New form button way
           const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
           
           const createButton = new ButtonBuilder()
@@ -4955,7 +5007,7 @@ client.on('messageCreate', async (message) => {
           const row = new ActionRowBuilder().addComponents(createButton);
           
           await message.reply({ 
-            content: '🎯 **Create a new auction!**\n\nClick the button below to open the form and list your items.',
+            content: '🎯 **Create a new auction!**\n\n**Two ways to create:**\n\n1️⃣ **Form (Recommended):** Click the button below\n2️⃣ **Text Command:** `!auction create <category> <name> <qty> <bid> [hours] [currency]`',
             components: [row]
           });
         } else if (auctionAction === 'bid') {
