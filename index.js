@@ -154,6 +154,7 @@ const {
 } = require('./triviaSystem.js');
 const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
+const { initializeClanLootSystem, claimLoot, viewLootStatus, forceNewLootDrop } = require('./clanLootSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const marketSystem = require('./marketSystem.js');
@@ -250,6 +251,7 @@ client.on('clientReady', async () => {
   await initializeLotterySystem(client, data);
   await eventSystem.init(client, data);
   await startDropSystem(client, data);
+  initializeClanLootSystem(client);
   startPromotionSystem(client);
   startPersonalizedTaskSystem(client, data);
   startWeeklyClanWars(client, data);
@@ -370,6 +372,24 @@ client.on('interactionCreate', async (interaction) => {
       const filterButtons = createMarketFilterButtons(newFilter);
       
       await interaction.update({ embeds: [embed], components: [navButtons, filterButtons] });
+    } else if (interaction.customId.startsWith('claim_loot_')) {
+      const lootId = interaction.customId.replace('claim_loot_', '');
+      const serverId = interaction.guild.id;
+      const userId = interaction.user.id;
+      
+      const claimResult = await claimLoot(userId, lootId, serverId);
+      
+      if (claimResult.success) {
+        await interaction.reply({
+          content: claimResult.message,
+          ephemeral: true
+        });
+      } else {
+        await interaction.reply({
+          content: claimResult.message,
+          ephemeral: true
+        });
+      }
     }
   } catch (error) {
     console.error('Error handling button interaction:', error);
@@ -4433,6 +4453,24 @@ client.on('messageCreate', async (message) => {
             '`!autolottery disable` - Disable auto lottery'
           );
         }
+        break;
+        
+      case 'clanlootstatus':
+        const lootStatusResult = await viewLootStatus(serverId);
+        if (lootStatusResult.success) {
+          await message.reply({ embeds: [lootStatusResult.embed] });
+        } else {
+          await message.reply(lootStatusResult.message);
+        }
+        break;
+        
+      case 'forceclanloot':
+        if (!isSuperAdmin(message.author.id)) {
+          await message.reply('❌ Only Super Admins can force clan loot drops!');
+          return;
+        }
+        const forceResult = await forceNewLootDrop();
+        await message.reply(forceResult.message);
         break;
         
       case 'work':
