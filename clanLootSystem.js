@@ -5,11 +5,11 @@ let activeClient = null;
 let activeLootDrops = {}; // { serverId: { lootId, clan, totalLoot, claimedPlayers, expiresAt } }
 
 const LOOT_RARITY = {
-  COMMON: { weight: 40, types: ['coins'] },
-  UNCOMMON: { weight: 30, types: ['gems', 'coins'] },
-  RARE: { weight: 20, types: ['tokens', 'crates', 'keys'] },
-  EPIC: { weight: 8, types: ['ust', 'crates'] },
-  LEGENDARY: { weight: 2, types: ['ust'] }
+  COMMON: { weight: 50, types: ['coins'] },
+  UNCOMMON: { weight: 35, types: ['gems', 'coins'] },
+  RARE: { weight: 13, types: ['tokens', 'crates', 'keys'] },
+  EPIC: { weight: 1.5, types: ['crates'] },
+  LEGENDARY: { weight: 0.5, types: ['ust'] }
 };
 
 const LOOT_AMOUNTS = {
@@ -18,7 +18,7 @@ const LOOT_AMOUNTS = {
   tokens: { min: 5, max: 15 },
   crates: { min: 1, max: 3 },
   keys: { min: 2, max: 5 },
-  ust: { min: 50, max: 200 }
+  ust: { min: 10, max: 50 }
 };
 
 const LOOT_DROP_INTERVAL = 3 * 60 * 60 * 1000; // 3 hours
@@ -298,6 +298,71 @@ async function forceNewLootDrop() {
   return { success: true, message: '✅ New loot drop initiated!' };
 }
 
+async function sendLootToClan(serverId) {
+  if (!activeClient) return { success: false, message: '❌ Bot not ready!' };
+  
+  try {
+    const { loadData } = require('./dataManager.js');
+    const data = await loadData();
+    
+    if (!data.clans || !data.clans[serverId]) {
+      return { success: false, message: `❌ No clan found in this server!` };
+    }
+    
+    const clan = data.clans[serverId];
+    const playerCount = Object.keys(clan.members || {}).length;
+    
+    if (playerCount === 0) {
+      return { success: false, message: `❌ Clan has no members!` };
+    }
+    
+    const lootScale = 0.5 + (playerCount * 0.1);
+    const loot = generateLoot(lootScale);
+    const lootId = `L${Date.now()}`;
+    
+    activeLootDrops[serverId] = {
+      lootId,
+      clan: clan.clanName || `Server Clan`,
+      playerCount,
+      totalLoot: loot,
+      claimedPlayers: {},
+      createdAt: Date.now(),
+      expiresAt: Date.now() + LOOT_EXPIRY
+    };
+    
+    const guild = activeClient.guilds.cache.get(serverId);
+    if (!guild) return { success: false, message: `❌ Guild not found!` };
+    
+    // Get events channel
+    let channelId = data.serverChannels?.[serverId]?.events;
+    if (!channelId) {
+      channelId = data.serverChannels?.[serverId]?.main || guild.systemChannelId;
+    }
+    
+    const channel = await activeClient.channels.fetch(channelId).catch(() => null);
+    if (!channel) return { success: false, message: `❌ Events channel not found!` };
+    
+    const embed = createLootEmbed(loot, clan.clanName || `Server Clan`, playerCount);
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`claim_loot_${lootId}`)
+        .setLabel('🎁 Claim Loot')
+        .setStyle(ButtonStyle.Primary)
+    );
+    
+    await channel.send({ embeds: [embed], components: [buttons] });
+    
+    return { 
+      success: true, 
+      message: `✅ Loot sent to ${clan.clanName || 'Server Clan'} in <#${channelId}>!\n💰 ${loot.coins} Coins | 💎 ${loot.gems} Gems | 🎫 ${loot.tokens} Tokens` 
+    };
+    
+  } catch (error) {
+    console.error('Error sending loot to clan:', error);
+    return { success: false, message: '❌ Error sending loot!' };
+  }
+}
+
 function getLootData() {
   return { ...activeLootDrops };
 }
@@ -311,6 +376,7 @@ module.exports = {
   claimLoot,
   viewLootStatus,
   forceNewLootDrop,
+  sendLootToClan,
   getLootData,
   setLootData
 };

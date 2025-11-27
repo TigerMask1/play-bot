@@ -154,7 +154,7 @@ const {
 } = require('./triviaSystem.js');
 const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
-const { initializeClanLootSystem, claimLoot, viewLootStatus, forceNewLootDrop } = require('./clanLootSystem.js');
+const { initializeClanLootSystem, claimLoot, viewLootStatus, forceNewLootDrop, sendLootToClan } = require('./clanLootSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const marketSystem = require('./marketSystem.js');
@@ -373,23 +373,17 @@ client.on('interactionCreate', async (interaction) => {
       
       await interaction.update({ embeds: [embed], components: [navButtons, filterButtons] });
     } else if (interaction.customId.startsWith('claim_loot_')) {
+      await interaction.deferReply({ ephemeral: true });
+      
       const lootId = interaction.customId.replace('claim_loot_', '');
       const serverId = interaction.guild.id;
       const userId = interaction.user.id;
       
       const claimResult = await claimLoot(userId, lootId, serverId);
       
-      if (claimResult.success) {
-        await interaction.reply({
-          content: claimResult.message,
-          ephemeral: true
-        });
-      } else {
-        await interaction.reply({
-          content: claimResult.message,
-          ephemeral: true
-        });
-      }
+      await interaction.editReply({
+        content: claimResult.message
+      });
     }
   } catch (error) {
     console.error('Error handling button interaction:', error);
@@ -4471,6 +4465,20 @@ client.on('messageCreate', async (message) => {
         }
         const forceResult = await forceNewLootDrop();
         await message.reply(forceResult.message);
+        break;
+        
+      case 'sendclanloot':
+        if (!isSuperAdmin(message.author.id)) {
+          await message.reply('❌ Only Super Admins can send clan loot!');
+          return;
+        }
+        const targetServerId = args[0];
+        if (!targetServerId) {
+          await message.reply('Usage: `!sendclanloot <server_id>`');
+          return;
+        }
+        const sendResult = await sendLootToClan(targetServerId);
+        await message.reply(sendResult.message);
         break;
         
       case 'work':
