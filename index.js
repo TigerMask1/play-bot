@@ -291,9 +291,7 @@ client.on('interactionCreate', async (interaction) => {
       const durationField = interaction.fields.getField('auction_duration');
       const durationHours = durationField ? (parseInt(durationField.value) || 24) : 24;
       
-      const currencyField = interaction.fields.getField('auction_currency');
-      const currencyInput = currencyField ? currencyField.value.toLowerCase() : 'coins';
-      const currency = (currencyInput === 'gems' || currencyInput === 'gem') ? 'gems' : 'coins';
+      const currency = 'coins';
       
       const validCategories = ['ore', 'wood', 'crate', 'key', 'resource'];
       
@@ -391,14 +389,6 @@ client.on('interactionCreate', async (interaction) => {
         .setRequired(true)
         .setMaxLength(10);
       
-      const currencyInput = new TextInputBuilder()
-        .setCustomId('auction_currency')
-        .setLabel('💎 Currency')
-        .setPlaceholder('coins or gems (default: coins)')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(false)
-        .setMaxLength(10);
-      
       const durationInput = new TextInputBuilder()
         .setCustomId('auction_duration')
         .setLabel('⏰ Duration (hours)')
@@ -412,7 +402,7 @@ client.on('interactionCreate', async (interaction) => {
         new ActionRowBuilder().addComponents(itemNameInput),
         new ActionRowBuilder().addComponents(quantityInput),
         new ActionRowBuilder().addComponents(bidInput),
-        new ActionRowBuilder().addComponents(currencyInput)
+        new ActionRowBuilder().addComponents(durationInput)
       );
       
       await interaction.showModal(modal);
