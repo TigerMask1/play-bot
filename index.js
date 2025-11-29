@@ -1489,10 +1489,23 @@ client.on('messageCreate', async (message) => {
         
       case 'q':
         const qKeyword = args[0]?.toLowerCase();
+        let targetMessage = message;
+        
+        // Check if this is a reply to another message
+        if (message.reference) {
+          try {
+            targetMessage = await message.channel.messages.fetch(message.reference.messageId);
+          } catch (error) {
+            console.error('Error fetching referenced message:', error);
+            // Fall back to original message if fetch fails
+            targetMessage = message;
+          }
+        }
+        
         if (!qKeyword) {
           const allQA = await getAllQA(data);
           if (allQA.length === 0) {
-            await message.reply('❓ No Q&A entries available!\n\nBot admins can add entries with `!qadd keyword | message`');
+            await targetMessage.reply('❓ No Q&A entries available!\n\nBot admins can add entries with `!qadd keyword | message`');
             return;
           }
           const qaEmbed = new EmbedBuilder()
@@ -1500,15 +1513,15 @@ client.on('messageCreate', async (message) => {
             .setTitle('📚 Available Q&A Topics')
             .setDescription(allQA.map((qa, i) => `${i + 1}. \`${qa.keyword}\``).join('\n'))
             .setFooter({ text: `Use !q <keyword> to get answer | Total: ${allQA.length}` });
-          await message.reply({ embeds: [qaEmbed] });
+          await targetMessage.reply({ embeds: [qaEmbed] });
           return;
         }
         const entry = await getQAEntry(data, qKeyword);
         if (!entry) {
-          await message.reply(`❌ Q&A entry for **${qKeyword}** not found!\n\nUse \`!q\` to see all topics.`);
+          await targetMessage.reply(`❌ Q&A entry for **${qKeyword}** not found!\n\nUse \`!q\` to see all topics.`);
           return;
         }
-        await message.reply({ embeds: [formatQAEmbed(entry)] });
+        await targetMessage.reply({ embeds: [formatQAEmbed(entry)] });
         break;
         
       case 'qadd':
