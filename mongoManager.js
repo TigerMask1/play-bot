@@ -85,6 +85,7 @@ async function loadData() {
     const marketConfig = await configCollection.findOne({ _id: 'market_data' });
     const auctionConfig = await configCollection.findOne({ _id: 'auction_data' });
     const workImagesConfig = await configCollection.findOne({ _id: 'work_images' });
+    const qaConfig = await configCollection.findOne({ _id: 'qa_data' });
     
     return {
       users: userData,
@@ -99,6 +100,7 @@ async function loadData() {
       marketIdCounter: marketConfig?.marketIdCounter || 0,
       auctionIdCounter: auctionConfig?.auctionIdCounter || 0,
       workImages: workImagesConfig?.images || {},
+      globalQA: qaConfig?.globalQA || [],
       dropChannelId: config?.dropChannelId || null,
       battleChannelId: config?.battleChannelId || null,
       eventChannelId: config?.eventChannelId || null
@@ -118,6 +120,7 @@ async function loadData() {
       marketIdCounter: 0,
       auctionIdCounter: 0,
       workImages: {},
+      globalQA: [],
       dropChannelId: null,
       battleChannelId: null,
       eventChannelId: null
@@ -224,6 +227,14 @@ async function saveData(data) {
       await configCollection.updateOne(
         { _id: 'work_images' },
         { $set: { images: data.workImages } },
+        { upsert: true }
+      );
+    }
+    
+    if (data.globalQA !== undefined) {
+      await configCollection.updateOne(
+        { _id: 'qa_data' },
+        { $set: { globalQA: data.globalQA } },
         { upsert: true }
       );
     }
