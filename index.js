@@ -155,6 +155,7 @@ const {
 const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
 const { getQAEntry, getAllQA, addQAEntry, editQAEntry, deleteQAEntry, formatQAEmbed } = require('./qaSystem.js');
+const { submitQA, getPendingSubmissions, approveQASubmission, rejectQASubmission, formatSubmissionEmbed } = require('./qaSubmissionSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const marketSystem = require('./marketSystem.js');
@@ -1560,6 +1561,91 @@ client.on('messageCreate', async (message) => {
         }
         const result3 = await deleteQAEntry(data, delKeyword);
         await message.reply(result3.message);
+        break;
+        
+      case 'submitqa':
+        const subContent = message.content.slice(PREFIX.length + 8).trim();
+        const parts = subContent.split('|');
+        
+        if (parts.length < 3) {
+          await message.reply('**Submit Q&A for Approval**\n\nUsage: `!submitqa keyword | question | answer`\n\n**Example:**\n```\n!submitqa how-to-battle | How do I battle another player? | Use !b @user to challenge them\n```\n\n💡 **Tip:** If your Q&A gets approved, you get **10 gems**!');
+          return;
+        }
+        
+        const subKeyword = parts[0].trim();
+        const subQuestion = parts[1].trim();
+        const subAnswer = parts[2].trim();
+        
+        const subResult = await submitQA(data, userId, subKeyword, subQuestion, subAnswer);
+        const subEmbed = new EmbedBuilder()
+          .setColor(subResult.success ? '#00FF00' : '#FF0000')
+          .setTitle(subResult.success ? '✅ Q&A Submitted!' : '❌ Submission Failed')
+          .setDescription(subResult.message);
+        
+        await message.reply({ embeds: [subEmbed] });
+        break;
+        
+      case 'pendingqa':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can review pending Q&A entries!');
+          return;
+        }
+        
+        const pending = await getPendingSubmissions(data);
+        if (pending.length === 0) {
+          await message.reply('✅ No pending Q&A submissions!');
+          return;
+        }
+        
+        const pendingEmbed = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle(`📋 Pending Q&A Submissions (${pending.length})`)
+          .setDescription('Use `!approveqa <ID>` or `!rejectqa <ID> <reason>` to review\n\n' + 
+            pending.map((sub, i) => 
+              `**${i + 1}. ID:** \`${sub.id}\` | **Keyword:** \`${sub.keyword}\` | **By:** <@${sub.userId}>`
+            ).join('\n')
+          );
+        
+        await message.reply({ embeds: [pendingEmbed] });
+        
+        // Send detailed embeds for each submission
+        for (let i = 0; i < pending.length; i++) {
+          await message.reply({ embeds: [formatSubmissionEmbed(pending[i], i + 1)] });
+        }
+        break;
+        
+      case 'approveqa':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can approve Q&A entries!');
+          return;
+        }
+        
+        const approveId = args[0]?.toUpperCase();
+        if (!approveId) {
+          await message.reply('Usage: `!approveqa <submission_id>`\n\nExample: `!approveqa SUBABC123`');
+          return;
+        }
+        
+        const approveResult = await approveQASubmission(data, approveId, userId, client);
+        await message.reply(approveResult.message);
+        break;
+        
+      case 'rejectqa':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can reject Q&A entries!');
+          return;
+        }
+        
+        const rejectId = args[0]?.toUpperCase();
+        const rejectReason = args.slice(1).join(' ');
+        
+        if (!rejectId) {
+          await message.reply('Usage: `!rejectqa <submission_id> [reason]`\n\nExample: `!rejectqa SUBABC123 Answer too short`');
+          return;
+        }
+        
+        const rejectResult = await rejectQASubmission(data, rejectId, rejectReason, userId, client);
+        await message.reply(rejectResult.message);
         break;
         
       case 'crate':

@@ -226,9 +226,13 @@ async function loadData() {
         backfilledData.globalQA = [];
       }
       
-      if (needsSave || !data.giveawayData || !data.lotteryData || !data.globalQA) {
+      if (!backfilledData.globalQASubmissions) {
+        backfilledData.globalQASubmissions = [];
+      }
+      
+      if (needsSave || !data.giveawayData || !data.lotteryData || !data.globalQA || !data.globalQASubmissions) {
         await mongoManager.saveData(backfilledData);
-        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, lottery, and Q&A');
+        console.log('✅ Backfilled missing data in MongoDB: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, lottery, Q&A, and Q&A submissions');
       }
       
       return backfilledData;
@@ -298,9 +302,13 @@ async function loadData() {
       backfilledData.globalQA = [];
     }
     
-    if (needsSave || !data.giveawayData || !data.lotteryData || !data.globalQA) {
+    if (!backfilledData.globalQASubmissions) {
+      backfilledData.globalQASubmissions = [];
+    }
+    
+    if (needsSave || !data.giveawayData || !data.lotteryData || !data.globalQA || !data.globalQASubmissions) {
       saveData(backfilledData);
-      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, lottery, and Q&A');
+      console.log('✅ Backfilled missing data: ST, moves, HP, pending tokens, shards, trophies, message tracking, daily rewards, quests, mailbox, crates, skins, giveaway, lottery, Q&A, and Q&A submissions');
     }
     
     return backfilledData;

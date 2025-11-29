@@ -101,6 +101,7 @@ async function loadData() {
       auctionIdCounter: auctionConfig?.auctionIdCounter || 0,
       workImages: workImagesConfig?.images || {},
       globalQA: qaConfig?.globalQA || [],
+      globalQASubmissions: qaConfig?.globalQASubmissions || [],
       dropChannelId: config?.dropChannelId || null,
       battleChannelId: config?.battleChannelId || null,
       eventChannelId: config?.eventChannelId || null
@@ -121,6 +122,7 @@ async function loadData() {
       auctionIdCounter: 0,
       workImages: {},
       globalQA: [],
+      globalQASubmissions: [],
       dropChannelId: null,
       battleChannelId: null,
       eventChannelId: null
@@ -231,10 +233,13 @@ async function saveData(data) {
       );
     }
     
-    if (data.globalQA !== undefined) {
+    if (data.globalQA !== undefined || data.globalQASubmissions !== undefined) {
       await configCollection.updateOne(
         { _id: 'qa_data' },
-        { $set: { globalQA: data.globalQA } },
+        { $set: { 
+          globalQA: data.globalQA || [],
+          globalQASubmissions: data.globalQASubmissions || []
+        } },
         { upsert: true }
       );
     }
