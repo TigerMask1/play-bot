@@ -288,7 +288,7 @@ async function getTransactionHistory(userId, serverId = null, limit = 50) {
   try {
     const collection = await getCollection(COLLECTIONS.ECONOMY_TRANSACTIONS);
     
-    const query = { odiserId: userId };
+    const query = { userId: userId };
     if (serverId) {
       query.serverId = serverId;
     }

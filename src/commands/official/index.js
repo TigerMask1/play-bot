@@ -11,6 +11,8 @@ const { logCurrencyGrant } = require('../../services/auditService');
 
 require('./economy');
 require('./content');
+require('./gameplay');
+require('./customization');
 
 registerOfficialCommand('help', {
   aliases: ['h', 'commands'],
