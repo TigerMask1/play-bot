@@ -1,277 +1,109 @@
-# 🎮 ZooBot - Discord Character Collection Game
+# PlayBot - Community Collection Platform
 
-**ZooBot** is a comprehensive Discord bot that brings an immersive character collection and battling experience to your server. With 51+ unique characters, turn-based battles, an economy system, and competitive events, ZooBot creates an engaging community game for your Discord server.
+A modular Discord bot platform that allows each server to create their own custom character collection game, connected by a global economy layer.
 
----
+## Features
 
-## ✨ Key Features
+- **Multi-Server Architecture**: Each server operates independently with its own characters, economy, and settings
+- **Dual Economy System**: Server-local currency + global PlayCoins/PlayGems that work across all servers
+- **Modular Design**: Enable/disable features per server (collection, battles, clans, trading, etc.)
+- **Custom Characters**: Create unique characters for your community
+- **Battle System**: PvP battles between players
+- **Clan System**: Create and manage clans within each server
+- **Trading**: Trade characters with other players
+- **Drop System**: Automatic character spawns in configured channels
+- **Leaderboards**: Server and global rankings
+- **Admin Tools**: Full configuration and moderation capabilities
 
-### 🎯 Character Collection System
-- **51+ Unique Characters** with special stats, abilities, and leveling
-- **Character Skins** for customization
-- **Two-Tier Unlock System**: Character Keys (1000 keys for specific character) or Cage Keys (250 keys for random character)
-- **Leveling System** with stat progression and release mechanics
+## Quick Start
 
-### ⚔️ Turn-Based Battle System
-- **Energy Management** mechanics
-- **51 Unique Passive Abilities** (one per character)
-- **Status Effects**: Burn, Poison, Stun, Freeze, Bleed, and more
-- **Battle Items**: Potions, shields, energy drinks
-- **AI Battle Mode** with Easy, Medium, and Hard difficulty
+1. Set environment variables:
+   - `DISCORD_BOT_TOKEN`: Your Discord bot token
+   - `MONGODB_URI`: MongoDB connection string
 
-### 🎁 Dynamic Drop System
-- **Main Server**: Unlimited free drops every 20 seconds
-- **Non-Main Servers**: Pay 100 gems for 3 hours of drops (drops every 30 seconds)
-  - **Super Admin Override**: Super admins can grant infinite drops to any server
-- **Smart Pausing**: Auto-pauses after 30 uncaught drops (3-hour timer keeps running)
-- **Drop Revival**: Anyone can revive drops by using `!c <code>` (even if they don't catch it)
-- **Rewards**: Coins, Gems, Shards, and Character Tokens
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-### 📦 Interactive Crate System
-- **6 Crate Tiers**: Bronze, Silver, Gold, Emerald, Legendary, Tyrant
-- **Two-Step Opening**: Pick crate, then open with anticipation
-- **Custom GIF Animations** for crate openings
-- **Pending Tokens System** for unclaimed rewards
+3. Start the bot:
+   ```bash
+   npm start
+   ```
 
-### 💎 Multi-Currency Economy
-- **Coins** 💰 - Primary currency for purchases
-- **Gems** 💎 - Premium currency for special items
-- **Shards** 🔷 - Craft ST boosters
-- **Trophies** 🏆 - Competitive ranking currency
-- **Character Tokens** 🎫 - Unlock character skins
-
-### 🎯 Competitive Features
-- **Daily Events**: Trophy Hunt, Crate Master, Drop Catcher
-- **Real-Time Leaderboards**: Track top players in coins, gems, battles, collection, trophies
-- **Clan Wars**: Join clans, donate resources, compete weekly
-- **Event Auto-Rewards**: Automatic prize distribution
-
-### 📜 Progression Systems
-- **Quest System**: Complete objectives for rewards
-- **Personalized Tasks**: Dynamic tasks every 4 hours based on your playstyle
-- **Daily Login Rewards**: Earn coins and gems daily
-- **Transaction History**: Track your economic activity
-
-### 🛡️ Permission System
-- **Super Admin** (Bot Owners): Full control across all servers
-- **ZooAdmin Role**: Server customization and drop management
-- **Bot Admin** (Legacy): Event management
-- **Regular Users**: All gameplay features
-
----
-
-## 🚀 Getting Started
-
-### For Server Owners
-
-1. **Invite ZooBot** to your server
-2. **Create ZooAdmin Role**: Create a Discord role named "ZooAdmin" (case insensitive)
-3. **Assign ZooAdmin**: Give the role to trusted users who should manage the bot
-4. **Configure Channels** (ZooAdmin only):
-   - `!setdropchannel #channel` - Where drops appear
-   - `!seteventschannel #channel` - Where events are announced
-   - `!setupdateschannel #channel` - Where bot updates are posted
-5. **Activate Drops** (ZooAdmin only): `!paydrops` - Pay 100 gems for 3 hours of drops
-   - **Note:** Super admins can grant unlimited drops using `!setinfinitedrops on`
-
-### For Players
-
-1. **Start Your Journey**: `!start`
-2. **Select Starter**: `!select <character>` - Choose your first character
-3. **View Profile**: `!profile` - Check your progress
-4. **Catch Drops**: `!c <code>` - Be first to catch drops for rewards
-5. **Battle**: `!b @user` or `!b ai` - Challenge others or AI
-6. **Open Crates**: `!crate` - Get characters and rewards
-7. **Complete Quests**: `!quests` - View and complete objectives
-
----
-
-## 📋 Essential Commands
+## Commands
 
 ### Getting Started
-- `!start` - Begin your ZooBot journey
-- `!select <character>` - Choose your starter character
+- `!start` - Begin your collection journey
 - `!help` - View all commands
-- `!overview` - See all game systems
-
-### Profile & Characters
-- `!profile [page]` - View your profile and collection
-- `!char <name>` - View character details
-- `!levelup <name>` - Level up a character
-- `!setpfp <name>` - Set profile picture from owned characters
-
-### Gameplay
-- `!b @user` or `!b ai` - Start a battle
-- `!c <code>` - Catch drops
-- `!crate [type]` - Open crates
-- `!t @user` - Trade with another player
+- `!profile` - View your stats
 - `!daily` - Claim daily rewards
 
-### Economy & Progression
-- `!quests` - View available quests
-- `!shop` - Battle items shop
-- `!shards` - ST booster system info
-- `!keys` - View your character and cage keys
+### Collection
+- `!catch <code>` - Catch dropped characters
+- `!collection` - View your characters
+- `!character <name>` - View character details
+- `!select <name>` - Set active character
 
-### Events & Competition
-- `!event` - View current event
-- `!leaderboard <type>` - View rankings
-- `!clan` - Clan information
-- `!eventleaderboard` - Event rankings
+### Economy
+- `!balance` - Check your balance
+- `!shop` - View the shop
+- `!buy <item>` - Purchase items
+- `!gift @user <amount>` - Gift coins
 
-### Server Management (ZooAdmin)
+### Social
+- `!battle @user` - Challenge to battle
+- `!trade @user` - Trade characters
+- `!clan` - Clan management
+- `!leaderboard` - View rankings
+
+### Admin
 - `!setup` - Server setup guide
-- `!setdropchannel #channel` - Configure drop channel
-- `!paydrops` - Activate drops (100 gems for 3 hours)
-- `!setemoji <char> <emoji>` - Custom character emojis
-- `!permissions` - View permission system info
+- `!config` - Configure settings
+- `!module` - Enable/disable features
+- `!createcharacter` - Create custom characters
+- `!setchannel` - Configure channels
+- `!setrole` - Configure roles
 
----
+## Architecture
 
-## 💡 Drop System Details
-
-### Main Server
-- **Free unlimited drops** every 20 seconds
-- No payment required
-- All features available
-
-### Non-Main Servers
-- **Paid drop system**: 100 gems for 3 hours
-- Drops every 30 seconds when active
-- **Auto-pause**: After 30 uncaught drops (timer keeps running)
-- **Auto-revival**: Anyone using `!c <code>` revives the system (even if they don't catch it)
-- Only **ZooAdmins** can activate drops with `!paydrops`
-
-### Drop Revival Feature
-Using `!c <code>` **always revives paused drops**, regardless of whether you catch the drop or not:
-- ✅ **Catch successful**: You get the reward AND revive drops (if paused)
-- ✅ **Catch failed** (don't own character): You don't get tokens BUT still revive drops
-- ⏰ **Timer continues**: The 3-hour timer keeps running even when drops are paused
-- 🎯 **Help your community**: Use `!c <code>` to help restart drops, even if you can't claim the reward!
-
----
-
-## 🎨 Customization
-
-### Custom Character Emojis
-ZooAdmins can set custom Discord emojis for characters:
 ```
-!setemoji <character> <emoji>
+src/
+├── index.js              # Entry point
+├── bot.js                # Bot client
+├── commands/             # Command handlers
+│   ├── admin/
+│   ├── economy/
+│   ├── collection/
+│   ├── battle/
+│   ├── clan/
+│   └── social/
+├── events/               # Discord events
+├── modules/              # Feature modules
+├── database/             # MongoDB layer
+├── utils/                # Utilities
+└── config/               # Configuration
 ```
 
-### Custom Crate GIFs
-ZooAdmins can customize crate opening animations:
-```
-!setchestgif <type> <url>
-```
-Types: gold, emerald, legendary, tyrant, bronze, silver
+## Economy
 
----
+### Server Currency (Isolated)
+- **Coins**: Earned through gameplay in that specific server
+- **Gems**: Premium server currency
+- Cannot leave the server ecosystem
 
-## 🔒 Permission Levels
+### Global Currency (Connected)
+- **PlayCoins**: Earned through cross-server activities
+- **PlayGems**: Premium global currency
+- Works across all servers running PlayBot
+- Used in global marketplace
 
-### 👑 Super Admin (Bot Owners)
-- Hardcoded user IDs
-- Full access to all commands globally
-- User/skin management, server control, data resets
+## Documentation
 
-### 🛡️ ZooAdmin (Server Customization)
-- Discord role: "ZooAdmin" (case insensitive)
-- Server setup and channel configuration
-- Drop activation (`!paydrops`)
-- Custom emojis and GIFs
+- [Architecture](docs/ARCHITECTURE.md) - Technical design
+- [Commands](docs/COMMANDS.md) - Full command reference
+- [Setup](docs/SETUP.md) - Installation guide
 
-### 🔧 Bot Admin (Legacy - Being Phased Out)
-- Database-stored admins
-- Event management commands
-- Use `!addadmin` / `!removeadmin`
+## License
 
-### 👥 Regular Users
-- All gameplay commands
-- Battles, trading, quests, crates, profiles
-
-**See full documentation:** `!permissions` or read `PERMISSIONS_DOCUMENTATION.md`
-
----
-
-## 🗄️ Technical Details
-
-### Architecture
-- **Framework**: Discord.js v14
-- **Runtime**: Node.js 20
-- **Database**: Dual-mode system (JSON for testing, MongoDB for production)
-- **Multi-Server**: Supports deployment across multiple Discord servers
-
-### Data Storage
-- **JSON Mode**: Local file storage for development/testing
-- **MongoDB Mode**: Cloud database for production deployment
-- **One-Command Migration**: Easy switch between storage modes
-
-### Performance
-- In-memory caching for skins
-- MongoDB indexes for fast queries
-- Optimized drop system to minimize Discord API calls
-- Graceful shutdown with data persistence
-
----
-
-## 📚 Documentation Files
-
-- **README.md** (this file) - Overview and getting started
-- **PERMISSIONS_DOCUMENTATION.md** - Detailed permission system guide
-- **replit.md** - Technical architecture and development notes
-
----
-
-## 🔧 Development Setup
-
-### 1. Create a Discord Bot
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
-3. Go to the "Bot" tab and click "Add Bot"
-4. Under "Privileged Gateway Intents", enable:
-   - MESSAGE CONTENT INTENT
-   - SERVER MEMBERS INTENT
-5. Copy your bot token
-
-### 2. Configure Environment
-Set the following secrets:
-- `DISCORD_BOT_TOKEN` - Your Discord bot token
-- `MONGODB_URI` (optional) - MongoDB connection string for production
-
-### 3. Invite Bot to Server
-1. Go to "OAuth2" → "URL Generator" in Discord Developer Portal
-2. Select scopes: `bot`
-3. Select permissions:
-   - Read Messages/View Channels
-   - Send Messages
-   - Embed Links
-   - Read Message History
-   - Use External Emojis
-   - Mention Everyone
-4. Copy the generated URL and open it in your browser
-5. Select your server and authorize
-
----
-
-## 🆘 Support & Help
-
-- Use `!help` in Discord for command list
-- Use `!overview` for game systems overview
-- Use `!permissions` for permission info
-- Contact bot administrators for server-specific issues
-- Join the main server for unlimited drops and support
-
----
-
-## ⚠️ Important Notes
-
-- **Only ZooAdmins can activate drops** on non-main servers
-- **Drop system auto-pauses** after 30 uncaught drops but can be revived
-- **Character ownership required** to claim token drops (but anyone can revive drops)
-- **Data is automatically saved** - no manual saves needed
-- **This is a fan-made game** for entertainment purposes
-
----
-
-**Enjoy ZooBot! 🎮**
+MIT License - Feel free to use and modify for your own projects.
