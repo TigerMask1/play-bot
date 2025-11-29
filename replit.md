@@ -64,6 +64,7 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Security:** Critical economy/admin commands restricted to super-admins. Server customization requires ZooAdmin role for safe delegation of bot management to trusted server members.
 - **Multi-Server Architecture:** Supports deployment across multiple Discord servers, differentiating features like drop rates, clan wars, and promotional messages between a "Main Server" and "Non-Main Servers."
 
+- **Character Info Command (!info):** View any character's information without owning them - see default skin, special ability, and how to obtain them.
 - **Q&A System (UPDATED):** Comprehensive Q&A system with user submissions for approval:
   - **User Commands:** `!q` (list topics), `!q <keyword>` (get answer), `!submitqa keyword | question | answer` (submit for approval)
   - **Admin Commands:** `!qadd keyword | message` (add directly), `!qedit keyword | message` (edit), `!qdel keyword` (delete), `!pendingqa` (view pending), `!approveqa <id>` (approve), `!rejectqa <id> <reason>` (reject)

@@ -3048,7 +3048,7 @@ client.on('messageCreate', async (message) => {
         const infoCharName = args.join(' ').toLowerCase();
         
         if (!infoCharName) {
-          await message.reply('Usage: `!I <character name>`');
+          await message.reply('Usage: `!info <character name>` - View any character (even if you don\'t own it!)');
           return;
         }
         
@@ -3056,38 +3056,68 @@ client.on('messageCreate', async (message) => {
           c.name.toLowerCase() === infoCharName
         );
         
-        if (!userInfoChar) {
-          await message.reply('❌ You don\'t own this character!');
+        // If user owns it, show full battle details
+        if (userInfoChar) {
+          if (!userInfoChar.moves || !userInfoChar.baseHp) {
+            await message.reply('❌ This character doesn\'t have battle data yet! It will be added automatically.');
+            return;
+          }
+          
+          const moves = userInfoChar.moves;
+          const movesList = [
+            `**Special:** ${getMoveDisplay(moves.special, userInfoChar.level, userInfoChar.st, true)}`,
+            `**Move 1:** ${getMoveDisplay(moves.tierMoves[0], userInfoChar.level, userInfoChar.st, false)}`,
+            `**Move 2:** ${getMoveDisplay(moves.tierMoves[1], userInfoChar.level, userInfoChar.st, false)}`
+          ].join('\n');
+          
+          const infoSkinUrl = await getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
+          const abilityDesc = getAbilityDescription(userInfoChar.name);
+          
+          const infoEmbed = new EmbedBuilder()
+            .setColor('#9B59B6')
+            .setTitle(`${userInfoChar.emoji} ${userInfoChar.name}`)
+            .setImage(infoSkinUrl)
+            .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}\n**Skin:** ${userInfoChar.currentSkin || 'default'}`)
+            .addFields(
+              { name: '✨ Ability', value: abilityDesc, inline: false },
+              { name: '⚔️ Moves', value: movesList, inline: false },
+              { name: '📊 Battle Info', value: `Energy system: Moves cost ⚡\nCritical hits: 15% base chance\nSpecial moves cost more energy but deal more damage`, inline: false }
+            );
+          
+          await message.reply({ embeds: [infoEmbed] });
           return;
         }
         
-        if (!userInfoChar.moves || !userInfoChar.baseHp) {
-          await message.reply('❌ This character doesn\'t have battle data yet! It will be added automatically.');
+        // Otherwise show general character info (even if not owned)
+        const genCharData = CHARACTERS.find(c => c.name.toLowerCase() === infoCharName);
+        if (!genCharData) {
+          await message.reply(`❌ Character **${infoCharName}** not found!`);
           return;
         }
         
-        const moves = userInfoChar.moves;
-        const movesList = [
-          `**Special:** ${getMoveDisplay(moves.special, userInfoChar.level, userInfoChar.st, true)}`,
-          `**Move 1:** ${getMoveDisplay(moves.tierMoves[0], userInfoChar.level, userInfoChar.st, false)}`,
-          `**Move 2:** ${getMoveDisplay(moves.tierMoves[1], userInfoChar.level, userInfoChar.st, false)}`
-        ].join('\n');
+        const genAbility = getCharacterAbility(genCharData.name);
+        const genSkinUrl = await getSkinUrl(genCharData.name, 'default');
         
-        const infoSkinUrl = await getSkinUrl(userInfoChar.name, userInfoChar.currentSkin || 'default');
-        const abilityDesc = getAbilityDescription(userInfoChar.name);
-        
-        const infoEmbed = new EmbedBuilder()
-          .setColor('#9B59B6')
-          .setTitle(`${userInfoChar.emoji} ${userInfoChar.name}`)
-          .setImage(infoSkinUrl)
-          .setDescription(`**Level:** ${userInfoChar.level}\n**ST:** ${userInfoChar.st}%\n**HP:** ${userInfoChar.baseHp}\n**Tokens:** ${userInfoChar.tokens}\n**Skin:** ${userInfoChar.currentSkin || 'default'}`)
+        const genInfoEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle(`${genCharData.emoji} ${genCharData.name}`)
+          .setImage(genSkinUrl)
           .addFields(
-            { name: '✨ Ability', value: abilityDesc, inline: false },
-            { name: '⚔️ Moves', value: movesList, inline: false },
-            { name: '📊 Battle Info', value: `Energy system: Moves cost ⚡\nCritical hits: 15% base chance\nSpecial moves cost more energy but deal more damage`, inline: false }
+            { name: '📍 Availability', value: genCharData.obtainable === 'starter' ? '⭐ **Starter Character**' : '📦 **Crate Only**', inline: true }
           );
         
-        await message.reply({ embeds: [infoEmbed] });
+        if (genAbility) {
+          genInfoEmbed.addFields({
+            name: `${genAbility.emoji} Special Ability: ${genAbility.name}`,
+            value: genAbility.description,
+            inline: false
+          });
+        }
+        
+        genInfoEmbed.setDescription(`You don't own this character yet.\n\n💡 Tip: Use \`!crate\` to try unlocking it!`)
+          .setFooter({ text: 'Interested? Get this character from crates!' });
+        
+        await message.reply({ embeds: [genInfoEmbed] });
         break;
         
       case 'quests': {
@@ -4373,6 +4403,7 @@ client.on('messageCreate', async (message) => {
         await message.reply({ embeds: [permEmbed] });
         break;
         
+        
       case 'help':
         const helpEmbed = new EmbedBuilder()
           .setColor('#3498DB')
@@ -4381,7 +4412,7 @@ client.on('messageCreate', async (message) => {
           .addFields(
             { name: '🎯 Getting Started', value: '`!start` - Begin your journey\n`!select <character>` - Choose starter character' },
             { name: '🎰 Minigames (NEW!)', value: '`!coinduel <h/t> <bet>` - Coin flip (×2, rare ×5)\n`!diceclash <bet>` - Progressive dice rolling\n`!dooroffate <bet>` - Pick 1 of 3 doors\n`!almostwin <bet>` - Roll 1-100 for prizes\n`!rps <r/p/s> <bet>` - Rock Paper Scissors\n💡 **1.5× rewards on main server!**' },
-            { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
+            { name: '👤 Profile & Characters', value: '`!profile [page]` - View your profile\n`!char <name>` - View character details\n`!info <name>` - View any character info (even if you don\'t own)\n`!I <name>` - View battle info\n`!setpfp <name>` - Set profile picture\n`!levelup <name>` - Level up character\n`!release <name>` - Release character (lvl 10+)' },
             { name: '⚔️ Battles & Items', value: '`!b @user` - Challenge to battle\n`!b ai` - Battle AI (easy/medium/hard)\n`!shop` - View battle items shop' },
             { name: '🎁 Drops & Rewards', value: '`!c <code>` - Catch drops\n`!paydrops` - Activate drops (100 gems/3h)\n`!dropstatus` - Check drop timer\n`!daily` - Daily rewards' },
             { name: '📦 Crates & Shop', value: '`!crate [type]` - Open crates\n`!pickcrate <type>` - Choose crate to open\n`!opencrate` - Open selected crate\n`!buycrate <type>` - Buy crates' },
