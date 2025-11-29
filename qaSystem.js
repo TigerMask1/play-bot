@@ -69,12 +69,22 @@ async function deleteQAEntry(data, keyword) {
 }
 
 function formatQAEmbed(entry) {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor('#00D9FF')
-    .setTitle(`❓ ${entry.keyword.toUpperCase()}`)
-    .setDescription(entry.message)
+    .setTitle(`❓ ${entry.question || entry.keyword}`)
     .setFooter({ text: 'Q&A System' })
     .setTimestamp();
+  
+  // If there's a question, show keyword as field and answer as description
+  if (entry.question) {
+    embed.setDescription(entry.message)
+      .addFields({ name: '🔑 Keyword', value: `\`${entry.keyword}\`` });
+  } else {
+    // For legacy entries without question, just show the answer
+    embed.setDescription(entry.message);
+  }
+  
+  return embed;
 }
 
 module.exports = {
