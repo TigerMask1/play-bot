@@ -64,6 +64,8 @@ The bot is built on Discord.js v14 and Node.js 20, utilizing a dual-mode data st
 - **Security:** Critical economy/admin commands restricted to super-admins. Server customization requires ZooAdmin role for safe delegation of bot management to trusted server members.
 - **Multi-Server Architecture:** Supports deployment across multiple Discord servers, differentiating features like drop rates, clan wars, and promotional messages between a "Main Server" and "Non-Main Servers."
 
+- **Q&A System (NEW):** Simple Q&A guide system where users can query common questions with `!q <keyword>`. Bot admins can manage Q&A entries with `!qadd keyword | message`, `!qedit keyword | message`, and `!qdel keyword`. All entries stored in MongoDB. Users can list all topics with `!q`.
+
 ## External Dependencies
 - **Discord.js v14**: For all Discord API interactions.
 - **Node.js 20**: The JavaScript runtime environment.

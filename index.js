@@ -154,6 +154,7 @@ const {
 } = require('./triviaSystem.js');
 const { ORES, WOOD_TYPES, formatOreInventory, formatWoodInventory } = require('./resourceSystem.js');
 const { TOOL_TYPES, CRAFTING_RECIPES, craftTool, getToolInfo } = require('./toolSystem.js');
+const { getQAEntry, getAllQA, addQAEntry, editQAEntry, deleteQAEntry, formatQAEmbed } = require('./qaSystem.js');
 const { JOBS, initializeWorkData, canWork, assignRandomJob, completeWork, handleMinerJob, handleCaretakerJob, handleFarmerJob, handleZookeeperJob, handleRangerJob } = require('./workSystem.js');
 const { upgradeHouse, getHouseInfo } = require('./caretakingSystem.js');
 const marketSystem = require('./marketSystem.js');
@@ -1484,6 +1485,68 @@ client.on('messageCreate', async (message) => {
           await saveDataImmediate(data);
           await message.reply(answerResult.message);
         }
+        break;
+        
+      case 'q':
+        const qKeyword = args[0]?.toLowerCase();
+        if (!qKeyword) {
+          const allQA = await getAllQA(data);
+          if (allQA.length === 0) {
+            await message.reply('❓ No Q&A entries available!\n\nBot admins can add entries with `!qadd keyword | message`');
+            return;
+          }
+          const qaEmbed = new EmbedBuilder()
+            .setColor('#3498DB')
+            .setTitle('📚 Available Q&A Topics')
+            .setDescription(allQA.map((qa, i) => `${i + 1}. \`${qa.keyword}\``).join('\n'))
+            .setFooter({ text: `Use !q <keyword> to get answer | Total: ${allQA.length}` });
+          await message.reply({ embeds: [qaEmbed] });
+          return;
+        }
+        const entry = await getQAEntry(data, qKeyword);
+        if (!entry) {
+          await message.reply(`❌ Q&A entry for **${qKeyword}** not found!\n\nUse \`!q\` to see all topics.`);
+          return;
+        }
+        await message.reply({ embeds: [formatQAEmbed(entry)] });
+        break;
+        
+      case 'qadd':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can add Q&A entries!');
+          return;
+        }
+        const addContent = message.content.slice(PREFIX.length + 4).trim();
+        const [addKeyword, ...addMsgParts] = addContent.split('|');
+        const addMsg = addMsgParts.join('|').trim();
+        const result1 = await addQAEntry(data, addKeyword?.trim(), addMsg);
+        await message.reply(result1.message);
+        break;
+        
+      case 'qedit':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can edit Q&A entries!');
+          return;
+        }
+        const editContent = message.content.slice(PREFIX.length + 5).trim();
+        const [editKeyword, ...editMsgParts] = editContent.split('|');
+        const editMsg = editMsgParts.join('|').trim();
+        const result2 = await editQAEntry(data, editKeyword?.trim(), editMsg);
+        await message.reply(result2.message);
+        break;
+        
+      case 'qdel':
+        if (!isAdmin) {
+          await message.reply('❌ Only bot admins can delete Q&A entries!');
+          return;
+        }
+        const delKeyword = args[0]?.toLowerCase();
+        if (!delKeyword) {
+          await message.reply('Usage: `!qdel <keyword>`');
+          return;
+        }
+        const result3 = await deleteQAEntry(data, delKeyword);
+        await message.reply(result3.message);
         break;
         
       case 'crate':
